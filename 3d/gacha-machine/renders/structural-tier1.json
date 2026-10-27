@@ -1,0 +1,101 @@
+STATUS pass=structural-pass completed=1 blocked=none next=diagnose_render.py
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.9083,
+    "aspectRatioDelta": 0.002,
+    "scaleDelta": 0.0586,
+    "bilateralSymmetryError": 0.0063,
+    "colorDelta": {
+      "checked": 20,
+      "maxDeltaE": 64.58,
+      "perComponent": [
+        {
+          "componentId": null,
+          "deltaE": 4.98
+        },
+        {
+          "componentId": null,
+          "deltaE": 8.08
+        },
+        {
+          "componentId": null,
+          "deltaE": 8.37
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 5.85
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 5.85
+        },
+        {
+          "componentId": null,
+          "deltaE": 55.41
+        },
+        {
+          "componentId": null,
+          "deltaE": 27.76
+        },
+        {
+          "componentId": null,
+          "deltaE": 18.52
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.53
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 55.41
+        },
+        {
+          "componentId": null,
+          "deltaE": 36.2
+        },
+        {
+          "componentId": null,
+          "deltaE": 55.41
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.53
+        },
+        {
+          "componentId": null,
+          "deltaE": 36.2
+        },
+        {
+          "componentId": null,
+          "deltaE": 64.58
+        },
+        {
+          "componentId": null,
+          "deltaE": 64.58
+        },
+        {
+          "componentId": null,
+          "deltaE": 42.55
+        }
+      ],
+      "gated": false
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "a6601ec9adaf8027",
+  "passId": "structural-pass"
+}

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prank Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Figtree:ital,wght@0,500;0,700;1,500&display=swap">
+<style>
+/* Layout: graph-paper lab notebook. An isometric desk built from CSS 3D boxes fills
+   the left; every object on it is a project. A clipboard on the right lists the
+   inventory and shows whatever you poke. Hover lifts an object; "Shake the desk"
+   is the random roll. */
+:root {
+  --yellow: #FFC800;
+  --paper: #FFF6CC;
+  --grid: rgba(0,0,0,.09);
+  --ink: #000;
+  --wood: #D9955A;
+  --red: #FF4D4D;
+  --mint: #5FE3B1;
+  --sky: #5BC8FF;
+  --grape: #B48CFF;
+  --grey: #D7D9DE;
+  --display: 'Fredoka', 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
+  --body: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; overflow-x: hidden;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 20px 60px; }
+
+/* ---------- header ---------- */
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.logo { font-family: var(--display); font-weight: 700; font-size: 24px; color: var(--ink); text-decoration: none; background: var(--yellow); border: 3px solid var(--ink); border-radius: 8px; padding: 2px 12px; box-shadow: 4px 4px 0 var(--ink); }
+.nav { display: flex; gap: 18px; font-weight: 700; }
+.nav a { color: var(--ink); text-decoration: none; }
+.nav a:hover { text-decoration: underline; text-decoration-thickness: 3px; }
+.btn { font-family: var(--display); font-weight: 600; font-size: 16px; background: #fff; color: var(--ink); border: 3px solid var(--ink); border-radius: 12px; padding: 9px 16px; cursor: pointer; box-shadow: 4px 4px 0 var(--ink); transition: transform .08s, box-shadow .08s; }
+.btn:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+.btn:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
+.btn:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+.btn.yellow { background: var(--yellow); }
+.btn .sad { opacity: .55; font-weight: 500; }
+
+.intro { margin-top: 28px; max-width: 60ch; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(38px, 5.5vw, 60px); line-height: 1; margin: 0 0 10px; text-wrap: balance; }
+h1 mark { background: var(--yellow); padding: 0 8px; border-radius: 6px; box-decoration-break: clone; }
+.intro p { margin: 0; font-size: 19px; font-weight: 500; }
+
+/* ---------- the lab ---------- */
+.lab { display: grid; grid-template-columns: 1fr 340px; gap: 26px; align-items: start; margin-top: 18px; }
+.viewport { position: relative; width: 100%; aspect-ratio: 640 / 560; overflow: visible; }
+.scene { position: absolute; left: 50%; top: 50%; width: 640px; height: 560px; transform: translate(-50%,-58%) scale(var(--s, 1)); transform-origin: 50% 50%; }
+.iso { position: absolute; left: 0; top: 0; width: 640px; height: 560px; transform-style: preserve-3d; transform: rotateX(60deg) rotateZ(-45deg); transform-origin: 50% 50%; }
+.iso.shake { animation: wobble .6s ease; }
+@keyframes wobble { 0%,100%{transform:rotateX(60deg) rotateZ(-45deg)} 25%{transform:rotateX(62deg) rotateZ(-43deg)} 60%{transform:rotateX(58deg) rotateZ(-46deg)} }
+
+.o { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translate3d(var(--x), var(--y), var(--z, 0px)); transition: transform .18s ease; }
+.o.item { cursor: pointer; }
+.o.item:hover, .o.item.on { transform: translate3d(var(--x), var(--y), calc(var(--z, 0px) + 16px)); }
+.o > i { position: absolute; left: 0; top: 0; display: block; border: 2px solid var(--ink); }
+.o .t { width: var(--w); height: var(--d); transform: translateZ(var(--h)); background: color-mix(in srgb, var(--c), #fff 28%); }
+.o .f { width: var(--w); height: var(--h); transform-origin: 0 0; transform: translateY(var(--d)) translateZ(var(--h)) rotateX(-90deg); background: var(--c); }
+.o .s { width: var(--h); height: var(--d); transform-origin: 0 0; transform: rotateY(-90deg); background: color-mix(in srgb, var(--c), #000 22%); }
+.o .t img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* screen face content */
+.screen .f { display: grid; place-items: center; background: #1b1b24; color: var(--yellow); font-family: var(--display); font-weight: 600; font-size: 15px; text-align: center; line-height: 1.2; padding: 6px; }
+.screen .f small { display: block; color: #fff; font-family: var(--body); font-weight: 500; font-size: 11px; opacity: .75; }
+.label { position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%); font-family: var(--display); font-weight: 600; font-size: 13px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 2px 8px; white-space: nowrap; pointer-events: none; }
+.bignote .f { display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 10px; letter-spacing: .5px; color: #fff; text-align: center; line-height: 1.1; }
+
+/* 2D floating tag over the hovered object */
+.tag { position: absolute; left: 20px; top: 20px; font-family: var(--display); font-weight: 600; font-size: 14px; background: var(--ink); color: var(--yellow); border-radius: 999px; padding: 4px 12px; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.tag.show { opacity: 1; }
+
+/* ---------- clipboard ---------- */
+.clip { position: relative; background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 36px 20px 22px; box-shadow: 8px 8px 0 var(--ink); }
+.clip::before { content: ""; position: absolute; left: 50%; top: -16px; width: 110px; height: 30px; margin-left: -55px; background: var(--grey); border: 3px solid var(--ink); border-radius: 10px; }
+.clip h2 { font-family: var(--display); font-weight: 700; font-size: 26px; margin: 0 0 4px; }
+.clip .sub { font-size: 14px; font-weight: 500; opacity: .75; margin-bottom: 14px; }
+.inv { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.inv button { width: 100%; text-align: left; font-family: var(--body); font-weight: 700; font-size: 15px; background: none; border: 0; border-bottom: 2px dashed rgba(0,0,0,.25); padding: 7px 4px; cursor: pointer; color: var(--ink); display: flex; justify-content: space-between; gap: 8px; }
+.inv button:hover, .inv button.on { background: var(--yellow); border-radius: 6px; border-bottom-color: transparent; }
+.inv button span:last-child { font-weight: 500; opacity: .7; font-size: 13px; }
+.detail { margin-top: 16px; border: 3px solid var(--ink); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-height: 150px; }
+.detail .k { font-family: var(--display); font-weight: 600; font-size: 12px; background: var(--ink); color: #fff; border-radius: 999px; padding: 2px 10px; display: inline-block; }
+.detail h3 { font-family: var(--display); font-weight: 700; font-size: 24px; margin: 8px 0 4px; line-height: 1.05; }
+.detail p { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
+.detail .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.detail .tags span { font-size: 12px; font-weight: 700; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; background: #fff; }
+.clip .shake { width: 100%; margin-top: 14px; }
+
+/* prank toast */
+.toast { position: fixed; left: 50%; top: 24px; transform: translate(-50%, -300%); background: var(--red); color: #fff; border: 3px solid var(--ink); border-radius: 12px; padding: 12px 18px; font-family: var(--display); font-weight: 600; box-shadow: 5px 5px 0 var(--ink); z-index: 90; transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
+.toast.show { transform: translate(-50%, 0); }
+
+/* ---------- footer ---------- */
+.foot { margin-top: 36px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; font-weight: 500; opacity: .75; }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
+.plain.on { display: block; }
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; }
+.plain h1 { font-family: Georgia, serif; font-weight: 700; font-size: 34px; line-height: 1.2; margin: 18px 0 6px; }
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+.plain a { color: #1a4fd1; }
+.plain .back { font-family: var(--body); font-weight: 700; font-size: 14px; border: 2px solid #222; border-radius: 6px; background: #fff; padding: 8px 14px; cursor: pointer; }
+.plain ul { padding-left: 20px; }
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 900px) { .lab { grid-template-columns: 1fr; } .clip { margin-top: 28px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <a class="logo" href="#">jackwei.dev</a>
+    <nav class="nav" aria-label="Main"><a href="#">Lab</a><a href="#">Notebook</a><a href="#">About</a><a href="#" style="opacity:.6">Secrets <span id="secrets">0</span>/7</a></nav>
+    <button class="btn" id="boringBtn">Boring Mode <span class="sad">(sad)</span></button>
+  </header>
+
+  <section class="intro">
+    <h1>Welcome to the <mark>Prank Lab</mark>.</h1>
+    <p>Everything on this desk is a project. Poke things. Please don't touch the red button.</p>
+  </section>
+
+  <section class="lab">
+    <div class="viewport" id="viewport">
+      <div class="tag" id="tag"></div>
+      <div class="scene" id="scene">
+        <div class="iso" id="iso">
+          <!-- desk -->
+          <div class="o" style="--x:30px; --y:110px; --w:580px; --d:400px; --h:26px; --c:var(--wood)"><i class="t"></i><i class="f"></i><i class="s"></i></div>
+
+          <!-- back row: lava lamp, radar dish, duck -->
+          <div class="o item" data-i="4" style="--x:50px; --y:150px; --z:26px; --w:32px; --d:32px; --h:96px; --c:var(--grape)"><i class="t"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item" data-i="3" style="--x:110px; --y:175px; --z:26px; --w:74px; --d:74px; --h:60px; --c:#c9ccd3"><i class="t" style="border-radius:50%; background:radial-gradient(circle, #fff 0 30%, #aab 31% 100%)"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item" data-i="7" style="--x:235px; --y:170px; --z:26px; --w:34px; --d:34px; --h:28px; --c:var(--yellow)"><i class="t" style="border-radius:50%"></i><i class="f"></i><i class="s"></i></div>
+
+          <!-- monitor -->
+          <div class="o item" data-i="0" style="--x:320px; --y:250px; --z:26px; --w:90px; --d:56px; --h:10px; --c:var(--grey)"><i class="t"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item screen" data-i="0" style="--x:265px; --y:268px; --z:36px; --w:200px; --d:14px; --h:130px; --c:#3a3a44"><i class="t"></i><i class="f">jackwei.dev<small>loading pranks… 97%</small></i><i class="s"></i></div>
+
+          <!-- middle: books, puzzle piece, phone -->
+          <div class="o item" data-i="6" style="--x:160px; --y:300px; --z:26px; --w:96px; --d:66px; --h:54px; --c:var(--sky)"><i class="t"></i><i class="f" style="background:repeating-linear-gradient(0deg, var(--sky) 0 16px, var(--ink) 16px 18px)"></i><i class="s"></i></div>
+          <div class="o item" data-i="8" style="--x:420px; --y:350px; --z:26px; --w:54px; --d:54px; --h:10px; --c:var(--mint)"><i class="t" style="border-radius:8px"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item screen" data-i="2" style="--x:500px; --y:300px; --z:26px; --w:44px; --d:80px; --h:7px; --c:#1b1b24"><i class="t" style="background:linear-gradient(135deg,var(--mint),var(--sky))"></i><i class="f"></i><i class="s"></i></div>
+
+          <!-- front row: sticky note with Jack, keyboard, red button -->
+          <div class="o item" data-i="5" style="--x:60px; --y:380px; --z:26px; --w:74px; --d:74px; --h:3px; --c:var(--yellow)"><i class="t" style="background:var(--yellow)"><img src="mascot.jpg" alt="Jack on a sticky note"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item" data-i="1" style="--x:250px; --y:400px; --z:26px; --w:160px; --d:52px; --h:8px; --c:#fff"><i class="t"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o" style="--x:490px; --y:400px; --z:26px; --w:80px; --d:80px; --h:16px; --c:var(--grey)"><i class="t"></i><i class="f"></i><i class="s"></i></div>
+          <div class="o item bignote" id="redbtn" style="--x:505px; --y:415px; --z:42px; --w:50px; --d:50px; --h:26px; --c:var(--red)"><i class="t" style="border-radius:50%"></i><i class="f">DO NOT<br>PRESS</i><i class="s"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="clip">
+      <h2>Lab inventory</h2>
+      <div class="sub">14 items on the desk. 9 visible. The rest are in the drawer.</div>
+      <ul class="inv" id="inv"></ul>
+      <div class="detail" id="detail">
+        <span class="k">Pick something</span>
+        <h3>Nothing selected</h3>
+        <p>Hover an object on the desk, or press the button below to let fate decide.</p>
+      </div>
+      <button class="btn yellow shake" id="shakeBtn">Shake the desk</button>
+    </aside>
+  </section>
+
+  <footer class="foot">
+    <span>7 secrets are hidden in this lab. One is a key combination.</span>
+    <span>Jack Wei · Olin College · no ducks were harmed</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast">You pressed it. Secret found. Don't do it again.</div>
+
+<div class="plain" id="plain" aria-hidden="true">
+  <div class="in">
+    <button class="back" id="unboring">Make it fun again</button>
+    <div class="sulk"><img src="mascot.jpg" alt=""><span>Jack has been placed in time-out until you leave Boring Mode.</span></div>
+    <h1>Jack Wei</h1>
+    <p>Computer Science, Olin College of Engineering, class of 2028. GPA 3.96.<br>
+    <a href="#">github.com/We1chJ</a> · <a href="#">linkedin.com/in/erqi-jack-wei</a> · ewei@olin.edu · <a href="#">Download PDF</a></p>
+    <h2>Experience</h2>
+    <ul>
+      <li>Software Engineer Intern, Bloomberg (Summer 2026)</li>
+      <li>Software Engineer Research Intern, Raytheon BBN Technologies (2024, 2025)</li>
+      <li>Mobile App Developer and Researcher, Olin PLai Lab (2025–present)</li>
+      <li>UAS SAR Researcher, MIT Lincoln Laboratory BWSI (2023)</li>
+    </ul>
+    <h2>Projects</h2>
+    <ul><li>Afora</li><li>Factuality</li><li>Rehab AR app</li></ul>
+    <p><em>This is the whole resume, with no jokes. The fun version is one click away.</em></p>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  {n:'Monitor', t:'Afora', k:'Web app', d:'Team matching and task splitting for student projects. 100+ users, Babson Foundry funded.', tags:['Next.js','Firebase','Clerk']},
+  {n:'Keyboard', t:'Network manager UI', k:'Internship', d:'Kotlin + Jetpack Compose dashboard for millions of users. 56% less memory, 84% faster lookups.', tags:['Kotlin','Flask','OpenAPI']},
+  {n:'Phone', t:'Rehab AR', k:'iOS app', d:'Physical therapy as a game for seniors, with a voice agent that explains each move. 95% liked it.', tags:['Swift','LiveKit','Vision']},
+  {n:'Radar dish', t:'SAR back-projection', k:'Research', d:'Drone radar imaging, 12× faster with Pythran and C++.', tags:['C++','NumPy','wxPython']},
+  {n:'Lava lamp', t:'Resume magnifier', k:'WebGL toy', d:'A glass lens over a PDF resume. The previous version of this site.', tags:['three.js','React']},
+  {n:'Sticky note', t:'About Jack', k:'Human', d:'CS at Olin, class of 2028. Bloomberg this summer. Sprout status: healthy.', tags:['Olin','Bloomberg']},
+  {n:'Books', t:'Competitive programming', k:'Honors', d:'USACO Gold, ICPC top 5 in district, ACSL finalist twice, Kickstart top 2%.', tags:['C++','Algorithms']},
+  {n:'Rubber duck', t:'Rubber duck', k:'Prank', d:'It is a rubber duck. It has debugged more code than most people.', tags:['Shiny']},
+  {n:'Puzzle piece', t:'Factuality', k:'Chrome extension', d:'Fact-checks whatever page you are on. Won the Generator Buildathon.', tags:['React','Perplexity API']},
+];
+const inv = document.getElementById('inv'), detail = document.getElementById('detail'), tag = document.getElementById('tag');
+ITEMS.forEach((it, i) => {
+  const li = document.createElement('li'); const b = document.createElement('button'); b.dataset.i = i;
+  b.innerHTML = `<span>${it.n}</span><span>${it.t}</span>`; b.addEventListener('click', () => select(i)); li.appendChild(b); inv.appendChild(li);
+});
+function select(i){
+  const it = ITEMS[i];
+  document.querySelectorAll('.o.item').forEach(o => o.classList.toggle('on', o.dataset.i === String(i)));
+  document.querySelectorAll('.inv button').forEach(b => b.classList.toggle('on', b.dataset.i === String(i)));
+  detail.innerHTML = `<span class="k">${it.k}</span><h3>${it.t}</h3><p>${it.d}</p><div class="tags">${it.tags.map(t => `<span>${t}</span>`).join('')}</div>`;
+}
+document.querySelectorAll('.o.item[data-i]').forEach(o => {
+  o.addEventListener('click', () => select(+o.dataset.i));
+  o.addEventListener('mouseenter', () => { tag.textContent = ITEMS[+o.dataset.i].n + ' · ' + ITEMS[+o.dataset.i].t; tag.classList.add('show'); });
+  o.addEventListener('mouseleave', () => tag.classList.remove('show'));
+});
+const iso = document.getElementById('iso');
+document.getElementById('shakeBtn').addEventListener('click', () => {
+  iso.classList.remove('shake'); void iso.offsetWidth; iso.classList.add('shake');
+  setTimeout(() => select(Math.floor(Math.random() * ITEMS.length)), 500);
+});
+
+/* fit the 640×560 scene to its container */
+const vp = document.getElementById('viewport'), scene = document.getElementById('scene');
+function fit(){ scene.style.setProperty('--s', Math.min(1.15, vp.clientWidth / 640)); }
+fit(); window.addEventListener('resize', fit);
+
+/* secrets + prank */
+let secrets = 0; const secretEl = document.getElementById('secrets');
+function secret(){ secrets = Math.min(7, secrets + 1); secretEl.textContent = secrets; }
+const toast = document.getElementById('toast');
+document.getElementById('redbtn').addEventListener('click', () => { secret(); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); });
+let taps = 0; document.querySelector('[data-i="5"]').addEventListener('click', () => { if (++taps === 10) secret(); });
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0; window.addEventListener('keydown', e => { k = (e.key === KONAMI[k]) ? k + 1 : (e.key === KONAMI[0] ? 1 : 0); if (k === KONAMI.length) { k = 0; secret(); } });
+
+/* boring mode */
+const plain = document.getElementById('plain');
+function setBoring(on){ plain.classList.toggle('on', on); plain.setAttribute('aria-hidden', String(!on)); try { localStorage.setItem('boring', on ? '1' : '0'); } catch(e){} }
+document.getElementById('boringBtn').addEventListener('click', () => setBoring(true));
+document.getElementById('unboring').addEventListener('click', () => setBoring(false));
+try { if (localStorage.getItem('boring') === '1') setBoring(true); } catch(e){}
+</script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Jack Gacha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:ital,wght@0,500;0,700;0,900;1,700&display=swap">
+<style>
+/* Layout: a toy-shop counter. Headline left, the capsule machine right as the hero
+   object; a collection shelf (Jackdex) runs underneath. Everything is a sticker:
+   thick black outline, white sticker edge, hard offset shadow. */
+:root {
+  --yellow: #FFC800;
+  --yellow-deep: #F2A900;
+  --ink: #000;
+  --paper: #FFFDF5;
+  --pink: #FF7A9E;
+  --mint: #5FE3B1;
+  --sky: #5BC8FF;
+  --grape: #B48CFF;
+  --display: 'Lilita One', 'Arial Black', Impact, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--yellow);
+  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,.08) 1.5px, transparent 0);
+  background-size: 22px 22px;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 18px 20px 60px; }
+
+/* ---------- sticker primitives ---------- */
+.sticker {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink), 8px 8px 0 7px rgba(0,0,0,.18);
+}
+.btn {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: .5px;
+  padding: 12px 20px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.btn:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+.btn:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
+.btn:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+.btn.primary { background: var(--pink); }
+.btn.quiet { background: #fff; font-family: var(--body); font-weight: 900; font-size: 15px; padding: 9px 16px; }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.logo {
+  font-family: var(--display); font-size: 26px; text-decoration: none; color: var(--ink);
+  background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 4px 12px;
+  box-shadow: 4px 4px 0 var(--ink); transform: rotate(-2deg); display: inline-block;
+}
+.nav { display: flex; gap: 6px 18px; flex-wrap: wrap; font-weight: 900; }
+.nav a { color: var(--ink); text-decoration: none; border-bottom: 3px solid transparent; }
+.nav a:hover { border-bottom-color: var(--ink); }
+.nav .secret { color: rgba(0,0,0,.55); }
+.boring { font-size: 14px; }
+.boring .sad { opacity: .6; font-weight: 700; }
+
+/* ---------- hero ---------- */
+.hero {
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 24px; align-items: center;
+  margin-top: 36px;
+}
+h1 {
+  font-family: var(--display); font-weight: 400; font-size: clamp(44px, 7vw, 86px);
+  line-height: 1.04; margin: 0; text-wrap: balance;
+  text-shadow: 4px 4px 0 #fff, 7px 7px 0 var(--ink);
+}
+.lede { font-size: 20px; font-weight: 700; max-width: 34ch; margin: 22px 0 26px; }
+.actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.count { font-weight: 900; font-size: 15px; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 6px 12px; }
+
+/* ---------- the machine ---------- */
+.stage { position: relative; display: grid; place-items: center start; min-height: 520px; }
+.machine { position: relative; width: 330px; max-width: 100%; margin-top: 60px; margin-left: 8px; }
+.machine.shake { animation: shake .5s ease; }
+@keyframes shake { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-2.5deg)} 45%{transform:rotate(2deg)} 70%{transform:rotate(-1.2deg)} }
+
+.mascot {
+  position: absolute; left: 50%; top: -74px; transform: translateX(-50%); z-index: 5;
+  width: 118px; height: 118px; border-radius: 50%; overflow: hidden; cursor: pointer;
+  border: 3px solid var(--ink); box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink);
+  background: var(--yellow);
+}
+.mascot img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.12); }
+.mascot.wobble { animation: wobble .4s ease; }
+@keyframes wobble { 0%,100%{transform:translateX(-50%) rotate(0)} 25%{transform:translateX(-50%) rotate(-12deg)} 75%{transform:translateX(-50%) rotate(10deg)} }
+
+.dome {
+  position: relative; width: 300px; height: 300px; margin: 0 auto; border-radius: 50%;
+  border: 4px solid var(--ink);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.95), rgba(255,255,255,.45) 35%, rgba(180,230,255,.55) 70%, rgba(120,200,255,.7));
+  box-shadow: inset -14px -18px 0 rgba(0,0,0,.08), 0 0 0 4px #fff, 0 0 0 7px var(--ink);
+  overflow: hidden; z-index: 2;
+}
+.dome::after { /* glass highlight */
+  content: ""; position: absolute; left: 36px; top: 26px; width: 70px; height: 34px; border-radius: 50%;
+  background: #fff; transform: rotate(-30deg); opacity: .9;
+}
+.cap {
+  position: absolute; width: 58px; height: 58px; border-radius: 50%; border: 3px solid var(--ink);
+  background: linear-gradient(to bottom, var(--c) 0 50%, #fff 50% 100%);
+  box-shadow: inset 6px 6px 0 rgba(255,255,255,.55);
+}
+.cap::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; background: var(--ink); transform: translateY(-50%); }
+
+.body {
+  position: relative; margin-top: -24px; width: 100%; height: 215px;
+  background: var(--paper); border: 4px solid var(--ink); border-radius: 22px 22px 26px 26px;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink), 10px 12px 0 7px rgba(0,0,0,.18);
+  z-index: 1;
+}
+.plate {
+  position: absolute; left: 50%; top: 26px; transform: translateX(-50%) rotate(-2deg);
+  font-family: var(--display); font-size: 22px; letter-spacing: 1px; white-space: nowrap;
+  background: var(--yellow); border: 3px solid var(--ink); padding: 4px 14px; border-radius: 8px;
+}
+.crank {
+  position: absolute; left: 50%; top: 100px; transform: translateX(-50%);
+  width: 84px; height: 84px; border-radius: 50%; border: 4px solid var(--ink); background: #fff;
+  cursor: pointer; display: grid; place-items: center;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform .6s cubic-bezier(.2,.9,.3,1.2);
+}
+.crank:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+.crank .arm { width: 64px; height: 16px; background: var(--pink); border: 3px solid var(--ink); border-radius: 8px; }
+.crank .arm::after { content: ""; position: absolute; right: 8px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: var(--ink); }
+.crank.turn { transform: translateX(-50%) rotate(540deg); }
+.hint { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); font-weight: 900; font-size: 13px; white-space: nowrap; opacity: .7; }
+
+.tray {
+  position: absolute; left: 18px; bottom: 18px; width: 74px; height: 50px;
+  border: 3px solid var(--ink); border-radius: 10px 10px 14px 14px; background: #1a1a1a;
+  box-shadow: inset 0 10px 0 rgba(255,255,255,.08);
+}
+.drop {
+  position: absolute; left: 26px; bottom: 26px; width: 58px; height: 58px; border-radius: 50%;
+  border: 3px solid var(--ink); background: linear-gradient(to bottom, var(--pink) 0 50%, #fff 50% 100%);
+  opacity: 0; transform: translateY(-220px) scale(.6);
+}
+.drop.fall { animation: fall .9s cubic-bezier(.3,1.6,.5,1) forwards; }
+@keyframes fall { 0%{opacity:0;transform:translateY(-220px) scale(.6)} 20%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
+
+/* ---------- the pulled card ---------- */
+.card {
+  position: absolute; right: -200px; bottom: 60px; width: 250px; padding: 16px 16px 18px;
+  transform: rotate(4deg) scale(0); transform-origin: 0% 100%; z-index: 6;
+  transition: transform .5s cubic-bezier(.3,1.5,.5,1);
+}
+.card.show { transform: rotate(4deg) scale(1); }
+.card .rar { font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: #fff; background: var(--ink); display: inline-block; padding: 2px 10px; border-radius: 999px; }
+.card .rar.legendary { background: var(--grape); color: var(--ink); }
+.card .rar.shiny { background: linear-gradient(90deg, var(--pink), var(--yellow), var(--mint), var(--sky)); color: var(--ink); }
+.card h3 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 8px 0 4px; line-height: 1.05; }
+.card p { margin: 0 0 12px; font-weight: 700; font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tags span { font-size: 12px; font-weight: 900; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; background: #fff; }
+.card .btn { font-size: 15px; padding: 8px 14px; }
+
+/* ---------- Jackdex shelf ---------- */
+.shelf { margin-top: 70px; padding: 22px 24px 26px; }
+.shelf header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.shelf h2 { font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0; }
+.shelf .meta { font-weight: 900; }
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px; margin-top: 18px; }
+.slot {
+  aspect-ratio: 1; border: 3px dashed rgba(0,0,0,.35); border-radius: 16px; display: grid; place-items: center;
+  font-family: var(--display); font-size: 34px; color: rgba(0,0,0,.3); background: rgba(0,0,0,.04);
+}
+.slot.got {
+  border: 3px solid var(--ink); background: var(--c); color: var(--ink); font-size: 14px; font-family: var(--body); font-weight: 900;
+  text-align: center; padding: 6px; box-shadow: 4px 4px 0 var(--ink); line-height: 1.15;
+}
+.slot.got.shiny { background: linear-gradient(135deg, var(--pink), var(--yellow), var(--mint), var(--sky)); }
+
+/* ---------- footer ---------- */
+.foot { margin-top: 36px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 14px; opacity: .75; }
+kbd { font-family: var(--body); font-weight: 900; border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; background: #fff; }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
+.plain.on { display: block; }
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; }
+.plain h1 { font-family: Georgia, serif; font-size: 34px; text-shadow: none; line-height: 1.2; }
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+.plain a { color: #1a4fd1; }
+.plain .back { font-family: var(--body); font-weight: 900; font-size: 14px; border: 2px solid #222; border-radius: 6px; background: #fff; padding: 8px 14px; cursor: pointer; }
+.plain ul { padding-left: 20px; }
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .stage { min-height: 0; place-items: center; }
+  .machine { margin-top: 90px; margin-left: 0; }
+  .card { right: -10px; bottom: -30px; }
+}
+@media (max-width: 420px) {
+  h1 { text-shadow: 3px 3px 0 #fff, 5px 5px 0 var(--ink); }
+  .dome { width: 250px; height: 250px; }
+  .card { width: 220px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <a class="logo" href="#">jackwei.dev</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#">Projects</a>
+      <a href="#">About</a>
+      <a href="#">Pranks</a>
+      <a class="secret" href="#">Secrets found: <span id="secrets">0</span>/7</a>
+    </nav>
+    <button class="btn quiet boring" id="boringBtn">Boring Mode <span class="sad">(sad)</span></button>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>I make too many things.</h1>
+      <p class="lede">Crank the machine. Get a project. Repeat until something impresses you.</p>
+      <div class="actions">
+        <button class="btn primary" id="crankBtn">Crank it</button>
+        <a class="btn" href="#jackdex">See all 14</a>
+        <span class="count">Found <span id="found">0</span> of 14</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="machine" id="machine">
+        <div class="mascot" id="mascot" title="Jack"><img src="mascot.jpg" alt="Yellow Jack, a shocked white blob with a sprout"></div>
+        <div class="dome">
+          <div class="cap" style="--c:var(--pink);  left:40px; top:150px"></div>
+          <div class="cap" style="--c:var(--mint);  left:100px; top:170px"></div>
+          <div class="cap" style="--c:var(--sky);   left:160px; top:150px"></div>
+          <div class="cap" style="--c:var(--grape); left:212px; top:175px"></div>
+          <div class="cap" style="--c:var(--yellow);left:70px; top:210px"></div>
+          <div class="cap" style="--c:var(--pink);  left:132px; top:218px"></div>
+          <div class="cap" style="--c:var(--sky);   left:190px; top:222px"></div>
+          <div class="cap" style="--c:var(--mint);  left:22px; top:215px"></div>
+          <div class="cap" style="--c:var(--grape); left:110px; top:120px"></div>
+          <div class="cap" style="--c:var(--yellow);left:234px; top:118px"></div>
+        </div>
+        <div class="body">
+          <div class="plate">JACK GACHA</div>
+          <button class="crank" id="crank" aria-label="Turn the crank"><div class="arm"></div></button>
+          <div class="tray"></div>
+          <div class="drop" id="drop"></div>
+          <div class="hint">1 crank = 1 project. No refunds.</div>
+        </div>
+        <div class="card sticker" id="card" aria-live="polite">
+          <span class="rar" id="rar">COMMON</span>
+          <h3 id="cardTitle">Something</h3>
+          <p id="cardDesc">Pull the crank.</p>
+          <div class="tags" id="cardTags"></div>
+          <a class="btn primary" href="#">Open project</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shelf sticker" id="jackdex">
+    <header>
+      <h2>Jackdex</h2>
+      <span class="meta">Collect them all. Some are shiny.</span>
+    </header>
+    <div class="slots" id="slots"></div>
+  </section>
+
+  <footer class="foot">
+    <span>There are 7 secrets on this page. One of them is <kbd>↑</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>↓</kbd>…</span>
+    <span>Made with too much free time by Jack Wei</span>
+  </footer>
+</div>
+
+<div class="plain" id="plain" aria-hidden="true">
+  <div class="in">
+    <button class="back" id="unboring">Make it fun again</button>
+    <div class="sulk"><img src="mascot.jpg" alt=""><span>Jack has been placed in time-out until you leave Boring Mode.</span></div>
+    <h1>Jack Wei</h1>
+    <p>Computer Science, Olin College of Engineering, class of 2028. GPA 3.96.<br>
+    <a href="#">github.com/We1chJ</a> · <a href="#">linkedin.com/in/erqi-jack-wei</a> · ewei@olin.edu · <a href="#">Download PDF</a></p>
+    <h2>Experience</h2>
+    <ul>
+      <li>Software Engineer Intern, Bloomberg (Summer 2026)</li>
+      <li>Software Engineer Research Intern, Raytheon BBN Technologies (2024, 2025)</li>
+      <li>Mobile App Developer and Researcher, Olin PLai Lab (2025–present)</li>
+      <li>UAS SAR Researcher, MIT Lincoln Laboratory BWSI (2023)</li>
+    </ul>
+    <h2>Projects</h2>
+    <ul><li>Afora</li><li>Factuality</li><li>Rehab AR app</li></ul>
+    <p><em>This is the whole resume, with no jokes. The fun version is one click away.</em></p>
+  </div>
+</div>
+
+<script>
+const PROJECTS = [
+  {t:'Afora', d:'Team matching and task splitting for student projects. 100+ users, Babson Foundry funded.', r:'LEGENDARY', c:'var(--grape)', tags:['Next.js','Firebase','Vercel']},
+  {t:'Factuality', d:'Chrome extension that fact-checks the page you are on. Won the Generator Buildathon.', r:'LEGENDARY', c:'var(--pink)', tags:['React','Perplexity API']},
+  {t:'Rehab AR app', d:'iOS game that turns physical therapy into a game for seniors. 95% liked it.', r:'RARE', c:'var(--mint)', tags:['Swift','LiveKit','Vision']},
+  {t:'Radar back-projection', d:'12× faster SAR imaging with Pythran and C++.', r:'RARE', c:'var(--sky)', tags:['C++','NumPy']},
+  {t:'Network manager UI', d:'Kotlin + Compose dashboard built for millions of users.', r:'RARE', c:'var(--yellow)', tags:['Kotlin','Flask']},
+  {t:'Resume magnifier', d:'A WebGL glass lens over a PDF. The old version of this site.', r:'COMMON', c:'var(--sky)', tags:['three.js']},
+  {t:"Jack's sleep schedule", d:'0 stars. Do not attempt.', r:'SHINY', c:'shiny', tags:['Deprecated']},
+  {t:'Rubber duck', d:'It is a rubber duck. It does nothing. Try again.', r:'COMMON', c:'var(--yellow)', tags:['Prank']},
+];
+const TOTAL = 14;
+const found = new Set();
+const slots = document.getElementById('slots');
+function renderSlots(){
+  slots.innerHTML = '';
+  for (let i = 0; i < TOTAL; i++) {
+    const p = PROJECTS[i];
+    const el = document.createElement('div');
+    if (p && found.has(i)) {
+      el.className = 'slot got' + (p.c === 'shiny' ? ' shiny' : '');
+      if (p.c !== 'shiny') el.style.setProperty('--c', p.c);
+      el.textContent = p.t;
+    } else { el.className = 'slot'; el.textContent = '?'; }
+    slots.appendChild(el);
+  }
+  document.getElementById('found').textContent = found.size;
+}
+renderSlots();
+
+const crank = document.getElementById('crank'), machine = document.getElementById('machine');
+const drop = document.getElementById('drop'), card = document.getElementById('card');
+let busy = false;
+function roll(){
+  if (busy) return; busy = true;
+  card.classList.remove('show');
+  crank.classList.add('turn'); machine.classList.add('shake');
+  drop.classList.remove('fall'); void drop.offsetWidth; drop.classList.add('fall');
+  const i = Math.floor(Math.random() * PROJECTS.length), p = PROJECTS[i];
+  drop.style.background = `linear-gradient(to bottom, ${p.c === 'shiny' ? 'var(--grape)' : p.c} 0 50%, #fff 50% 100%)`;
+  setTimeout(() => {
+    found.add(i); renderSlots();
+    const rar = document.getElementById('rar');
+    rar.textContent = p.r; rar.className = 'rar ' + p.r.toLowerCase();
+    document.getElementById('cardTitle').textContent = p.t;
+    document.getElementById('cardDesc').textContent = p.d;
+    document.getElementById('cardTags').innerHTML = p.tags.map(t => `<span>${t}</span>`).join('');
+    card.classList.add('show');
+    crank.classList.remove('turn'); machine.classList.remove('shake');
+    busy = false;
+  }, 900);
+}
+crank.addEventListener('click', roll);
+document.getElementById('crankBtn').addEventListener('click', roll);
+
+/* secrets */
+let secrets = 0; const secretEl = document.getElementById('secrets');
+function secret(){ secrets = Math.min(7, secrets + 1); secretEl.textContent = secrets; }
+let taps = 0; const mascot = document.getElementById('mascot');
+mascot.addEventListener('click', () => {
+  mascot.classList.remove('wobble'); void mascot.offsetWidth; mascot.classList.add('wobble');
+  if (++taps === 10) { secret(); mascot.title = 'Stop that.'; }
+});
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0;
+window.addEventListener('keydown', e => {
+  k = (e.key === KONAMI[k]) ? k + 1 : (e.key === KONAMI[0] ? 1 : 0);
+  if (k === KONAMI.length) { k = 0; secret(); document.body.style.background = 'var(--mint)'; }
+});
+
+/* boring mode */
+const plain = document.getElementById('plain');
+function setBoring(on){ plain.classList.toggle('on', on); plain.setAttribute('aria-hidden', String(!on)); try { localStorage.setItem('boring', on ? '1' : '0'); } catch(e){} }
+document.getElementById('boringBtn').addEventListener('click', () => setBoring(true));
+document.getElementById('unboring').addEventListener('click', () => setBoring(false));
+try { if (localStorage.getItem('boring') === '1') setBoring(true); } catch(e){}
+</script>
+</body>
+</html>

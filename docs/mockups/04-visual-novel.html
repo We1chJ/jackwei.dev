@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Jack Route</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<style>
+/* Layout: a visual-novel screen. Painted sunset background, the mascot as the
+   character sprite on the left, a dialogue box across the bottom, choices stacked
+   on the right, VN controls (Auto / Skip / Log) in the top corner. One scene, no
+   scrolling: the whole site is a conversation with Jack. */
+:root {
+  --yellow: #FFC800;
+  --ink: #1d1530;
+  --peach: #FFB36B;
+  --rose: #FF7FA3;
+  --lilac: #B7A3FF;
+  --sky: #FFE9A8;
+  --box: rgba(255,255,255,.92);
+  --display: 'Dela Gothic One', 'Arial Black', Impact, sans-serif;
+  --body: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--ink); color: var(--ink); font-family: var(--body); font-weight: 700; overflow: hidden; }
+
+.scene {
+  position: relative; width: 100%; height: 100%; min-height: 560px; overflow: hidden;
+  background: linear-gradient(180deg, var(--lilac) 0%, var(--rose) 38%, var(--peach) 62%, var(--sky) 100%);
+}
+/* sun + clouds + skyline, all CSS */
+.sun { position: absolute; left: 50%; top: 28%; width: 320px; height: 320px; margin-left: -160px; border-radius: 50%; background: radial-gradient(circle, #FFF2B3 0 40%, var(--yellow) 41% 100%); box-shadow: 0 0 80px 30px rgba(255,200,0,.45); }
+.sun::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 22px, rgba(255,127,163,.55) 22px 30px); border-radius: 50%; mask-image: linear-gradient(180deg, transparent 45%, #000 55%); -webkit-mask-image: linear-gradient(180deg, transparent 45%, #000 55%); }
+.cloud { position: absolute; background: #fff; border-radius: 999px; opacity: .9; filter: drop-shadow(0 6px 0 rgba(255,127,163,.35)); }
+.cloud::before, .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+.c1 { left: 6%; top: 14%; width: 220px; height: 54px; } .c1::before { left: 30px; top: -30px; width: 70px; height: 70px; } .c1::after { left: 100px; top: -44px; width: 90px; height: 90px; }
+.c2 { right: 8%; top: 22%; width: 170px; height: 44px; } .c2::before { left: 20px; top: -24px; width: 56px; height: 56px; } .c2::after { left: 76px; top: -34px; width: 70px; height: 70px; }
+.city { position: absolute; left: 0; right: 0; bottom: 0; height: 46%; background:
+  linear-gradient(180deg, transparent 0 30%, rgba(29,21,48,.85) 30%) ,
+  repeating-linear-gradient(90deg, transparent 0 40px, rgba(29,21,48,.0) 40px);
+  mask-image: linear-gradient(180deg, transparent, #000 40%); -webkit-mask-image: linear-gradient(180deg, transparent, #000 40%);
+}
+.sky-line { position: absolute; left: 0; right: 0; bottom: 0; height: 44%; display: flex; align-items: flex-end; gap: 6px; padding: 0 1.5%; }
+.sky-line i { position: relative; flex: var(--f, 1); background-color: var(--ink); border-radius: 3px 3px 0 0; opacity: .95;
+  background-image:
+    repeating-linear-gradient(0deg, var(--ink) 0 8px, transparent 8px 14px),
+    repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,214,90,.75) 6px 11px, transparent 11px 17px);
+  background-position: 0 4px, 4px 0; }
+.sky-line i::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--ink); border-radius: 3px 3px 0 0; }
+.sky-line i.ant::after { content: ""; position: absolute; left: 30%; top: -28px; width: 3px; height: 28px; background: var(--ink); box-shadow: 0 -3px 0 2px var(--rose); }
+.sky-line i.water::after { content: ""; position: absolute; right: 12%; top: -14px; width: 18px; height: 14px; background: var(--ink); border-radius: 3px 3px 0 0; }
+.ground { position: absolute; left: 0; right: 0; bottom: 0; height: 22%; background: linear-gradient(180deg, #5a3a72, #2a1b40); }
+
+/* ---------- HUD ---------- */
+.hud { position: absolute; top: 16px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; z-index: 5; flex-wrap: wrap; }
+.route { background: var(--box); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 14px; font-size: 14px; box-shadow: 4px 4px 0 var(--ink); }
+.route b { font-family: var(--display); font-weight: 400; font-size: 15px; letter-spacing: .5px; margin-right: 10px; }
+.ctl { display: flex; gap: 6px; flex-wrap: wrap; }
+.ctl button { font-family: var(--display); font-size: 12px; letter-spacing: .5px; background: var(--box); border: 3px solid var(--ink); border-radius: 10px; padding: 7px 12px; cursor: pointer; color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+.ctl button.on { background: var(--yellow); }
+.ctl button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.ctl button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.ctl .boring { background: #ffe5ec; }
+.ctl .boring .sad { opacity: .6; }
+
+/* ---------- sprite ---------- */
+.sprite { position: absolute; left: 6%; bottom: 22%; width: min(360px, 44vw); aspect-ratio: 1; z-index: 3; cursor: pointer; }
+.sprite .pic { width: 100%; height: 100%; border-radius: 50%; border: 5px solid var(--ink); overflow: hidden; background: var(--yellow); box-shadow: 0 0 0 8px #fff, 0 0 0 13px var(--ink), 0 30px 40px rgba(29,21,48,.35); animation: breathe 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.sprite .pic img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.12); }
+@keyframes breathe { 50% { transform: scaleY(1.025) scaleX(.99); } }
+.sprite .emote { position: absolute; right: -4px; top: 0; font-family: var(--display); font-size: 64px; color: var(--yellow); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; animation: pop .6s cubic-bezier(.3,1.6,.5,1) both; text-shadow: 4px 4px 0 var(--ink); }
+@keyframes pop { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(8deg); } }
+.mood { background: var(--box); border: 3px solid var(--ink); border-radius: 10px 10px 0 0; border-bottom: 0; padding: 6px 12px 7px; font-size: 13px; display: flex; align-items: center; gap: 8px; width: 240px; margin-right: 24px; position: relative; top: 3px; }
+.mood .bar { flex: 1; height: 10px; border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; background: #fff; }
+.mood .bar i { display: block; height: 100%; width: 38%; background: var(--rose); transition: width .5s; }
+
+/* ---------- choices ---------- */
+.choices { position: absolute; right: 5%; top: 50%; transform: translateY(-62%); display: grid; gap: 12px; width: min(380px, 48vw); z-index: 4; }
+.choice { font-family: var(--body); font-weight: 800; font-size: 17px; text-align: left; background: var(--box); border: 3px solid var(--ink); border-radius: 14px; padding: 14px 18px 14px 50px; cursor: pointer; color: var(--ink); position: relative; box-shadow: 5px 5px 0 var(--ink); transition: transform .08s; }
+.choice::before { content: "▶"; position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--rose); }
+.choice:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 var(--ink); background: #fff; }
+.choice:active { transform: translate(3px,3px); box-shadow: 2px 2px 0 var(--ink); }
+.choice:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.choice.recruiter { background: #ffe5ec; }
+.choice small { display: block; font-weight: 500; font-size: 13px; opacity: .7; margin-top: 2px; }
+
+/* ---------- dialogue box ---------- */
+.box { position: absolute; left: 3%; right: 3%; bottom: 3%; z-index: 6; }
+.box .head { display: flex; justify-content: space-between; align-items: flex-end; }
+.name { display: inline-block; font-family: var(--display); font-size: 20px; letter-spacing: 1px; background: var(--yellow); border: 3px solid var(--ink); border-radius: 10px 10px 0 0; padding: 6px 18px 4px; margin-left: 24px; box-shadow: 4px 0 0 var(--ink); position: relative; top: 3px; }
+.text { background: var(--box); border: 3px solid var(--ink); border-radius: 16px; padding: 20px 24px 22px; min-height: 108px; font-size: 20px; line-height: 1.45; box-shadow: 6px 6px 0 var(--ink); position: relative; }
+.text .next { position: absolute; right: 18px; bottom: 10px; font-size: 14px; animation: nod 1s ease-in-out infinite; }
+@keyframes nod { 50% { transform: translateY(3px); } }
+.text .cursor { display: inline-block; width: 2px; height: 1em; background: var(--ink); vertical-align: -3px; margin-left: 2px; animation: cur 1s step-end infinite; }
+@keyframes cur { 50% { opacity: 0; } }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; font-weight: 400; }
+.plain.on { display: block; }
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; font-size: 17px; }
+.plain h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 6px; }
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+.plain a { color: #1a4fd1; }
+.plain .back { font-family: var(--body); font-weight: 800; font-size: 14px; border: 2px solid #222; border-radius: 6px; background: #fff; padding: 8px 14px; cursor: pointer; }
+.plain ul { padding-left: 20px; }
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 760px) {
+  .sprite { left: 5%; top: 22%; bottom: auto; width: min(130px, 34vw); }
+  .sprite .emote { font-size: 40px; right: -14px; }
+  .mood { width: auto; }
+  .mood .bar { width: 60px; }
+  .choices { right: 4%; left: 4%; width: auto; top: auto; bottom: 27%; transform: none; }
+  .choice { font-size: 15px; padding: 11px 14px 11px 40px; }
+  .text { font-size: 17px; min-height: 96px; }
+  .sun { width: 200px; height: 200px; margin-left: -100px; top: 10%; }
+  .c2 { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="sun"></div>
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="sky-line">
+    <i style="height:52%; --f:1.2"></i><i class="water" style="height:70%; --f:.8"></i><i style="height:40%; --f:1.6"></i><i class="ant" style="height:88%; --f:.9"></i>
+    <i style="height:60%; --f:1.1"></i><i style="height:76%; --f:.7"></i><i class="water" style="height:48%; --f:1.4"></i><i class="ant" style="height:94%; --f:1"></i>
+    <i style="height:58%; --f:.8"></i><i style="height:66%; --f:1.3"></i><i style="height:44%; --f:1"></i><i class="water" style="height:80%; --f:.9"></i><i style="height:36%; --f:1.5"></i>
+  </div>
+  <div class="ground"></div>
+
+  <div class="hud">
+    <div class="route"><b>ROUTE</b> Prologue · Endings found <span id="endings">0</span>/5 · Secrets <span id="secrets">0</span>/7</div>
+    <div class="ctl">
+      <button id="autoBtn">AUTO</button>
+      <button>SKIP</button>
+      <button>LOG</button>
+      <button>SAVE</button>
+      <button class="boring" id="boringBtn">BORING MODE <span class="sad">(sad)</span></button>
+    </div>
+  </div>
+
+  <div class="sprite" id="mascot" title="Jack">
+    <div class="pic"><img src="mascot.jpg" alt="Yellow Jack, shocked"></div>
+    <div class="emote" id="emote">!</div>
+  </div>
+
+  <div class="choices" id="choices">
+    <button class="choice" data-say="projects">Show me what you've built.<small>Opens the project gallery</small></button>
+    <button class="choice" data-say="prank">Is it true you're a prankster?<small>Jack denies everything</small></button>
+    <button class="choice" data-say="about">Who even are you?<small>Origin story</small></button>
+    <button class="choice recruiter" data-say="recruiter">I'm a recruiter. Please be normal.<small>Switches to Boring Mode</small></button>
+  </div>
+
+  <div class="box">
+    <div class="head">
+      <div class="name">JACK</div>
+      <div class="mood">Mood: <span id="moodLabel">shocked</span><div class="bar"><i id="moodBar"></i></div></div>
+    </div>
+    <div class="text" id="text"><span id="line"></span><span class="cursor" id="cur"></span><span class="next" id="next" hidden>▼</span></div>
+  </div>
+</div>
+
+<div class="plain" id="plain" aria-hidden="true">
+  <div class="in">
+    <button class="back" id="unboring">Make it fun again</button>
+    <div class="sulk"><img src="mascot.jpg" alt=""><span>Jack has been placed in time-out until you leave Boring Mode.</span></div>
+    <h1>Jack Wei</h1>
+    <p>Computer Science, Olin College of Engineering, class of 2028. GPA 3.96.<br>
+    <a href="#">github.com/We1chJ</a> · <a href="#">linkedin.com/in/erqi-jack-wei</a> · ewei@olin.edu · <a href="#">Download PDF</a></p>
+    <h2>Experience</h2>
+    <ul>
+      <li>Software Engineer Intern, Bloomberg (Summer 2026)</li>
+      <li>Software Engineer Research Intern, Raytheon BBN Technologies (2024, 2025)</li>
+      <li>Mobile App Developer and Researcher, Olin PLai Lab (2025–present)</li>
+      <li>UAS SAR Researcher, MIT Lincoln Laboratory BWSI (2023)</li>
+    </ul>
+    <h2>Projects</h2>
+    <ul><li>Afora</li><li>Factuality</li><li>Rehab AR app</li></ul>
+    <p><em>This is the whole resume, with no jokes. The fun version is one click away.</em></p>
+  </div>
+</div>
+
+<script>
+const LINES = {
+  intro: ["W-wait. Someone actually opened my website?!", "Okay. Okay. I'm Jack. I build things. A lot of things. Pick a question before I panic."],
+  projects: ["Fourteen so far. Afora, Factuality, an AR rehab game for seniors, a radar thing for drones…", "Want me to pick one at random? I'm bad at choosing. That's how there are fourteen."],
+  prank: ["Prankster? Me? There are definitely not seven secrets hidden on this page.", "Try clicking me ten times. Nothing will happen. Probably."],
+  about: ["CS at Olin, class of 2028. Bloomberg this summer. Before that, two summers at Raytheon BBN and one at MIT Lincoln Lab.", "I also have a sprout on my head. We don't talk about it."],
+  recruiter: ["…understood. Switching to Boring Mode. It was nice knowing you.", "(Jack's mood: devastated)"],
+};
+const MOOD = { intro:['shocked',38], projects:['proud',70], prank:['innocent',55], about:['nostalgic',60], recruiter:['devastated',8] };
+const EMOTE = { intro:'!', projects:'★', prank:'…', about:'♪', recruiter:'？' };
+const lineEl = document.getElementById('line'), nextEl = document.getElementById('next'), cur = document.getElementById('cur');
+let queue = [], typing = false, auto = false, timer, current = '';
+function type(str){
+  current = str; typing = true; lineEl.textContent = ''; nextEl.hidden = true; let i = 0;
+  clearInterval(timer);
+  timer = setInterval(() => {
+    lineEl.textContent = str.slice(0, ++i);
+    if (i >= str.length) { clearInterval(timer); typing = false; nextEl.hidden = false; if (auto) setTimeout(advance, 1400); }
+  }, 22);
+}
+function advance(){
+  if (typing) { clearInterval(timer); lineEl.textContent = current; typing = false; nextEl.hidden = false; return; }
+  if (queue.length) type(queue.shift());
+}
+function say(key){
+  clearInterval(timer); typing = false;   // a choice interrupts whatever Jack was saying
+  queue = [...LINES[key]]; advance();
+  const [label, pct] = MOOD[key]; document.getElementById('moodLabel').textContent = label; document.getElementById('moodBar').style.width = pct + '%';
+  const em = document.getElementById('emote'); em.textContent = EMOTE[key]; em.style.animation = 'none'; void em.offsetWidth; em.style.animation = '';
+}
+document.getElementById('text').addEventListener('click', advance);
+document.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => { say(b.dataset.say); if (b.dataset.say === 'recruiter') setTimeout(() => setBoring(true), 2600); }));
+document.getElementById('autoBtn').addEventListener('click', e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (auto && !typing) advance(); });
+say('intro');
+
+/* secrets */
+let secrets = 0; const secretEl = document.getElementById('secrets');
+function secret(){ secrets = Math.min(7, secrets + 1); secretEl.textContent = secrets; }
+let taps = 0; document.getElementById('mascot').addEventListener('click', () => { if (++taps === 10) { secret(); queue = ['Ow. Okay, fine. Secret unlocked. Happy?']; advance(); } });
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0; window.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { advance(); return; } k = (e.key === KONAMI[k]) ? k + 1 : (e.key === KONAMI[0] ? 1 : 0); if (k === KONAMI.length) { k = 0; secret(); queue = ['A cheat code? On MY website? …respect.']; advance(); } });
+
+/* boring mode */
+const plain = document.getElementById('plain');
+function setBoring(on){ plain.classList.toggle('on', on); plain.setAttribute('aria-hidden', String(!on)); try { localStorage.setItem('boring', on ? '1' : '0'); } catch(e){} }
+document.getElementById('boringBtn').addEventListener('click', () => setBoring(true));
+document.getElementById('unboring').addEventListener('click', () => { setBoring(false); say('intro'); });
+try { if (localStorage.getItem('boring') === '1') setBoring(true); } catch(e){}
+</script>
+</body>
+</html>

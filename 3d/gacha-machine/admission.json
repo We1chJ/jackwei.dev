@@ -1,0 +1,14 @@
+{
+  "admitted": true,
+  "reasons": [],
+  "provenance": {
+    "viewpoint": "reference",
+    "sourcePath": "/Users/welchj/Desktop/jackwei.dev/docs/assets/gacha-machine-ref.png",
+    "width": 1200,
+    "height": 1700,
+    "foregroundCoverage": 0.3561,
+    "largestComponentFraction": 1.0,
+    "pHash": 12319784056994312331,
+    "duplicateOfHash": null
+  }
+}

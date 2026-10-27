@@ -1,0 +1,101 @@
+STATUS pass=form-refinement completed=2 blocked=none next=diagnose_render.py
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8993,
+    "aspectRatioDelta": 0.0066,
+    "scaleDelta": 0.0784,
+    "bilateralSymmetryError": 0.0063,
+    "colorDelta": {
+      "checked": 20,
+      "maxDeltaE": 77.08,
+      "perComponent": [
+        {
+          "componentId": null,
+          "deltaE": 6.45
+        },
+        {
+          "componentId": null,
+          "deltaE": 11.75
+        },
+        {
+          "componentId": null,
+          "deltaE": 7.21
+        },
+        {
+          "componentId": null,
+          "deltaE": 40.64
+        },
+        {
+          "componentId": null,
+          "deltaE": 6.43
+        },
+        {
+          "componentId": null,
+          "deltaE": 40.64
+        },
+        {
+          "componentId": null,
+          "deltaE": 6.43
+        },
+        {
+          "componentId": null,
+          "deltaE": 44.29
+        },
+        {
+          "componentId": null,
+          "deltaE": 77.08
+        },
+        {
+          "componentId": null,
+          "deltaE": 67.82
+        },
+        {
+          "componentId": null,
+          "deltaE": 46.53
+        },
+        {
+          "componentId": null,
+          "deltaE": 40.64
+        },
+        {
+          "componentId": null,
+          "deltaE": 44.29
+        },
+        {
+          "componentId": null,
+          "deltaE": 37.6
+        },
+        {
+          "componentId": null,
+          "deltaE": 44.29
+        },
+        {
+          "componentId": null,
+          "deltaE": 46.53
+        },
+        {
+          "componentId": null,
+          "deltaE": 37.6
+        },
+        {
+          "componentId": null,
+          "deltaE": 55.97
+        },
+        {
+          "componentId": null,
+          "deltaE": 55.97
+        },
+        {
+          "componentId": null,
+          "deltaE": 40.64
+        }
+      ],
+      "gated": false
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "4eeb5363cb79003c",
+  "passId": "form-refinement"
+}

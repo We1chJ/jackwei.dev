@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "errors": [],
+  "warnings": [],
+  "summary": {
+    "targetName": "Jack Gacha capsule machine",
+    "suitability": "conditional",
+    "components": 20,
+    "materials": 15
+  }
+}

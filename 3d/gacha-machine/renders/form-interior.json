@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "kind": "interior-difference",
+  "baseline": "/Users/welchj/Desktop/jackwei.dev/docs/assets/gacha-machine-ref.png",
+  "render": "/Users/welchj/Desktop/jackwei.dev/3d/gacha-machine/renders/form-front.png",
+  "band": {
+    "from": 0.0,
+    "to": 1.0
+  },
+  "grid": 192,
+  "cellsCompared": 28476,
+  "warnings": [],
+  "interiorDifference": 0.2577691718006989,
+  "status": "measured"
+}

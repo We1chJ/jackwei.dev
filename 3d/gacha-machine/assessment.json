@@ -1,0 +1,563 @@
+{
+  "targetName": "Jack Gacha capsule machine",
+  "sourceImage": "/Users/welchj/Desktop/jackwei.dev/docs/assets/gacha-machine-ref.png",
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "capsule-toy vending machine (gashapon), stylized toon illustration",
+      "primaryDomain": "object",
+      "formLanguage": [
+        "hard-surface",
+        "mechanical",
+        "transparent-like"
+      ],
+      "structureKind": [
+        "compound object",
+        "repeated modules"
+      ],
+      "motionPotential": [
+        "articulated",
+        "detachable"
+      ],
+      "materialFamilies": [
+        "plastic",
+        "glass-like"
+      ],
+      "confidence": 0.95,
+      "notes": "Glass sphere dome on a rounded-cuboid housing; a disc medallion carrying the mascot decal on top; ten two-tone capsule spheres inside; crank disc with bar+knob and a recessed tray on the front face. Toon look: black outline + white sticker halo on every part. Source is an illustration, so output is explicitly stylized; depth is inferred."
+    },
+    "complexity": {
+      "tier": "moderate",
+      "scores": {
+        "silhouetteComplexity": 1,
+        "componentCount": 2,
+        "hierarchyDepth": 2,
+        "repetitionDensity": 1,
+        "materialLayerCount": 2,
+        "localDetailDensity": 1,
+        "occlusionRisk": 1,
+        "actionReadinessNeed": 2
+      },
+      "estimatedCounts": {
+        "macroComponents": 5,
+        "mesoComponents": 8,
+        "microFeatureGroups": 3,
+        "materialLayers": 11,
+        "repetitionSystems": 1
+      },
+      "reasoning": [
+        "Silhouette is a sphere stacked on a rounded box with a small disc on top: simple outline (1).",
+        "Visible subparts: dome, collar, body, medallion, 10 capsules, sign, crank disc, crank bar, knob, tray (2).",
+        "Hierarchy: machine > body > front-face parts > crank > bar > knob is three levels (2).",
+        "One repeated system: capsules, 10 instances in 5 colours (1).",
+        "Eleven distinct flat materials but no layered wear; one decal (medallion) and one text decal (2).",
+        "Local detail is limited to outlines, one glass highlight, capsule seams and highlights (1).",
+        "Only the back face, body depth and tray interior are hidden; inferable by symmetry (1).",
+        "Interactive: crank must rotate about its axle, one capsule must leave the dome and land in the tray; capsules need colliders (2)."
+      ]
+    },
+    "specDepthDecision": {
+      "requiredDepth": "moderate",
+      "minimumComponentLevels": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "needsRepetitionSystems": true,
+      "needsMaterialLocalOverrides": true,
+      "needsMultipleReviewViews": true,
+      "needsActionReadyHierarchy": true,
+      "rationale": "Moderate: ~10 parts, one instanced capsule system, decals as local overrides, a crank pivot and a drop socket for interaction."
+    },
+    "unknownsToResolveBeforeImplementation": [
+      "Body depth (hidden): assume 0.75 x dome diameter, bilateral symmetric.",
+      "Dome: assume a full sphere whose lower 12% sits inside the collar cup; the reference cannot show whether it is a hemisphere on a cup.",
+      "Medallion: assume a separate disc 0.06 D thick on a short post; the reference could also be a flat painted circle.",
+      "Crank axle length and disc protrusion (assume 0.03 D disc, 0.05 D bar) are inferred from the illustration's drop shadow only.",
+      "Tray chute interior (assume a 0.1 D deep recess with a flat floor)."
+    ],
+    "detailInventory": {
+      "scanMethod": "grid-3x3",
+      "targetMinDetails": 6,
+      "note": "Scanned zone by zone over di-zones/; every detail maps to a component.localFeatures or material.localOverrides entry.",
+      "details": [
+        {
+          "id": "d-medallion-decal",
+          "kind": "decal",
+          "description": "Circular mascot image (Yellow Jack) on a yellow disc inside a white ring + black ring; the sticker frame has a black outline.",
+          "region": {
+            "x": 0.38,
+            "y": 0.01,
+            "width": 0.24,
+            "height": 0.17,
+            "units": "normalized"
+          },
+          "scale": "0.39 D disc diameter",
+          "affects": "albedo (image texture), silhouette (disc)",
+          "mapsTo": {
+            "type": "material.localOverrides",
+            "ref": "medallion-face"
+          },
+          "evidenceRef": "zone-r0c1",
+          "confidence": 0.95
+        },
+        {
+          "id": "d-dome-highlight",
+          "kind": "gloss",
+          "description": "One painted white ellipse 0.23 D x 0.11 D rotated -30 deg, upper-front-lateral on the dome; the only strong specular cue.",
+          "region": {
+            "x": 0.3,
+            "y": 0.15,
+            "width": 0.12,
+            "height": 0.07,
+            "units": "normalized"
+          },
+          "scale": "0.23 D",
+          "affects": "roughness/specular, key-light direction",
+          "mapsTo": {
+            "type": "material.localOverrides",
+            "ref": "dome-glass"
+          },
+          "evidenceRef": "zone-r0c0",
+          "confidence": 0.9
+        },
+        {
+          "id": "d-outline-halo",
+          "kind": "contour",
+          "description": "Uniform black outline (~0.013 D) plus a white sticker halo (~0.013 D) outside it on every part boundary and silhouette; the dome rim shows three concentric rings (black, white, black).",
+          "region": {
+            "x": 0.2,
+            "y": 0.0,
+            "width": 0.6,
+            "height": 0.75,
+            "units": "normalized"
+          },
+          "scale": "0.013 D line, 0.013 D halo",
+          "affects": "outline pass (inverted hull), rim torus geometry on the dome",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "dome-rim"
+          },
+          "evidenceRef": "zone-r1c0",
+          "confidence": 0.95
+        },
+        {
+          "id": "d-capsule-seam",
+          "kind": "seam",
+          "description": "Black equatorial line splitting each capsule into a coloured top hemisphere and a white bottom hemisphere.",
+          "region": {
+            "x": 0.3,
+            "y": 0.26,
+            "width": 0.45,
+            "height": 0.2,
+            "units": "normalized"
+          },
+          "scale": "0.19 D capsule, 0.01 D line",
+          "affects": "two-material sphere, thin dark ring geometry at the equator",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "capsule-seam"
+          },
+          "evidenceRef": "zone-r1c1",
+          "confidence": 0.95
+        },
+        {
+          "id": "d-capsule-highlight",
+          "kind": "gloss",
+          "description": "Small white inset highlight upper-left on every capsule top hemisphere (gloss plastic).",
+          "region": {
+            "x": 0.3,
+            "y": 0.26,
+            "width": 0.45,
+            "height": 0.2,
+            "units": "normalized"
+          },
+          "scale": "0.05 D",
+          "affects": "roughness 0.3, specular hotspot aligned to key light",
+          "mapsTo": {
+            "type": "material.localOverrides",
+            "ref": "capsule-top"
+          },
+          "evidenceRef": "zone-r1c1",
+          "confidence": 0.85
+        },
+        {
+          "id": "d-collar-floor",
+          "kind": "ridge",
+          "description": "Light blue-grey flat band where the dome meets the body: the capsule floor/collar cup, 0.95 D wide, 0.06 D tall, with a lighter top lip.",
+          "region": {
+            "x": 0.33,
+            "y": 0.44,
+            "width": 0.33,
+            "height": 0.04,
+            "units": "normalized"
+          },
+          "scale": "0.95 D x 0.06 D",
+          "affects": "cylinder cup geometry + distinct albedo",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "collar"
+          },
+          "evidenceRef": "zone-r1c1",
+          "confidence": 0.8
+        },
+        {
+          "id": "d-sign-decal",
+          "kind": "decal",
+          "description": "Yellow rounded rectangle 0.48 D x 0.13 D rotated -2 deg with black display-face text 'JACK GACHA'; has physical thickness (sticker edge) and a black outline.",
+          "region": {
+            "x": 0.35,
+            "y": 0.49,
+            "width": 0.3,
+            "height": 0.06,
+            "units": "normalized"
+          },
+          "scale": "0.48 D x 0.13 D x 0.02 D",
+          "affects": "thin raised plate + canvas text texture",
+          "mapsTo": {
+            "type": "material.localOverrides",
+            "ref": "sign-plate"
+          },
+          "evidenceRef": "zone-r2c1",
+          "confidence": 0.95
+        },
+        {
+          "id": "d-crank-bar-knob",
+          "kind": "ridge",
+          "description": "Pink rounded bar 0.21 D x 0.05 D with a black sphere knob 0.07 D at its lateral end, on a white disc 0.28 D; the disc has a black outline. Rotates about the disc centre.",
+          "region": {
+            "x": 0.44,
+            "y": 0.59,
+            "width": 0.14,
+            "height": 0.1,
+            "units": "normalized"
+          },
+          "scale": "0.28 D disc",
+          "affects": "three separate solids, pivot at disc centre",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "crank-bar"
+          },
+          "evidenceRef": "zone-r2c1",
+          "confidence": 0.95
+        },
+        {
+          "id": "d-tray-opening",
+          "kind": "hole",
+          "description": "Dark near-black rounded rectangle 0.25 D x 0.17 D at the lower-left of the front face with a lighter inner lip along its top edge: the capsule exit chute.",
+          "region": {
+            "x": 0.25,
+            "y": 0.63,
+            "width": 0.13,
+            "height": 0.06,
+            "units": "normalized"
+          },
+          "scale": "0.25 D x 0.17 D, ~0.1 D deep",
+          "affects": "real recess into the body, cavity material",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "tray-recess"
+          },
+          "evidenceRef": "zone-r2c0",
+          "confidence": 0.9
+        },
+        {
+          "id": "d-body-bevel",
+          "kind": "bevel",
+          "description": "All body and tray corners are rounded (radius ~0.08 D body, ~0.03 D tray); the dome rim and medallion ring are fully round.",
+          "region": {
+            "x": 0.2,
+            "y": 0.45,
+            "width": 0.6,
+            "height": 0.28,
+            "units": "normalized"
+          },
+          "scale": "0.08 D radius",
+          "affects": "edgeTreatment chamfer/fillet on the housing",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "body-housing"
+          },
+          "evidenceRef": "zone-r2c2",
+          "confidence": 0.9
+        }
+      ]
+    },
+    "anatomy": {
+      "applies": false,
+      "styleHeads": 0.0,
+      "proportions": {
+        "headUnit": 0.0,
+        "torso": 0.0,
+        "legs": 0.0,
+        "shoulderWidth": 0.0,
+        "hipWidth": 0.0
+      },
+      "pose": {
+        "type": "unassessed",
+        "jointAngles": {}
+      },
+      "faceLandmarks": {
+        "eyeLine": 0.0,
+        "eyeSpacing": 0.0,
+        "noseBase": 0.0,
+        "mouthLine": 0.0,
+        "hairline": 0.0
+      },
+      "features": [],
+      "confidence": 0.0,
+      "note": "Only meaningful when objectClass.primaryDomain is character or hybrid. Set applies=true and fill from forge/stage1_intake/extract_landmarks.py. See grimoire/character/reconstruction.md and grimoire/character/likeness_maximization.md."
+    },
+    "sourceImage": "/Users/welchj/Desktop/jackwei.dev/docs/assets/gacha-machine-ref.png"
+  },
+  "qualityContract": {
+    "qualityBar": "moderate",
+    "definitionOfDone": [
+      "Front view at 10 deg pitch reads as the reference: glass sphere (D) on a rounded off-white housing (1.1 D x 0.72 D), medallion disc on top, ten two-tone capsules resting on a blue-grey collar floor.",
+      "Every part carries a black outline with a white sticker halo (inverted-hull outline pass); the dome shows one strong specular ellipse upper-front-left.",
+      "Crank disc, bar and knob are separate solids that rotate together about the disc centre; one capsule can be released from the dome and land in the tray recess.",
+      "Capsules are an instanced system of 10 with exactly five colours (pink, mint, sky, grape, yellow) and a black equatorial seam.",
+      "Stylized/toon output; no photoreal PBR wear is expected."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 5,
+      "mesoComponents": 6,
+      "microFeatureGroups": 3,
+      "materialLayers": 8,
+      "repetitionSystems": 1,
+      "reviewViewpoints": 3
+    },
+    "featureGroups": [
+      {
+        "id": "dome-glass",
+        "name": "Glass dome sphere",
+        "required": true,
+        "qualityCriteria": [
+          "A full sphere of diameter D, transmissive (transmission ~0.9, roughness 0.05, slight blue tint), with a visible rim torus (black/white/black) at the collar seam and one specular ellipse upper-front-left."
+        ],
+        "evidenceRefs": [
+          "zone-r0c0",
+          "zone-r1c1",
+          "d-dome-highlight",
+          "d-outline-halo"
+        ],
+        "failureModes": [
+          "dome reads opaque or milky",
+          "no rim ring where the sphere meets the collar",
+          "highlight missing or on the wrong side"
+        ]
+      },
+      {
+        "id": "capsule-system",
+        "name": "Two-tone capsule instances",
+        "required": true,
+        "qualityCriteria": [
+          "Ten spheres of 0.19 D in two rows resting on the collar floor inside the dome, coloured top hemisphere + white bottom + black seam ring, five colours distributed as in the reference, glossy (roughness 0.3) with a highlight."
+        ],
+        "evidenceRefs": [
+          "zone-r1c1",
+          "d-capsule-seam",
+          "d-capsule-highlight"
+        ],
+        "failureModes": [
+          "capsules single-colour or seam missing",
+          "capsules floating or intersecting the dome",
+          "fewer than 10 or wrong colour set"
+        ]
+      },
+      {
+        "id": "housing",
+        "name": "Rounded housing with collar and tray",
+        "required": true,
+        "qualityCriteria": [
+          "Off-white rounded cuboid 1.1 D x 0.72 D x 0.75 D (inferred depth), fillet 0.08 D, a blue-grey collar cup 0.95 D wide at the top, and a 0.25 D x 0.17 D recessed tray at front-lower-left with a dark cavity material."
+        ],
+        "evidenceRefs": [
+          "zone-r2c0",
+          "zone-r2c2",
+          "d-tray-opening",
+          "d-body-bevel",
+          "d-collar-floor"
+        ],
+        "failureModes": [
+          "sharp box edges",
+          "tray painted on instead of recessed",
+          "collar missing so the sphere floats on the box"
+        ]
+      },
+      {
+        "id": "crank-assembly",
+        "name": "Crank disc, bar and knob",
+        "required": true,
+        "qualityCriteria": [
+          "White disc 0.28 D protruding 0.03 D from the front face at 0.55 body height, pink bar 0.21 D x 0.05 D with rounded ends, black sphere knob 0.07 D at the lateral end; bar + knob pivot about the disc axis."
+        ],
+        "evidenceRefs": [
+          "zone-r2c1",
+          "d-crank-bar-knob"
+        ],
+        "failureModes": [
+          "crank flat/painted",
+          "bar centred on the disc instead of offset",
+          "no pivot socket"
+        ]
+      },
+      {
+        "id": "decals",
+        "name": "Medallion and sign decals",
+        "required": true,
+        "qualityCriteria": [
+          "Medallion: 0.39 D disc on top of the dome, yellow face with the mascot image texture, white ring + black ring frame. Sign: yellow plate 0.48 D x 0.13 D rotated -2 deg with black 'JACK GACHA' text on the front face under the collar."
+        ],
+        "evidenceRefs": [
+          "zone-r0c1",
+          "zone-r2c1",
+          "d-medallion-decal",
+          "d-sign-decal"
+        ],
+        "failureModes": [
+          "mascot image missing or stretched",
+          "sign text unreadable at the review distance",
+          "medallion floating above the dome"
+        ]
+      },
+      {
+        "id": "outline-language",
+        "name": "Sticker outline language",
+        "required": true,
+        "qualityCriteria": [
+          "Every part has a black outline ~0.013 D and a white halo ~0.013 D (inverted-hull or post-process outline); toon shading with flat albedo and a single key light up-front-left casting a hard offset contact shadow."
+        ],
+        "evidenceRefs": [
+          "d-outline-halo"
+        ],
+        "failureModes": [
+          "smooth PBR shading with no outline, losing the sticker identity",
+          "outline thickness varies with distance"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "silhouette and negative-space delta (sphere/box/disc stack)",
+      "capsule count, colour set and distribution delta",
+      "outline presence and thickness delta",
+      "dome transparency and highlight placement delta",
+      "crank/sign/tray placement and scale delta"
+    ],
+    "antiShallowSpecRules": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md)."
+    ]
+  },
+  "authoringInstruction": "Fill observed object class, complexity reasoning, featureGroups, visualDeltaChecks, and unknowns before generating or implementing ObjectSculptSpec.",
+  "localSpecSearch": {
+    "collection": "core_3d",
+    "query": "Jack Gacha capsule machine transparent glass sphere dome plastic glossy plastic toy material roughness crank handle knob rotating pivot rounded box housing chamfer plastic shell",
+    "index": {
+      "status": "hit",
+      "reason": "current",
+      "fingerprint": "62f2831e1d52eeb6dbb94a87c44fa25b1f4926626a7b1f8c2bcadc63e04e9471"
+    },
+    "matches": [
+      {
+        "record_id": "core.pbr-opacity-alpha",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.material_pbr[8]",
+        "score": 10.634820647445,
+        "snippets": [
+          "Controls material transparency and blend mode; in CS2 workflows the alpha channel of Base Color is repurposed as a non-transparency data channel. Ki\u1ec3m so\u00e1t \u0111\u1ed9 trong su\u1ed1t v\u00e0 ch\u1ebf \u0111\u1ed9 blend c\u1ee7a v\u1eadt li\u1ec7u; trong quy tr\u00ecnh CS2, k\u00eanh alpha c\u1ee7a Base ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[8]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      },
+      {
+        "record_id": "core.pbr-roughness",
+        "file_path": "grimoire/glossary/3d_vocabulary.md",
+        "heading": "Material And PBR",
+        "key_path": null,
+        "score": 8.485019761707,
+        "snippets": [
+          "Roughness is microfacet scatter: high roughness reads matte and low roughness reads glossy. Recognition cues: low roughness reads as a sharp, mirror-like, tight specular highlight; high roughness reads as a blurry, wide, dim highlight and matte ..."
+        ],
+        "source_refs": [
+          {
+            "path": "grimoire/glossary/3d_vocabulary.md",
+            "heading": "Material And PBR",
+            "key_path": null
+          },
+          {
+            "path": "grimoire/intake/image_analysis.md",
+            "heading": "Layer 5 \u2014 Materials & surface (PBR)",
+            "key_path": null
+          },
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[1]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "grimoire/glossary/3d_vocabulary.md"
+          },
+          {
+            "kind": "notebooklm-research",
+            "ref": "notebooklm:4b03c2f9-8393-411f-b5b4-039ab9532843",
+            "note": "Validated generic schema vocabulary; numeric claims remain backed by local source_refs."
+          },
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation \u2014 merged recognition cues + Three.js target instead of duplicating this entity."
+          }
+        ]
+      },
+      {
+        "record_id": "core.description-scene-graph-relational-triplets",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.description_conventions[2]",
+        "score": 6.818578340608,
+        "snippets": [
+          "<Subject, Predicate, Object> statements capturing spatial/semantic relationships between parts (e.g. <blade, attached_to, handle>), plus per-node bounding box and class label. C\u00e1c ph\u00e1t bi\u1ec3u <Ch\u1ee7 th\u1ec3, V\u1ecb ng\u1eef, \u0110\u1ed1i t\u01b0\u1ee3ng> n\u1eafm b\u1eaft quan h\u1ec7 kh\u00f4ng ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.description_conventions[2]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,186 +1,208 @@
-html,
+/* Layout: a toy-shop counter. Headline left, the capsule machine right as the hero
+   object; a collection shelf (Jackdex) runs underneath. Everything is a sticker:
+   thick black outline, white sticker edge, hard offset shadow. */
+:root {
+  --yellow: #FFC800;
+  --yellow-deep: #F2A900;
+  --ink: #000;
+  --paper: #FFFDF5;
+  --pink: #FF7A9E;
+  --mint: #5FE3B1;
+  --sky: #5BC8FF;
+  --grape: #B48CFF;
+  --display: 'Lilita One', 'Arial Black', Impact, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
 body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #e9eaed;
-    font-family: system-ui, -apple-system, sans-serif;
+  background: var(--yellow);
+  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,.08) 1.5px, transparent 0);
+  background-size: 22px 22px;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.5;
+  overflow-x: hidden;
 }
 
-/* Full-window canvas the resume is drawn / animated on */
-#stage {
-    position: fixed;
-    inset: 0;
-    display: block;
-    z-index: 1;
+.wrap { max-width: 1120px; margin: 0 auto; padding: 18px 20px 60px; }
+
+/* ---------- sticker primitives ---------- */
+.sticker {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink), 8px 8px 0 7px rgba(0,0,0,.18);
 }
 
-/* Transparent WebGL overlay that holds the cursor-following glass lens.
-   pointer-events:none so the crumple button and trash stay clickable. */
-#lensOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 3;
-    pointer-events: none;
+.btn {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: .5px;
+  padding: 12px 20px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: transform .08s ease, box-shadow .08s ease;
 }
 
-/* Hide the system cursor while it is over the resume; the glass lens
-   stands in for it. Toggled from JS via a class on <body>. */
-body.lens-active,
-body.lens-active #stage {
-    cursor: none;
+.btn:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+
+.btn:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
+
+.btn:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+
+.btn.primary { background: var(--pink); }
+
+.btn.quiet { background: #fff; font-family: var(--body); font-weight: 900; font-size: 15px; padding: 9px 16px; }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+.logo {
+  font-family: var(--display); font-size: 26px; text-decoration: none; color: var(--ink);
+  background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 4px 12px;
+  box-shadow: 4px 4px 0 var(--ink); transform: rotate(-2deg); display: inline-block;
 }
 
-/* Overlay holding the selectable text, positioned over the page. */
-#docLayer {
-    position: fixed;
-    z-index: 2;
-    pointer-events: none;
+.nav { display: flex; gap: 6px 18px; flex-wrap: wrap; font-weight: 900; }
+
+.nav a { color: var(--ink); text-decoration: none; border-bottom: 3px solid transparent; }
+
+.nav a:hover { border-bottom-color: var(--ink); }
+
+.nav .secret { color: rgba(0,0,0,.55); }
+
+.boring { font-size: 14px; }
+
+.boring .sad { opacity: .6; font-weight: 700; }
+
+/* ---------- hero ---------- */
+.hero {
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 24px; align-items: center;
+  margin-top: 36px;
 }
 
-/* PDF.js-style transparent, selectable text layer */
-.textLayer {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    line-height: 1;
-    text-align: initial;
-    transform-origin: 0 0;
-    pointer-events: none;
-    /* selection disabled */
-    user-select: none;
-    -webkit-user-select: none;
-    z-index: 2;
+h1 {
+  font-family: var(--display); font-weight: 400; font-size: clamp(44px, 7vw, 86px);
+  line-height: 1.04; margin: 0; text-wrap: balance;
+  text-shadow: 4px 4px 0 #fff, 7px 7px 0 var(--ink);
 }
 
-.textLayer span {
-    color: transparent;
-    position: absolute;
-    white-space: pre;
-    transform-origin: 0 0;
+.lede { font-size: 20px; font-weight: 700; max-width: 34ch; margin: 22px 0 26px; }
+
+.actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+
+.count { font-weight: 900; font-size: 15px; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 6px 12px; }
+
+/* ---------- the machine ---------- */
+.stage { position: relative; }
+
+/* ---------- the pulled card ---------- */
+.card {
+  position: absolute; right: -24px; bottom: 24px; width: 250px; padding: 16px 16px 18px;
+  transform: rotate(4deg) scale(0); transform-origin: 100% 100%; z-index: 6;
+  transition: transform .5s cubic-bezier(.3,1.5,.5,1);
 }
 
-/* Crumple button on the right edge, vertically centered */
-#crumpleBtn {
-    position: fixed;
-    right: 22px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 40;
-    padding: 14px 18px;
-    border: none;
-    border-radius: 12px;
-    background: #2b2f36;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: .3px;
-    cursor: pointer;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .22);
-    transition: transform .12s ease, background .2s ease, opacity .2s ease;
+.card.show { transform: rotate(4deg) scale(1); }
+
+.card .rar { font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: #fff; background: var(--ink); display: inline-block; padding: 2px 10px; border-radius: 999px; }
+
+.card .rar.legendary { background: var(--grape); color: var(--ink); }
+
+.card .rar.shiny { background: linear-gradient(90deg, var(--pink), var(--yellow), var(--mint), var(--sky)); color: var(--ink); }
+
+.card h3 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 8px 0 4px; line-height: 1.05; }
+
+.card p { margin: 0 0 12px; font-weight: 700; font-size: 14px; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+
+.tags span { font-size: 12px; font-weight: 900; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; background: #fff; }
+
+.card .btn { font-size: 15px; padding: 8px 14px; }
+
+/* ---------- Jackdex shelf ---------- */
+.shelf { margin-top: 70px; padding: 22px 24px 26px; }
+
+.shelf header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+.shelf h2 { font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0; }
+
+.shelf .meta { font-weight: 900; }
+
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px; margin-top: 18px; }
+
+.slot {
+  aspect-ratio: 1; border: 3px dashed rgba(0,0,0,.35); border-radius: 16px; display: grid; place-items: center;
+  font-family: var(--display); font-size: 34px; color: rgba(0,0,0,.3); background: rgba(0,0,0,.04);
 }
 
-#crumpleBtn:hover {
-    background: #3a4049;
-    transform: translateY(-50%) scale(1.04);
+.slot.got {
+  border: 3px solid var(--ink); background: var(--c); color: var(--ink); font-size: 14px; font-family: var(--body); font-weight: 900;
+  text-align: center; padding: 6px; box-shadow: 4px 4px 0 var(--ink); line-height: 1.15;
 }
 
-#crumpleBtn:active {
-    transform: translateY(-50%) scale(.97);
+.slot.got.shiny { background: linear-gradient(135deg, var(--pink), var(--yellow), var(--mint), var(--sky)); }
+
+/* ---------- footer ---------- */
+.foot { margin-top: 36px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 14px; opacity: .75; }
+
+kbd { font-family: var(--body); font-weight: 900; border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; background: #fff; }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
+
+.plain.on { display: block; }
+
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; }
+
+.plain h1 { font-family: Georgia, serif; font-size: 34px; text-shadow: none; line-height: 1.2; }
+
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+
+.plain a { color: #1a4fd1; }
+
+.plain .back { font-family: var(--body); font-weight: 900; font-size: 14px; border: 2px solid #222; border-radius: 6px; background: #fff; padding: 8px 14px; cursor: pointer; }
+
+.plain ul { padding-left: 20px; }
+
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) {  * { animation: none !important; transition: none !important; }
 }
 
-#crumpleBtn:disabled {
-    opacity: .5;
-    cursor: default;
+@media (max-width: 860px) {  .hero { grid-template-columns: 1fr; }
+  .stage { min-height: 0; place-items: center; }
+  .card { right: -10px; bottom: -30px; }
 }
 
-/* Magnifier on/off toggle, top-left */
-#lensToggleBtn {
-    position: fixed;
-    left: 22px;
-    top: 22px;
-    z-index: 40;
-    padding: 12px 16px;
-    border: none;
-    border-radius: 12px;
-    background: #2b2f36;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: .3px;
-    cursor: pointer;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .22);
-    transition: transform .12s ease, background .2s ease;
+@media (max-width: 420px) {  h1 { text-shadow: 3px 3px 0 #fff, 5px 5px 0 var(--ink); }
+  .card { width: 220px; }
 }
 
-#lensToggleBtn:hover {
-    transform: scale(1.04);
+/* ---------- 3D stage ---------- */
+.stage { position: relative; }
+.scene { position: relative; width: 100%; aspect-ratio: 4 / 5; max-height: 640px; border-radius: 24px; overflow: hidden; touch-action: none; }
+.scene canvas { display: block; width: 100% !important; height: 100% !important; }
+.pitch .hint { font-size: 14px; font-weight: 700; opacity: .7; margin-top: 16px; }
+.mascot {
+  position: absolute; right: 10px; top: 10px; z-index: 5; width: 88px; height: 88px; padding: 0;
+  border-radius: 50%; overflow: hidden; cursor: pointer; border: 3px solid var(--ink);
+  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink); background: var(--yellow);
 }
-
-#lensToggleBtn:active {
-    transform: scale(.97);
-}
-
-#lensToggleBtn.on {
-    background: #2f6b4a;
-}
-
-/* Trash can, bottom-right corner */
-#trash {
-    position: fixed;
-    right: 26px;
-    bottom: 22px;
-    width: 64px;
-    height: 64px;
-    z-index: 20;
-    transform-origin: 50% 100%;
-    cursor: pointer;
-}
-
-#trash svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .25));
-}
-
-#trash.shake {
-    animation: trashShake .5s ease;
-}
-
-@keyframes trashShake {
-    0%, 100% { transform: rotate(0); }
-    20% { transform: rotate(-9deg); }
-    45% { transform: rotate(7deg); }
-    70% { transform: rotate(-4deg); }
-    88% { transform: rotate(2deg); }
-}
-
-.trash-hint {
-    position: fixed;
-    right: 22px;
-    bottom: 92px;
-    z-index: 20;
-    font-size: 11px;
-    color: #6b7077;
-    opacity: 0;
-    transition: opacity .3s ease;
-    pointer-events: none;
-}
-
-.trash-hint.show {
-    opacity: 1;
-}
-
-#loading {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6b7077;
-    font-size: 15px;
-    z-index: 1;
-}
+.mascot img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.12); }
+@media (max-width: 860px) { .scene { max-height: 520px; } }

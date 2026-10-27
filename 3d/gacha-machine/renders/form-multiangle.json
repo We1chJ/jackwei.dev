@@ -1,0 +1,32 @@
+{
+  "referenceAreaFraction": 0.32748676470588234,
+  "angles": [
+    {
+      "path": "/Users/welchj/Desktop/jackwei.dev/3d/gacha-machine/renders/form-az35.png",
+      "areaFraction": 0.3398950980392157,
+      "ratio": 1.0378895719479757,
+      "degenerate": false
+    },
+    {
+      "path": "/Users/welchj/Desktop/jackwei.dev/3d/gacha-machine/renders/form-az90.png",
+      "areaFraction": 0.2709416666666667,
+      "ratio": 0.8273362342139259,
+      "degenerate": false
+    },
+    {
+      "path": "/Users/welchj/Desktop/jackwei.dev/3d/gacha-machine/renders/form-az180.png",
+      "areaFraction": 0.32724460784313725,
+      "ratio": 0.9992605598489985,
+      "degenerate": false
+    },
+    {
+      "path": "/Users/welchj/Desktop/jackwei.dev/3d/gacha-machine/renders/form-az270.png",
+      "areaFraction": 0.2707843137254902,
+      "ratio": 0.826855747800016,
+      "degenerate": false
+    }
+  ],
+  "degenerate": false,
+  "collapseRatio": 0.15,
+  "note": "deterministic; zero token; a flat-plane-faking-a-volume collapses in silhouette area when orbited"
+}

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>JackOS 95</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=VT323&display=swap">
+<style>
+/* Layout: a 1995 desktop. Icons down the left, overlapping windows in the middle,
+   a Clippy-style mascot bottom-right, taskbar across the bottom. Chrome is bevelled
+   grey like the real thing; the only modern thing is the yellow brand on the
+   wallpaper and title bars. */
+:root {
+  --yellow: #FFC800;
+  --yellow-deep: #E0A800;
+  --grey: #c3c3c3;
+  --grey-dk: #808080;
+  --grey-lt: #ffffff;
+  --ink: #000;
+  --title: #000;
+  --title-fg: #FFC800;
+  --ui: 'Pixelify Sans', 'Segoe UI', Tahoma, sans-serif;
+  --mono: 'VT323', 'Courier New', monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--yellow);
+  background-image:
+    linear-gradient(45deg, rgba(0,0,0,.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.06) 75%),
+    linear-gradient(45deg, rgba(0,0,0,.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.06) 75%);
+  background-size: 16px 16px; background-position: 0 0, 8px 8px;
+  color: var(--ink); font-family: var(--ui); font-size: 16px; line-height: 1.3;
+  overflow: hidden; position: relative;
+}
+.desktop { position: absolute; inset: 0 0 38px 0; padding: 14px 16px; }
+
+/* ---------- bevel primitives ---------- */
+.bevel { background: var(--grey); border: 2px solid; border-color: var(--grey-lt) var(--grey-dk) var(--grey-dk) var(--grey-lt); box-shadow: 1px 1px 0 1px var(--ink); }
+.inset { background: #fff; border: 2px solid; border-color: var(--grey-dk) var(--grey-lt) var(--grey-lt) var(--grey-dk); }
+.b { font-family: var(--ui); font-size: 15px; font-weight: 600; padding: 4px 14px; min-width: 76px; cursor: pointer; color: var(--ink); }
+.b:active, .b.down { border-color: var(--grey-dk) var(--grey-lt) var(--grey-lt) var(--grey-dk); }
+.b:focus-visible { outline: 1px dotted var(--ink); outline-offset: -5px; }
+
+/* ---------- icons ---------- */
+.icons { display: grid; gap: 14px; width: 92px; }
+.icon { display: grid; justify-items: center; gap: 4px; text-align: center; cursor: pointer; color: var(--ink); font-size: 14px; font-weight: 600; user-select: none; line-height: 1.1; }
+.icon .pic { width: 44px; height: 44px; border: 2px solid var(--ink); background: #fff; display: grid; place-items: center; font-family: var(--mono); font-size: 22px; box-shadow: 2px 2px 0 var(--ink); position: relative; }
+.icon .pic.folder { background: var(--yellow); border-radius: 2px 6px 2px 2px; }
+.icon .pic.folder::before { content: ""; position: absolute; left: -2px; top: -8px; width: 18px; height: 8px; background: var(--yellow); border: 2px solid var(--ink); border-bottom: 0; }
+.icon .pic.exe { background: #fff; }
+.icon .pic.bin { background: var(--grey); }
+.icon .pic.txt { background: #fff; font-size: 13px; line-height: 1; }
+.icon .pic.hidden { opacity: .45; }
+.icon span { background: var(--yellow); padding: 0 3px; }
+.icon:hover span, .icon.sel span { background: var(--ink); color: var(--yellow); }
+
+/* ---------- windows ---------- */
+.win { position: absolute; min-width: 280px; display: flex; flex-direction: column; }
+.win .tb { background: var(--title); color: var(--title-fg); font-weight: 700; font-size: 15px; padding: 3px 4px 3px 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: default; user-select: none; }
+.win.blur .tb { background: var(--grey-dk); color: var(--grey); }
+.win .tb .x { font-family: var(--ui); font-size: 13px; font-weight: 700; padding: 0; min-width: 0; width: 20px; height: 18px; line-height: 1; display: grid; place-items: center; }
+.win .body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.menu { display: flex; gap: 14px; font-size: 14px; padding: 0 4px; }
+.menu span::first-letter { text-decoration: underline; }
+.content { padding: 10px 12px; font-family: var(--mono); font-size: 20px; line-height: 1.2; min-height: 120px; flex: 1; }
+.content h1 { font-family: var(--mono); font-size: 30px; margin: 0 0 6px; font-weight: 400; }
+.status { font-size: 13px; padding: 2px 6px; display: flex; justify-content: space-between; }
+
+/* explorer list */
+.list { font-family: var(--ui); font-size: 15px; padding: 0; overflow-x: auto; }
+.list table { width: 100%; border-collapse: collapse; }
+.list th { text-align: left; font-weight: 600; padding: 3px 8px; background: var(--grey); border-right: 2px solid var(--grey-dk); border-bottom: 2px solid var(--grey-dk); }
+.list td { padding: 3px 8px; white-space: nowrap; cursor: default; }
+.list tr:hover td, .list tr.sel td { background: var(--ink); color: var(--yellow); }
+.list td:first-child::before { content: "▣ "; color: var(--yellow-deep); }
+.list tr.sel td:first-child::before, .list tr:hover td:first-child::before { color: var(--yellow); }
+
+/* lucky dip */
+.dip { display: grid; gap: 10px; text-align: center; align-items: center; }
+.dip .screen { font-size: 26px; min-height: 2.4em; display: grid; place-items: center; padding: 12px; }
+.dip .screen.blink { animation: blink .12s step-end 6; }
+@keyframes blink { 50% { background: var(--yellow); } }
+.dip .row { display: flex; justify-content: center; gap: 8px; }
+
+/* boring dialog */
+.dlg .content { font-family: var(--ui); font-size: 15px; display: flex; gap: 14px; align-items: flex-start; min-height: 0; }
+.dlg .glyph { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--yellow); display: grid; place-items: center; font-weight: 700; font-size: 22px; flex: none; }
+.dlg .row { display: flex; justify-content: flex-end; gap: 8px; }
+.dlg label { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; }
+
+/* ---------- Clippy Jack ---------- */
+.clippy { position: absolute; right: 24px; bottom: 60px; display: flex; align-items: flex-end; gap: 10px; z-index: 50; }
+.clippy .bub { background: #FFFFCC; border: 2px solid var(--ink); padding: 10px 12px; font-size: 15px; max-width: 240px; position: relative; box-shadow: 2px 2px 0 var(--ink); }
+.clippy .bub::after { content: ""; position: absolute; right: -14px; bottom: 16px; border: 7px solid transparent; border-left-color: var(--ink); }
+.clippy .bub b { display: block; margin-bottom: 4px; }
+.clippy .bub .opts { display: grid; gap: 4px; margin-top: 8px; }
+.clippy .bub .opts button { text-align: left; background: none; border: 0; font-family: var(--ui); font-size: 14px; cursor: pointer; padding: 2px 4px; color: var(--ink); }
+.clippy .bub .opts button::before { content: "● "; color: var(--yellow-deep); }
+.clippy .bub .opts button:hover { background: var(--ink); color: var(--yellow); }
+.clippy .me { width: 96px; height: 96px; border: 2px solid var(--ink); background: var(--yellow); overflow: hidden; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); animation: bob 2.4s ease-in-out infinite; }
+.clippy .me img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; transform: scale(1.1); }
+@keyframes bob { 50% { transform: translateY(-5px); } }
+
+/* ---------- taskbar ---------- */
+.task { position: absolute; left: 0; right: 0; bottom: 0; height: 38px; padding: 3px 4px; display: flex; align-items: center; gap: 6px; border-top: 2px solid var(--grey-lt); z-index: 60; }
+.task .start { font-weight: 700; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 10px; }
+.task .start i { width: 16px; height: 16px; background: var(--yellow); border: 2px solid var(--ink); display: inline-block; }
+.task .tabs { display: flex; gap: 4px; flex: 1; min-width: 0; overflow: hidden; }
+.task .tab { font-size: 14px; font-weight: 600; min-width: 0; padding: 2px 10px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task .tray { font-size: 14px; padding: 2px 10px; display: flex; gap: 10px; align-items: center; border-color: var(--grey-dk) var(--grey-lt) var(--grey-lt) var(--grey-dk); box-shadow: none; }
+.task .tray .sprout { color: #1d9a4e; font-weight: 700; }
+
+.startmenu { position: absolute; left: 4px; bottom: 40px; width: 220px; display: none; z-index: 70; }
+.startmenu.open { display: flex; }
+.startmenu .band { writing-mode: vertical-rl; transform: rotate(180deg); background: var(--ink); color: var(--yellow); font-weight: 700; font-size: 20px; padding: 10px 4px; letter-spacing: 1px; }
+.startmenu ul { list-style: none; margin: 0; padding: 4px; flex: 1; }
+.startmenu li { padding: 6px 10px; font-size: 15px; cursor: pointer; }
+.startmenu li:hover { background: var(--ink); color: var(--yellow); }
+.startmenu li.sep { border-top: 2px solid var(--grey-dk); border-bottom: 2px solid var(--grey-lt); padding: 0; margin: 4px 0; cursor: default; }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
+.plain.on { display: block; }
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; font-size: 17px; }
+.plain h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 6px; }
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+.plain a { color: #1a4fd1; }
+.plain .back { font-family: var(--ui); font-weight: 700; font-size: 14px; border: 2px solid #222; background: #fff; padding: 8px 14px; cursor: pointer; }
+.plain ul { padding-left: 20px; }
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 760px) {
+  .win { min-width: 0; width: calc(100% - 120px) !important; left: 110px !important; }
+  .clippy { right: 8px; bottom: 50px; }
+  .clippy .bub { max-width: 170px; font-size: 13px; }
+  .clippy .me { width: 70px; height: 70px; }
+}
+</style>
+</head>
+<body>
+<div class="desktop" id="desktop">
+  <div class="icons">
+    <div class="icon" data-open="projects"><div class="pic folder"></div><span>My Projects</span></div>
+    <div class="icon" data-open="dip"><div class="pic exe">?!</div><span>Lucky Dip.exe</span></div>
+    <div class="icon" data-open="about"><div class="pic txt">TXT</div><span>About Jack.txt</span></div>
+    <div class="icon" data-open="boring"><div class="pic exe">:(</div><span>Boring Mode.exe</span></div>
+    <div class="icon" data-open="bin"><div class="pic bin">🗑</div><span>Rejected Ideas</span></div>
+    <div class="icon" title="Hidden file"><div class="pic hidden">???</div><span style="opacity:.6">secrets (<span id="secrets">0</span>/7)</span></div>
+  </div>
+
+  <!-- About window -->
+  <div class="win bevel" id="w-about" style="left:140px; top:40px; width:460px">
+    <div class="tb"><span>About Jack.txt - Notepad</span><button class="b bevel x" data-close="w-about" aria-label="Close">×</button></div>
+    <div class="body">
+      <div class="menu"><span>File</span><span>Edit</span><span>Search</span><span>Help</span></div>
+      <div class="content inset">
+<h1>JACK WEI</h1>
+CS @ Olin College of Engineering, class of 2028.<br>
+Builds too many things. Pranks responsibly.<br><br>
+Currently: incoming SWE intern @ Bloomberg.<br>
+Previously: Raytheon BBN x2, MIT Lincoln Lab.<br><br>
+> Double-click My Projects to see the damage.<br>
+> Run Lucky Dip.exe if you can't choose.<br>
+> Boring Mode.exe exists for recruiters. We don't judge.<br>
+<span style="animation: blink 1s step-end infinite">_</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects explorer -->
+  <div class="win bevel" id="w-projects" style="left:330px; top:220px; width:520px">
+    <div class="tb"><span>C:\JACK\PROJECTS (14 objects)</span><button class="b bevel x" data-close="w-projects" aria-label="Close">×</button></div>
+    <div class="body">
+      <div class="menu"><span>File</span><span>Edit</span><span>View</span><span>Help</span></div>
+      <div class="content inset list">
+        <table>
+          <tr><th>Name</th><th>Type</th><th>Stars</th><th>Modified</th></tr>
+          <tr class="sel"><td>Afora</td><td>Web app</td><td>★★★</td><td>2025</td></tr>
+          <tr><td>Factuality</td><td>Chrome ext</td><td>★★★</td><td>2025</td></tr>
+          <tr><td>Rehab AR</td><td>iOS app</td><td>★★</td><td>2025</td></tr>
+          <tr><td>Radar back-projection</td><td>Research</td><td>★★</td><td>2023</td></tr>
+          <tr><td>Network manager UI</td><td>Kotlin app</td><td>★★</td><td>2024</td></tr>
+          <tr><td>Resume magnifier</td><td>WebGL toy</td><td>★</td><td>2026</td></tr>
+          <tr><td>rubber_duck.exe</td><td>Prank</td><td>?</td><td>never</td></tr>
+        </table>
+      </div>
+      <div class="status inset"><span>7 of 14 shown</span><span>Free space: none, Jack keeps starting things</span></div>
+    </div>
+  </div>
+
+  <!-- Rejected ideas (recycle bin) -->
+  <div class="win bevel" id="w-bin" style="left:200px; top:300px; width:440px; display:none">
+    <div class="tb"><span>Rejected Ideas - Recycle Bin</span><button class="b bevel x" data-close="w-bin" aria-label="Close">×</button></div>
+    <div class="body">
+      <div class="menu"><span>File</span><span>Edit</span><span>Restore</span><span>Help</span></div>
+      <div class="content inset list">
+        <table>
+          <tr><th>Name</th><th>Why it died</th><th>Deleted</th></tr>
+          <tr><td>Blockchain for homework</td><td>Nobody asked</td><td>2023</td></tr>
+          <tr><td>Dating app for rubber ducks</td><td>Ducks can't type</td><td>2024</td></tr>
+          <tr><td>AI that writes my resume</td><td>Too honest</td><td>2025</td></tr>
+          <tr><td>Sleep tracker</td><td>No data to track</td><td>2025</td></tr>
+          <tr><td>This website, v1 to v6</td><td>You're looking at v7</td><td>2026</td></tr>
+        </table>
+      </div>
+      <div class="status inset"><span>5 objects</span><span>Empty Recycle Bin is disabled. Jack keeps peeking.</span></div>
+    </div>
+  </div>
+
+  <!-- Lucky dip -->
+  <div class="win bevel" id="w-dip" style="left:620px; top:60px; width:320px; display:none">
+    <div class="tb"><span>Lucky Dip.exe</span><button class="b bevel x" data-close="w-dip" aria-label="Close">×</button></div>
+    <div class="body dip">
+      <div class="content inset screen" id="dipScreen">Press DIP to get a random project.</div>
+      <div class="row"><button class="b bevel" id="dipBtn">DIP</button><button class="b bevel" data-close="w-dip">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- Boring mode dialog -->
+  <div class="win bevel dlg" id="w-boring" style="left:380px; top:140px; width:400px; display:none">
+    <div class="tb"><span>Boring Mode</span><button class="b bevel x" data-close="w-boring" aria-label="Close">×</button></div>
+    <div class="body">
+      <div class="content">
+        <div class="glyph">:(</div>
+        <div>
+          <b>Switch to Boring Mode?</b><br>
+          This replaces the whole site with a plain resume. No jokes, no pranks, no Jack. It is reversible, unlike most of Jack's decisions.
+          <label><input type="checkbox" id="rememberBoring"> Remember my choice</label>
+        </div>
+      </div>
+      <div class="row"><button class="b bevel" id="boringYes">Yes (sad)</button><button class="b bevel" data-close="w-boring">No, keep it fun</button></div>
+    </div>
+  </div>
+
+  <!-- Clippy Jack -->
+  <div class="clippy">
+    <div class="bub">
+      <b>It looks like you're hiring someone.</b>
+      Would you like help with that?
+      <div class="opts">
+        <button data-open="projects">Show me the projects</button>
+        <button data-open="dip">Pick one for me</button>
+        <button data-open="boring">Just the resume, please</button>
+      </div>
+    </div>
+    <div class="me" id="mascot" title="Jack (click 10 times at your own risk)"><img src="mascot.jpg" alt="Yellow Jack"></div>
+  </div>
+</div>
+
+<div class="startmenu bevel" id="startmenu">
+  <div class="band">JackOS 95</div>
+  <ul>
+    <li data-open="projects">Programs</li>
+    <li data-open="about">Documents</li>
+    <li data-open="dip">Lucky Dip</li>
+    <li class="sep"></li>
+    <li data-open="boring">Boring Mode…</li>
+    <li>Shut Down… (no)</li>
+  </ul>
+</div>
+
+<div class="task bevel">
+  <button class="b bevel start" id="startBtn"><i></i>Start</button>
+  <div class="tabs" id="tabs"></div>
+  <div class="tray bevel"><span class="sprout">🌱</span><span id="clock">2:14 AM</span></div>
+</div>
+
+<div class="plain" id="plain" aria-hidden="true">
+  <div class="in">
+    <button class="back" id="unboring">Make it fun again</button>
+    <div class="sulk"><img src="mascot.jpg" alt=""><span>Jack has been placed in time-out until you leave Boring Mode.</span></div>
+    <h1>Jack Wei</h1>
+    <p>Computer Science, Olin College of Engineering, class of 2028. GPA 3.96.<br>
+    <a href="#">github.com/We1chJ</a> · <a href="#">linkedin.com/in/erqi-jack-wei</a> · ewei@olin.edu · <a href="#">Download PDF</a></p>
+    <h2>Experience</h2>
+    <ul>
+      <li>Software Engineer Intern, Bloomberg (Summer 2026)</li>
+      <li>Software Engineer Research Intern, Raytheon BBN Technologies (2024, 2025)</li>
+      <li>Mobile App Developer and Researcher, Olin PLai Lab (2025–present)</li>
+      <li>UAS SAR Researcher, MIT Lincoln Laboratory BWSI (2023)</li>
+    </ul>
+    <h2>Projects</h2>
+    <ul><li>Afora</li><li>Factuality</li><li>Rehab AR app</li></ul>
+    <p><em>This is the whole resume, with no jokes. The fun version is one click away.</em></p>
+  </div>
+</div>
+
+<script>
+const wins = {projects:'w-projects', about:'w-about', dip:'w-dip', boring:'w-boring', bin:'w-bin'};
+const titles = {projects:'C:\\JACK\\PROJECTS', about:'About Jack.txt', dip:'Lucky Dip.exe', boring:'Boring Mode', bin:'Rejected Ideas'};
+let z = 10;
+function focusWin(id){
+  document.querySelectorAll('.win').forEach(w => w.classList.add('blur'));
+  const w = document.getElementById(id); w.classList.remove('blur'); w.style.zIndex = ++z; w.style.display = 'flex';
+  renderTabs(id);
+}
+function closeWin(id){ document.getElementById(id).style.display = 'none'; renderTabs(); }
+function renderTabs(active){
+  const tabs = document.getElementById('tabs'); tabs.innerHTML = '';
+  Object.entries(wins).forEach(([k, id]) => {
+    if (document.getElementById(id).style.display === 'none') return;
+    const b = document.createElement('button'); b.className = 'b bevel tab' + (id === active ? ' down' : '');
+    b.textContent = titles[k]; b.addEventListener('click', () => focusWin(id)); tabs.appendChild(b);
+  });
+}
+document.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => { focusWin(wins[el.dataset.open]); document.getElementById('startmenu').classList.remove('open'); }));
+document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeWin(el.dataset.close)));
+document.querySelectorAll('.win').forEach(w => w.addEventListener('mousedown', () => focusWin(w.id)));
+renderTabs('w-projects');
+
+/* drag windows by the title bar */
+document.querySelectorAll('.win .tb').forEach(tb => {
+  tb.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    const w = tb.parentElement, r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
+    const move = ev => { w.style.left = Math.max(0, ev.clientX - ox) + 'px'; w.style.top = Math.max(0, ev.clientY - oy) + 'px'; };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  });
+});
+
+/* lucky dip */
+const DIP = ['Afora', 'Factuality', 'Rehab AR', 'Radar back-projection', 'Network manager UI', 'Resume magnifier', 'rubber_duck.exe (it quacks)'];
+document.getElementById('dipBtn').addEventListener('click', () => {
+  const s = document.getElementById('dipScreen'); s.classList.remove('blink'); void s.offsetWidth; s.classList.add('blink');
+  setTimeout(() => { s.textContent = '> ' + DIP[Math.floor(Math.random() * DIP.length)]; }, 700);
+});
+
+/* start menu + clock */
+const sm = document.getElementById('startmenu');
+document.getElementById('startBtn').addEventListener('click', e => { e.stopPropagation(); sm.classList.toggle('open'); });
+document.addEventListener('click', e => { if (!sm.contains(e.target)) sm.classList.remove('open'); });
+function tick(){ const d = new Date(); let h = d.getHours(), m = d.getMinutes(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; document.getElementById('clock').textContent = `${h}:${String(m).padStart(2,'0')} ${ap}`; }
+tick(); setInterval(tick, 30000);
+
+/* secrets */
+let secrets = 0; const secretEl = document.getElementById('secrets');
+function secret(){ secrets = Math.min(7, secrets + 1); secretEl.textContent = secrets; }
+let taps = 0; document.getElementById('mascot').addEventListener('click', () => { if (++taps === 10) secret(); });
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0; window.addEventListener('keydown', e => { k = (e.key === KONAMI[k]) ? k + 1 : (e.key === KONAMI[0] ? 1 : 0); if (k === KONAMI.length) { k = 0; secret(); } });
+
+/* boring mode */
+const plain = document.getElementById('plain');
+function setBoring(on, remember){ plain.classList.toggle('on', on); plain.setAttribute('aria-hidden', String(!on)); try { if (remember || !on) localStorage.setItem('boring', on ? '1' : '0'); } catch(e){} }
+document.getElementById('boringYes').addEventListener('click', () => { closeWin('w-boring'); setBoring(true, document.getElementById('rememberBoring').checked); });
+document.getElementById('unboring').addEventListener('click', () => setBoring(false));
+try { if (localStorage.getItem('boring') === '1') setBoring(true); } catch(e){}
+</script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Jack Wei, Chapter 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Shantell+Sans:ital,wght@0,500;0,700;0,800;1,500&display=swap">
+<style>
+/* Layout: a vertical webtoon strip, 720px wide, read top to bottom. Black ink on
+   white paper, halftone shading, speed lines. Yellow is the only color and is used
+   as a spot color on the panels that matter. Chapter nav floats on the left. */
+:root {
+  --paper: #fff;
+  --ink: #000;
+  --yellow: #FFC800;
+  --tone: rgba(0,0,0,.14);
+  --sfx: 'Bangers', Impact, 'Arial Black', sans-serif;
+  --hand: 'Shantell Sans', 'Comic Sans MS', 'Segoe Print', cursive, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #ececec;
+  background-image: radial-gradient(circle, var(--tone) 1.2px, transparent 1.6px);
+  background-size: 7px 7px;
+  color: var(--ink); font-family: var(--hand); font-size: 17px; line-height: 1.45;
+  overflow-x: hidden;
+}
+.strip { max-width: 720px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* ---------- panel primitives ---------- */
+.panel {
+  position: relative; background: var(--paper); border: 4px solid var(--ink);
+  box-shadow: 6px 6px 0 var(--ink); padding: 26px 24px; overflow: hidden;
+}
+.row { display: grid; gap: 18px; margin-top: 18px; }
+.row.two { grid-template-columns: 1fr 1fr; }
+.row.three { grid-template-columns: 1fr 1fr 1fr; }
+.halftone { background-image: radial-gradient(circle, var(--tone) 1.4px, transparent 1.8px); background-size: 8px 8px; }
+.speed {
+  background: repeating-conic-gradient(from 0deg at 50% 50%, var(--ink) 0 .55deg, transparent .55deg 4deg);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 32%, #000 70%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 32%, #000 70%);
+}
+.sfx {
+  position: absolute; font-family: var(--sfx); font-size: 86px; line-height: 1; letter-spacing: 2px;
+  color: var(--yellow); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
+  text-shadow: 6px 6px 0 var(--ink); pointer-events: none; user-select: none;
+}
+.bubble {
+  position: relative; background: var(--paper); border: 3px solid var(--ink); border-radius: 50% / 46%;
+  padding: 18px 26px; font-weight: 700; font-size: 18px; text-align: center; max-width: 320px;
+}
+.bubble::before, .bubble::after { content: ""; position: absolute; }
+.bubble.tail-bl::before { left: 36px; bottom: -22px; border: 12px solid transparent; border-top: 16px solid var(--ink); border-left-width: 4px; }
+.bubble.tail-bl::after  { left: 40px; bottom: -14px; border: 9px solid transparent; border-top: 12px solid var(--paper); border-left-width: 3px; }
+.bubble.shout { border-radius: 8px; border-width: 4px; font-family: var(--sfx); font-size: 26px; letter-spacing: 1px; font-weight: 400;
+  clip-path: polygon(0 8%, 4% 0, 96% 3%, 100% 10%, 98% 92%, 94% 100%, 6% 97%, 0 90%); }
+.caption {
+  display: inline-block; background: var(--yellow); border: 3px solid var(--ink); padding: 6px 12px;
+  font-weight: 800; font-size: 14px; letter-spacing: .3px; box-shadow: 3px 3px 0 var(--ink);
+}
+.caption.plain { background: var(--paper); }
+
+/* ---------- chapter nav ---------- */
+.nav {
+  position: fixed; left: max(12px, calc(50% - 360px - 170px)); top: 90px; width: 150px; z-index: 10;
+  background: var(--paper); border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 12px 14px;
+  font-weight: 800; font-size: 14px;
+}
+.nav b { display: block; font-family: var(--sfx); font-size: 22px; letter-spacing: 1px; margin-bottom: 6px; }
+.nav a { display: block; color: var(--ink); text-decoration: none; padding: 4px 0; border-left: 4px solid transparent; padding-left: 8px; margin-left: -8px; }
+.nav a.on { border-left-color: var(--yellow); background: linear-gradient(90deg, rgba(255,200,0,.35), transparent); }
+.nav a:hover { text-decoration: underline; }
+.nav .secret { color: #777; font-size: 12px; margin-top: 8px; display: block; }
+
+/* ---------- masthead ---------- */
+.mast { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 4px solid var(--ink); margin: 0 -16px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mast .title { font-family: var(--sfx); font-size: 26px; letter-spacing: 1px; }
+.mast .title small { font-family: var(--hand); font-weight: 800; font-size: 13px; margin-left: 10px; background: var(--yellow); padding: 2px 8px; border: 2px solid var(--ink); }
+.boring { font-family: var(--hand); font-weight: 800; font-size: 13px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 6px 10px; cursor: pointer; }
+.boring:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.boring:focus-visible { outline: 3px dashed var(--ink); outline-offset: 3px; }
+.boring .sad { opacity: .55; }
+
+/* ---------- splash (page 1) ---------- */
+.splash { margin-top: 18px; min-height: 560px; display: grid; place-items: center; background: var(--yellow); }
+.splash .speed { position: absolute; inset: -40px; opacity: .9; }
+.ring {
+  position: relative; width: 300px; height: 300px; border-radius: 50%; border: 5px solid var(--ink);
+  box-shadow: 0 0 0 10px var(--yellow), 0 0 0 14px var(--ink), 14px 14px 0 14px rgba(0,0,0,.25);
+  overflow: hidden; background: var(--yellow); cursor: pointer; transition: transform .15s;
+}
+.ring:hover { transform: scale(1.02) rotate(-2deg); }
+.ring img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.12); }
+.splash .bubble { position: absolute; right: 18px; top: 26px; z-index: 3; transform: rotate(3deg); }
+.splash .sfx { left: -8px; bottom: 12px; transform: rotate(-8deg); font-size: 110px; }
+.splash .cap { position: absolute; left: 20px; top: 20px; z-index: 3; }
+
+/* ---------- title page ---------- */
+.titlepage { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: stretch; }
+.titlepage .vert {
+  writing-mode: vertical-rl; text-orientation: upright; font-family: var(--sfx); font-size: 42px; letter-spacing: 6px;
+  border-right: 4px solid var(--ink); padding-right: 12px; line-height: 1;
+}
+.titlepage h1 { font-family: var(--sfx); font-weight: 400; font-size: clamp(40px, 7vw, 64px); line-height: .95; margin: 0 0 10px; letter-spacing: 1px; text-wrap: balance; }
+.titlepage h1 span { color: var(--yellow); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; }
+.titlepage p { margin: 0; font-weight: 500; max-width: 46ch; font-size: 17px; }
+.titlepage .meta { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- episode grid ---------- */
+.ep { padding: 0; aspect-ratio: 1; display: grid; grid-template-rows: 1fr auto; cursor: pointer; }
+.ep .art { position: relative; display: grid; place-items: center; font-family: var(--sfx); font-size: 44px; letter-spacing: 1px; border-bottom: 4px solid var(--ink); }
+.ep .art.y { background: var(--yellow); }
+.ep .foot { padding: 8px 10px; font-weight: 800; font-size: 13px; display: flex; justify-content: space-between; gap: 6px; }
+.ep .new { position: absolute; top: 8px; left: 8px; font-family: var(--sfx); background: var(--ink); color: var(--yellow); padding: 1px 8px; font-size: 14px; transform: rotate(-6deg); }
+.ep:hover .art { background: var(--yellow); }
+
+/* ---------- random page ---------- */
+.rand { text-align: center; padding: 36px 24px; }
+.rand .sfx { position: static; display: block; font-size: 64px; text-shadow: 4px 4px 0 var(--ink); margin-bottom: 8px; transform: rotate(-2deg); }
+.die {
+  display: inline-grid; place-items: center; width: 92px; height: 92px; border: 4px solid var(--ink); border-radius: 18px; background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink); font-family: var(--sfx); font-size: 48px; cursor: pointer; margin: 10px 0 14px; transition: transform .1s;
+}
+.die:hover { transform: rotate(8deg); }
+.die:active { transform: translate(4px,4px); box-shadow: 2px 2px 0 var(--ink); }
+.die.roll { animation: spin .7s ease; }
+@keyframes spin { to { transform: rotate(720deg); } }
+.rand p { margin: 0; font-weight: 700; }
+.rand .result { margin-top: 12px; font-family: var(--sfx); font-size: 26px; letter-spacing: 1px; min-height: 1.3em; }
+
+/* ---------- power levels ---------- */
+.power table { width: 100%; border-collapse: collapse; font-weight: 700; font-size: 15px; }
+.power td { padding: 8px 6px; border-bottom: 2px dashed rgba(0,0,0,.25); vertical-align: middle; }
+.power td:last-child { width: 46%; }
+.meter { height: 16px; border: 3px solid var(--ink); background: var(--paper); }
+.meter i { display: block; height: 100%; background: var(--yellow); background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.25) 6px 8px); }
+.power h2, .panel h2 { font-family: var(--sfx); font-weight: 400; font-size: 32px; margin: 0 0 12px; letter-spacing: 1px; }
+
+/* ---------- continued ---------- */
+.tbc { margin-top: 30px; text-align: right; font-family: var(--sfx); font-size: 34px; letter-spacing: 2px; }
+.tbc small { display: block; font-family: var(--hand); font-weight: 700; font-size: 14px; letter-spacing: 0; }
+
+/* ---------- Boring Mode ---------- */
+.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
+.plain.on { display: block; }
+.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; }
+.plain h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 6px; }
+.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+.plain a { color: #1a4fd1; }
+.plain .back { font-family: var(--hand); font-weight: 800; font-size: 14px; border: 2px solid #222; background: #fff; padding: 8px 14px; cursor: pointer; }
+.plain ul { padding-left: 20px; }
+.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
+.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (max-width: 1080px) { .nav { position: static; width: auto; margin-top: 18px; display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; } .nav b { margin: 0 6px 0 0; } .nav a { margin: 0; padding: 2px 8px; } }
+@media (max-width: 640px) {
+  .row.three { grid-template-columns: 1fr 1fr; }
+  .titlepage { grid-template-columns: 1fr; }
+  .titlepage .vert { writing-mode: horizontal-tb; border-right: 0; border-bottom: 4px solid var(--ink); padding: 0 0 8px; letter-spacing: 3px; font-size: 28px; }
+  .splash { min-height: 480px; }
+  .ring { width: 230px; height: 230px; }
+  .splash .sfx { font-size: 80px; }
+  .splash .bubble { max-width: 220px; font-size: 15px; padding: 12px 18px; }
+}
+</style>
+</head>
+<body>
+<aside class="nav" aria-label="Chapters">
+  <b>CHAPTERS</b>
+  <a class="on" href="#ch1">1. Origin Story</a>
+  <a href="#ch2">2. Side Quests</a>
+  <a href="#ch3">3. Boss Fights</a>
+  <a href="#omake">Omake (bonus)</a>
+  <span class="secret">Secrets found: <span id="secrets">0</span>/7</span>
+</aside>
+
+<main class="strip">
+  <header class="mast">
+    <div class="title">JACK WEI <small>Weekly</small></div>
+    <button class="boring" id="boringBtn">Boring Mode <span class="sad">(sad)</span></button>
+  </header>
+
+  <!-- PAGE 1: splash -->
+  <section class="panel splash" id="ch1">
+    <div class="speed"></div>
+    <span class="caption cap">CHAPTER 1</span>
+    <div class="bubble shout">WHO SUMMONED A RECRUITER?!</div>
+    <div class="ring" id="mascot" title="Jack"><img src="mascot.jpg" alt="Yellow Jack gasping"></div>
+    <div class="sfx">DOON</div>
+  </section>
+
+  <!-- PAGE 2: title -->
+  <section class="panel titlepage" style="margin-top:18px">
+    <div class="vert">ORIGIN</div>
+    <div>
+      <h1>The Boy Who <span>Shipped</span> Too Much</h1>
+      <p>Jack Wei is a CS student at Olin who cannot stop building things. Apps for seniors, radar for drones, a Chrome extension that argues with the internet. This is his story, told one panel at a time.</p>
+      <div class="meta">
+        <span class="caption plain">Olin College · 2028</span>
+        <span class="caption plain">Bloomberg · Summer 2026</span>
+        <span class="caption">14 projects and counting</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 3: dialogue -->
+  <div class="row two">
+    <section class="panel halftone" style="min-height:220px; display:grid; place-items:center">
+      <div class="bubble tail-bl">"So, what do you actually <em>do</em>?"</div>
+    </section>
+    <section class="panel" style="min-height:220px; display:grid; place-items:center; background:var(--yellow)">
+      <div class="bubble shout" style="font-size:22px">EVERYTHING. KEEP SCROLLING.</div>
+      <div class="sfx" style="right:-10px; bottom:-18px; font-size:54px; transform:rotate(10deg)">GASP</div>
+    </section>
+  </div>
+
+  <!-- PAGE 4: episodes -->
+  <section class="panel" id="ch2" style="margin-top:18px">
+    <h2>Side Quests</h2>
+    <p style="margin:0 0 6px; font-weight:700">Each project is an episode. Tap one to read it.</p>
+  </section>
+  <div class="row three">
+    <section class="panel ep"><div class="art y"><span class="new">NEW</span>AF</div><div class="foot"><span>Ep.01 Afora</span><span>★★★</span></div></section>
+    <section class="panel ep"><div class="art halftone">FC</div><div class="foot"><span>Ep.02 Factuality</span><span>★★★</span></div></section>
+    <section class="panel ep"><div class="art">AR</div><div class="foot"><span>Ep.03 Rehab AR</span><span>★★</span></div></section>
+    <section class="panel ep"><div class="art halftone">SAR</div><div class="foot"><span>Ep.04 Radar</span><span>★★</span></div></section>
+    <section class="panel ep"><div class="art">NET</div><div class="foot"><span>Ep.05 Net UI</span><span>★★</span></div></section>
+    <section class="panel ep"><div class="art halftone" style="font-size:30px">+9</div><div class="foot"><span>More episodes</span><span>→</span></div></section>
+  </div>
+
+  <!-- PAGE 5: random page -->
+  <section class="panel rand halftone" style="margin-top:18px">
+    <span class="sfx">FLIP!</span>
+    <p>Can't decide? Roll the die and read a random episode.</p>
+    <button class="die" id="die" aria-label="Roll the die">?</button>
+    <div class="result" id="result"></div>
+  </section>
+
+  <!-- PAGE 6: power levels -->
+  <section class="panel power" id="ch3" style="margin-top:18px">
+    <h2>Boss Fights</h2>
+    <table>
+      <tr><td>ICPC, top 5 in district</td><td>2025</td><td><div class="meter"><i style="width:92%"></i></div></td></tr>
+      <tr><td>USACO Gold</td><td>2023</td><td><div class="meter"><i style="width:80%"></i></div></td></tr>
+      <tr><td>ACSL national finalist, twice</td><td>2023</td><td><div class="meter"><i style="width:74%"></i></div></td></tr>
+      <tr><td>Google Kickstart, top 2%</td><td>2022</td><td><div class="meter"><i style="width:66%"></i></div></td></tr>
+      <tr><td>Sleep schedule</td><td>ongoing</td><td><div class="meter"><i style="width:6%"></i></div></td></tr>
+    </table>
+  </section>
+
+  <!-- omake -->
+  <section class="panel" id="omake" style="margin-top:18px; background:var(--yellow)">
+    <h2>Omake</h2>
+    <p style="margin:0; font-weight:700">Bonus pages, outtakes, and 7 secrets hidden in this chapter. One of them needs a game controller.</p>
+  </section>
+
+  <div class="tbc">TO BE CONTINUED<small>Chapter 2 drops when Jack finishes one more project. So, tomorrow.</small></div>
+</main>
+
+<div class="plain" id="plain" aria-hidden="true">
+  <div class="in">
+    <button class="back" id="unboring">Make it fun again</button>
+    <div class="sulk"><img src="mascot.jpg" alt=""><span>Jack has been placed in time-out until you leave Boring Mode.</span></div>
+    <h1>Jack Wei</h1>
+    <p>Computer Science, Olin College of Engineering, class of 2028. GPA 3.96.<br>
+    <a href="#">github.com/We1chJ</a> · <a href="#">linkedin.com/in/erqi-jack-wei</a> · ewei@olin.edu · <a href="#">Download PDF</a></p>
+    <h2>Experience</h2>
+    <ul>
+      <li>Software Engineer Intern, Bloomberg (Summer 2026)</li>
+      <li>Software Engineer Research Intern, Raytheon BBN Technologies (2024, 2025)</li>
+      <li>Mobile App Developer and Researcher, Olin PLai Lab (2025–present)</li>
+      <li>UAS SAR Researcher, MIT Lincoln Laboratory BWSI (2023)</li>
+    </ul>
+    <h2>Projects</h2>
+    <ul><li>Afora</li><li>Factuality</li><li>Rehab AR app</li></ul>
+    <p><em>This is the whole resume, with no jokes. The fun version is one click away.</em></p>
+  </div>
+</div>
+
+<script>
+const EPS = ['Ep.01 Afora','Ep.02 Factuality','Ep.03 Rehab AR','Ep.04 Radar','Ep.05 Net UI','Ep.06 Resume magnifier','Ep.07 Rubber duck (shiny!)'];
+const die = document.getElementById('die'), result = document.getElementById('result');
+die.addEventListener('click', () => {
+  die.classList.remove('roll'); void die.offsetWidth; die.classList.add('roll');
+  const n = Math.floor(Math.random() * EPS.length);
+  setTimeout(() => { die.textContent = n + 1; result.textContent = EPS[n]; }, 650);
+});
+
+let secrets = 0; const secretEl = document.getElementById('secrets');
+function secret(){ secrets = Math.min(7, secrets + 1); secretEl.textContent = secrets; }
+let taps = 0;
+document.getElementById('mascot').addEventListener('click', () => { if (++taps === 10) secret(); });
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0;
+window.addEventListener('keydown', e => {
+  k = (e.key === KONAMI[k]) ? k + 1 : (e.key === KONAMI[0] ? 1 : 0);
+  if (k === KONAMI.length) { k = 0; secret(); }
+});
+
+const plain = document.getElementById('plain');
+function setBoring(on){ plain.classList.toggle('on', on); plain.setAttribute('aria-hidden', String(!on)); try { localStorage.setItem('boring', on ? '1' : '0'); } catch(e){} }
+document.getElementById('boringBtn').addEventListener('click', () => setBoring(true));
+document.getElementById('unboring').addEventListener('click', () => setBoring(false));
+try { if (localStorage.getItem('boring') === '1') setBoring(true); } catch(e){}
+
+/* chapter nav highlight */
+const links = [...document.querySelectorAll('.nav a[href^="#"]')];
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-40% 0px -50% 0px' });
+['ch1','ch2','ch3','omake'].forEach(id => { const el = document.getElementById(id); if (el) io.observe(el); });
+</script>
+</body>
+</html>
