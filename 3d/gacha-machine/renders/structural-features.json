@@ -1,5 +1,0 @@
-[
-  {"id": "stack-silhouette", "score": 0.86, "tier": "critical", "notes": "Unchanged from blockout; Tier 1 identical (IoU 0.908)."},
-  {"id": "capsule-system", "score": 0.82, "tier": "critical", "notes": "Ten spheres, five colours as in the reference, now two-tone (coloured top, white bottom) with a black equatorial seam via refineGachaMachine.splitCapsules. They rest on the floor cup inside the glass. Still a tidy pyramid rather than the reference's loose pile; no highlight dot yet (material pass)."},
-  {"id": "front-face-hardware", "score": 0.81, "tier": "critical", "notes": "Sign plate (0.54 x 0.146 D, -2 deg), crank disc + offset pink bar + black knob on the +Z axle, dark tray plate all at the measured positions. Crank disc is white-on-cream and nearly invisible until the outline pass; tray is a proud plate, not a recess (form-refinement)."}
-]

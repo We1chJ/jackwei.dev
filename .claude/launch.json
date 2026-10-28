@@ -14,19 +14,6 @@
       "port": 8765
     },
     {
-      "name": "gacha-3d",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "vite",
-        "-c",
-        "vite.preview.config.ts",
-        "--port",
-        "5174",
-        "--strictPort"
-      ],
-      "port": 5174
-    },
-    {
       "name": "site",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

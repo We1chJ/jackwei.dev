@@ -1,208 +1,195 @@
-/* Layout: a toy-shop counter. Headline left, the capsule machine right as the hero
-   object; a collection shelf (Jackdex) runs underneath. Everything is a sticker:
-   thick black outline, white sticker edge, hard offset shadow. */
 :root {
-  --yellow: #FFC800;
-  --yellow-deep: #F2A900;
-  --ink: #000;
-  --paper: #FFFDF5;
-  --pink: #FF7A9E;
-  --mint: #5FE3B1;
-  --sky: #5BC8FF;
-  --grape: #B48CFF;
-  --display: 'Lilita One', 'Arial Black', Impact, sans-serif;
-  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
-  color-scheme: light;
+  --backdrop: #E9C24A;
+  --ink: #141414;
+  --paper: #FFFDF6;
+  --font: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 }
-
 * { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { background: var(--backdrop); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 
-html, body { margin: 0; }
+.app { position: relative; height: 100%; overflow: hidden; }
+.stage { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+.stage canvas { display: block; }
 
-body {
-  background: var(--yellow);
-  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,.08) 1.5px, transparent 0);
-  background-size: 22px 22px;
-  color: var(--ink);
-  font-family: var(--body);
-  font-size: 17px;
-  line-height: 1.5;
-  overflow-x: hidden;
+.brand {
+  position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); left: 20px;
+  font-family: 'Lilita One', 'Arial Black', sans-serif; font-size: 22px; letter-spacing: .3px;
+  pointer-events: none;
 }
 
-.wrap { max-width: 1120px; margin: 0 auto; padding: 18px 20px 60px; }
+.dock {
+  position: absolute; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: grid; justify-items: center; gap: 10px; width: min(560px, calc(100% - 32px));
+}
+.hint {
+  margin: 0; padding: 9px 16px; border-radius: 999px; background: rgba(20, 20, 20, .86); color: var(--paper);
+  font-weight: 800; font-size: 15px; text-align: center; backdrop-filter: blur(6px);
+}
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.controls button {
+  font: inherit; font-weight: 800; font-size: 14px; padding: 9px 16px; border-radius: 999px;
+  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer;
+}
+.controls button:hover { background: #fff; }
+.controls button:disabled { opacity: .5; cursor: default; }
+.controls button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.controls .quiet { background: transparent; }
 
-/* ---------- sticker primitives ---------- */
-.sticker {
-  background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink), 8px 8px 0 7px rgba(0,0,0,.18);
+/* ---------- "Insert coin" loading screen (index.html + src/loader.ts) ---------- */
+/* Only transform/opacity animate, so it stays smooth while the 3D engine warms up. */
+.loader { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; perspective: 1600px; }
+
+/* Two hinged doors; the halftone lives on a full-width layer inside each so the halves line up. */
+.door {
+  position: absolute; top: 0; bottom: 0; width: 50%; overflow: hidden;
+  transition: transform .95s cubic-bezier(.6, 0, .25, 1), opacity .3s .65s;
+}
+.door-l { left: 0; transform-origin: left center; }
+.door-r { right: 0; transform-origin: right center; }
+.door-content {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 200%; display: grid; place-items: center;
+  background:
+    radial-gradient(rgba(20, 20, 20, .07) 1.6px, transparent 1.8px) 0 0 / 18px 18px,
+    radial-gradient(110% 90% at 50% 42%, #F8D766, #EDBA31);
+}
+.door-r .door-content { left: -100%; }
+.door::after {   /* the door darkens as it turns away from the light */
+  content: ""; position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .95s;
+  background: linear-gradient(90deg, rgba(40, 25, 0, .05), rgba(40, 25, 0, .5));
+}
+.door-r::after { background: linear-gradient(270deg, rgba(40, 25, 0, .05), rgba(40, 25, 0, .5)); }
+.open .door-l { transform: rotateY(-82deg); opacity: 0; }
+.open .door-r { transform: rotateY(82deg); opacity: 0; }
+.open .door::after { opacity: 1; }
+.open .door-l .door-content { box-shadow: inset -3px 0 0 rgba(60, 40, 0, .45); }
+.open .door-r .door-content { box-shadow: inset 3px 0 0 rgba(60, 40, 0, .45); }
+
+.loader-body { position: relative; z-index: 1; display: grid; justify-items: center; gap: 24px; width: min(640px, calc(100% - 32px)); }
+
+.loader-title { display: flex; align-items: center; gap: 14px; }
+.loader-title h1 {
+  margin: 0; font: 400 clamp(34px, 9vw, 52px) / 1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: 1px;
+  color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 4px 4px 0 var(--ink);
+}
+.loader-mascot {
+  width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff; background: #FFC800;
+  box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px var(--ink);
+  animation: wobble 2.4s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes wobble { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-6deg) translateY(-3px); } }
+
+/* Brushed-steel front plate, like the machine's. No overflow clipping here: it would flatten the 3D coin. */
+.plate {
+  position: relative; width: 100%; height: 176px; border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 35%, rgba(0, 0, 0, .1)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, .07) 0 1px, rgba(0, 0, 0, .045) 1px 2px, rgba(255, 255, 255, 0) 2px 3px),
+    linear-gradient(90deg, #A9AEB3, #DDE0E3 18%, #BFC3C7 38%, #EEF0F2 62%, #C3C7CB 80%, #A4A9AE);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(0, 0, 0, .25),
+    0 0 0 1px #7E8388, 0 3px 0 #6F7479, 0 22px 34px -10px rgba(90, 60, 0, .5);
+}
+.plate-glint { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.plate-glint::before {
+  content: ""; position: absolute; top: -20%; bottom: -20%; left: 0; width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .42), transparent);
+  transform: translateX(-120%) skewX(-18deg); animation: glint 5.5s cubic-bezier(.45, 0, .3, 1) infinite 1s;
+}
+@keyframes glint { 0% { transform: translateX(-120%) skewX(-18deg); } 35%, 100% { transform: translateX(480%) skewX(-18deg); } }
+.screw {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  background:
+    linear-gradient(var(--a, 30deg), transparent 43%, rgba(40, 40, 40, .7) 44% 56%, transparent 57%),
+    radial-gradient(circle at 35% 30%, #fff, #C5C9CD 45%, #7C8187);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(0, 0, 0, .22);
 }
 
-.btn {
-  font-family: var(--display);
-  font-size: 18px;
-  letter-spacing: .5px;
-  padding: 12px 20px;
-  border: 3px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  box-shadow: 4px 4px 0 var(--ink);
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex; align-items: center; gap: 8px;
-  transition: transform .08s ease, box-shadow .08s ease;
+/* Recessed coin track with a chrome rail. */
+.groove {
+  position: absolute; z-index: 1; left: 26px; right: 104px; top: 24px; height: 88px; border-radius: 10px;   /* above the bezel, so the coin visibly enters the slit */
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #6C7176, #969BA0 34%, #A7ACB1);
+  box-shadow: inset 0 3px 7px rgba(0, 0, 0, .5), inset 0 -1px 0 rgba(255, 255, 255, .35), 0 1px 0 rgba(255, 255, 255, .75);
+}
+.rail {
+  position: absolute; left: 6px; right: -2px; top: 62px; height: 7px; border-radius: 4px;
+  background: linear-gradient(180deg, #fff, #C9CED3 35%, #6E747A 72%, #A7ACB1);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, .4); transform-origin: left center; transform: rotate(1.8deg);
 }
 
-.btn:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
-
-.btn:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
-
-.btn:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
-
-.btn.primary { background: var(--pink); }
-
-.btn.quiet { background: #fff; font-family: var(--body); font-weight: 900; font-size: 15px; padding: 9px 16px; }
-
-/* ---------- top bar ---------- */
-.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-
-.logo {
-  font-family: var(--display); font-size: 26px; text-decoration: none; color: var(--ink);
-  background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 4px 12px;
-  box-shadow: 4px 4px 0 var(--ink); transform: rotate(-2deg); display: inline-block;
+/* The coin: faces + reeded edge in real 3D; shine and contact shadow stay put while it rolls. */
+.coin-fly { position: absolute; left: 8px; top: 8px; width: 56px; height: 56px; perspective: 500px; will-change: transform; }
+.coin-shadow {
+  position: absolute; left: 8px; right: 8px; bottom: -4px; height: 8px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .5), transparent);
 }
-
-.nav { display: flex; gap: 6px 18px; flex-wrap: wrap; font-weight: 900; }
-
-.nav a { color: var(--ink); text-decoration: none; border-bottom: 3px solid transparent; }
-
-.nav a:hover { border-bottom-color: var(--ink); }
-
-.nav .secret { color: rgba(0,0,0,.55); }
-
-.boring { font-size: 14px; }
-
-.boring .sad { opacity: .6; font-weight: 700; }
-
-/* ---------- hero ---------- */
-.hero {
-  display: grid; grid-template-columns: 1.05fr .95fr; gap: 24px; align-items: center;
-  margin-top: 36px;
+.coin-hop { position: relative; display: block; width: 56px; height: 56px; padding: 0; border: 0; background: none; cursor: pointer; transform-style: preserve-3d; }
+.coin-hop:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 50%; }
+.coin3d { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
+.coin-face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; }
+.coin-face svg { display: block; width: 100%; height: 100%; }
+.coin-face.front { transform: translateZ(3.5px); }
+.coin-face.back { transform: rotateY(180deg) translateZ(3.5px); }
+.coin-edge { position: absolute; inset: 0; transform-style: preserve-3d; }
+.coin-edge i {
+  position: absolute; left: 50%; top: 50%; width: 4.9px; height: 7px; margin: -3.5px 0 0 -2.45px; backface-visibility: hidden;
+  background: linear-gradient(90deg, #7A5605, #F6D873 45%, #C9961B 70%, #7A5605);
 }
-
-h1 {
-  font-family: var(--display); font-weight: 400; font-size: clamp(44px, 7vw, 86px);
-  line-height: 1.04; margin: 0; text-wrap: balance;
-  text-shadow: 4px 4px 0 #fff, 7px 7px 0 var(--ink);
+.coin-sheen {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; transform: translateZ(4px);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, .9) 0 5%, rgba(255, 255, 255, .32) 13%, transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, .28), transparent 45%, rgba(90, 55, 0, .3));
 }
+.poked { animation: poke .55s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes poke { 35% { transform: translateY(-26px) rotate(-10deg); } }
 
-.lede { font-size: 20px; font-weight: 700; max-width: 34ch; margin: 22px 0 26px; }
-
-.actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-
-.count { font-weight: 900; font-size: 15px; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 6px 12px; }
-
-/* ---------- the machine ---------- */
-.stage { position: relative; }
-
-/* ---------- the pulled card ---------- */
-.card {
-  position: absolute; right: -24px; bottom: 24px; width: 250px; padding: 16px 16px 18px;
-  transform: rotate(4deg) scale(0); transform-origin: 100% 100%; z-index: 6;
-  transition: transform .5s cubic-bezier(.3,1.5,.5,1);
+/* Chrome coin slot. */
+.slot-bezel {
+  position: absolute; right: 30px; top: 32px; width: 50px; height: 78px; border-radius: 11px; overflow: hidden;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, #fff, #CDD2D7 28%, #80878E 50%, #E6E9EC 68%, #9BA2A9);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, .35), inset 0 1px 0 #fff, inset 0 -1px 1px rgba(0, 0, 0, .3), 0 0 0 1px #6B7177;
 }
-
-.card.show { transform: rotate(4deg) scale(1); }
-
-.card .rar { font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: #fff; background: var(--ink); display: inline-block; padding: 2px 10px; border-radius: 999px; }
-
-.card .rar.legendary { background: var(--grape); color: var(--ink); }
-
-.card .rar.shiny { background: linear-gradient(90deg, var(--pink), var(--yellow), var(--mint), var(--sky)); color: var(--ink); }
-
-.card h3 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 8px 0 4px; line-height: 1.05; }
-
-.card p { margin: 0 0 12px; font-weight: 700; font-size: 14px; }
-
-.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-
-.tags span { font-size: 12px; font-weight: 900; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; background: #fff; }
-
-.card .btn { font-size: 15px; padding: 8px 14px; }
-
-/* ---------- Jackdex shelf ---------- */
-.shelf { margin-top: 70px; padding: 22px 24px 26px; }
-
-.shelf header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-
-.shelf h2 { font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0; }
-
-.shelf .meta { font-weight: 900; }
-
-.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px; margin-top: 18px; }
-
-.slot {
-  aspect-ratio: 1; border: 3px dashed rgba(0,0,0,.35); border-radius: 16px; display: grid; place-items: center;
-  font-family: var(--display); font-size: 34px; color: rgba(0,0,0,.3); background: rgba(0,0,0,.04);
+.slot-bezel::after {
+  content: ""; position: absolute; inset: -40% -60%; opacity: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .95) 50%, transparent 60%);
 }
+.clink .slot-bezel::after { animation: flash .6s ease-out; }
+@keyframes flash { 0% { opacity: 1; transform: translateX(-40%); } 100% { opacity: 0; transform: translateX(40%); } }
+.slot { width: 9px; height: 52px; border-radius: 5px; background: linear-gradient(90deg, #000, #222 50%, #000); box-shadow: inset 0 2px 3px #000, 0 1px 0 rgba(255, 255, 255, .7); }
 
-.slot.got {
-  border: 3px solid var(--ink); background: var(--c); color: var(--ink); font-size: 14px; font-family: var(--body); font-weight: 900;
-  text-align: center; padding: 6px; box-shadow: 4px 4px 0 var(--ink); line-height: 1.15;
+/* Red LED counter behind smoked glass. */
+.led {
+  position: absolute; left: 26px; bottom: 18px; width: min(240px, calc(100% - 52px)); height: 38px; padding: 0 14px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 140% at 50% 0%, #2A1512, #0C0606 60%);
+  box-shadow: inset 0 2px 5px #000, 0 1px 0 rgba(255, 255, 255, .75), 0 0 0 2px #5D6268;
+  font: 700 17px / 1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: 2px; white-space: nowrap;
+  color: #FF4B3A; text-shadow: 0 0 4px rgba(255, 75, 58, .9), 0 0 12px rgba(255, 40, 20, .55);
 }
-
-.slot.got.shiny { background: linear-gradient(135deg, var(--pink), var(--yellow), var(--mint), var(--sky)); }
-
-/* ---------- footer ---------- */
-.foot { margin-top: 36px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 14px; opacity: .75; }
-
-kbd { font-family: var(--body); font-weight: 900; border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; background: #fff; }
-
-/* ---------- Boring Mode ---------- */
-.plain { display: none; position: fixed; inset: 0; z-index: 100; background: #fff; color: #222; overflow: auto; font-family: Georgia, 'Times New Roman', serif; }
-
-.plain.on { display: block; }
-
-.plain .in { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.6; }
-
-.plain h1 { font-family: Georgia, serif; font-size: 34px; text-shadow: none; line-height: 1.2; }
-
-.plain h2 { font-size: 18px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
-
-.plain a { color: #1a4fd1; }
-
-.plain .back { font-family: var(--body); font-weight: 900; font-size: 14px; border: 2px solid #222; border-radius: 6px; background: #fff; padding: 8px 14px; cursor: pointer; }
-
-.plain ul { padding-left: 20px; }
-
-.plain .sulk { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; color: #777; font-style: italic; }
-
-.plain .sulk img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; filter: grayscale(1); opacity: .7; flex: none; }
-
-@media (prefers-reduced-motion: reduce) {  * { animation: none !important; transition: none !important; }
+.led-num { font-variant-numeric: tabular-nums; }
+.blink { animation: blink .8s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.engraved {
+  position: absolute; right: 30px; bottom: 30px; font-weight: 900; font-size: 10px; letter-spacing: 1.5px;
+  color: rgba(70, 74, 78, .8); text-shadow: 0 1px 0 rgba(255, 255, 255, .85), 0 -1px 0 rgba(0, 0, 0, .15);
 }
+@media (max-width: 600px) { .engraved { display: none; } }
 
-@media (max-width: 860px) {  .hero { grid-template-columns: 1fr; }
-  .stage { min-height: 0; place-items: center; }
-  .card { right: -10px; bottom: -30px; }
+.loader-status { margin: 0; min-height: 24px; font-weight: 800; font-size: 16px; text-align: center; }
+.loader-line { display: inline-block; transition: opacity .16s, transform .16s; }
+.loader-line.out { opacity: 0; transform: translateY(4px); }
+.loader-retry {
+  font: inherit; font-weight: 800; font-size: 14px; padding: 9px 16px; border-radius: 999px;
+  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer;
 }
+.jammed .coin-hop { animation: poke .55s 3; }
 
-@media (max-width: 420px) {  h1 { text-shadow: 3px 3px 0 #fff, 5px 5px 0 var(--ink); }
-  .card { width: 220px; }
+@media (prefers-reduced-motion: reduce) {
+  .loader *, .loader *::before, .loader *::after { animation: none !important; }
+  .open .door-l, .open .door-r { transform: none; transition: opacity .4s; }
 }
-
-/* ---------- 3D stage ---------- */
-.stage { position: relative; }
-.scene { position: relative; width: 100%; aspect-ratio: 4 / 5; max-height: 640px; border-radius: 24px; overflow: hidden; touch-action: none; }
-.scene canvas { display: block; width: 100% !important; height: 100% !important; }
-.pitch .hint { font-size: 14px; font-weight: 700; opacity: .7; margin-top: 16px; }
-.mascot {
-  position: absolute; right: 10px; top: 10px; z-index: 5; width: 88px; height: 88px; padding: 0;
-  border-radius: 50%; overflow: hidden; cursor: pointer; border: 3px solid var(--ink);
-  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink); background: var(--yellow);
-}
-.mascot img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.12); }
-@media (max-width: 860px) { .scene { max-height: 520px; } }

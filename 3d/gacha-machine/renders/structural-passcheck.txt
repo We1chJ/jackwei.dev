@@ -1,2 +1,0 @@
-PASS
-pass 'structural-pass' is already completed and can be regenerated

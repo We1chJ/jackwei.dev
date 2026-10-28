@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Real-time headless check of a page via the Chrome DevTools Protocol (no deps; Node >= 22).
-// Usage: node scripts/headless-check.mjs <url> [--wait ms] [--shot out.png] [--eval "expr"]
+// Usage: node scripts/headless-check.mjs <url> [--wait ms] [--shot out.png] [--eval "expr"] [--gpu]
+// --gpu renders on the real GPU (ANGLE/Metal) instead of SwiftShader, for frame-rate checks.
 // Prints the result of --eval (default: body dataset) as JSON after --wait milliseconds.
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -12,8 +13,11 @@ const waitMs = Number(opt('--wait', 8000));
 const shot = opt('--shot', null);
 const expr = opt('--eval', 'JSON.stringify({ ...document.body.dataset, count: document.querySelector(".count")?.textContent, card: document.querySelector(".card")?.className })');
 const port = 9333 + Math.floor(Math.random() * 500);
+const gpu = args.includes('--gpu')
+  ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
+  : ['--disable-gpu-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-  '--headless=new', '--disable-gpu-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
+  '--headless=new', ...gpu,
   '--hide-scrollbars', '--no-first-run', '--allow-file-access-from-files', `--remote-debugging-port=${port}`, '--window-size=1280,900', 'about:blank',
 ], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -163,3 +163,10 @@ hard offset shadows (sticker look), yellow `#FFC800` as the brand color.
   Interactions: drag the pink handle (inertia) or press "Crank it"; one full turn jostles
   the capsules and delivers one through the chute to the tray; the card and Jackdex update.
   Headless verification harness: `scripts/headless-check.mjs` (CDP, real time).
+- 2026-10-27 — **"Insert coin" loading screen + startup performance.** A tiny entry (4 KB JS) paints a
+  sticker-style loader instantly (markup in `index.html`, logic in `src/loader.ts`): a coin rolls along
+  a ramp with real download progress, then drops into the slot and the screen splits open like the
+  machine door (auto-enter, no click). The 3D app loads lazily (`src/boot.tsx`; react/three/rapier in
+  separate cached chunks). Behind the loader, `src/gacha/Warmup.tsx` compiles shaders, settles the
+  capsule pile instantly and finishes the floor-shadow bake, so the first visible frame is smooth.
+  Pixel density capped at 1.5x with automatic drop to 1x on slow frames.

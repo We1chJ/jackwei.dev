@@ -1,2 +1,0 @@
-PASS
-pass 'form-refinement' is already completed and can be regenerated

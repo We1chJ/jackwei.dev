@@ -1,5 +1,0 @@
-[
-  {"id": "stack-silhouette", "score": 0.87, "tier": "critical", "notes": "Housing now carries the 0.08 D fillet (RoundedBoxGeometry); silhouette matches the reference's soft corners. Tier 1 IoU 0.899."},
-  {"id": "capsule-system", "score": 0.82, "tier": "critical", "notes": "Two-tone + seam present on all ten; still a regular pyramid rather than a loose pile."},
-  {"id": "front-face-hardware", "score": 0.83, "tier": "critical", "notes": "Sign plate and tray now rounded (0.02 / 0.03 D) with a lighter lip on the tray; crank offset correct. Tray remains a flush rounded plate rather than a boolean recess, which matches the flat reference drawing but not a physical chute."}
-]
