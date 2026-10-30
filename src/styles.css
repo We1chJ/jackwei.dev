@@ -107,21 +107,26 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .c-text { font: 900 6.6px var(--font); letter-spacing: 1.1px; }
 /* unlit: the same coin, faint */
 .coin-dim .c-disc { fill: #15100A; stroke: var(--dim); stroke-width: 1.2; }
-.coin-dim .c-reed, .coin-dim .c-inner, .coin-dim .c-j { stroke: var(--dim); }
+.coin-dim .c-reed, .coin-dim .c-inner { stroke: var(--dim); }
 .coin-dim .c-inner { stroke-width: 1; }
 .coin-dim .c-text, .coin-dim .c-star { fill: var(--dim); }
 /* lit: gold with the design struck into it, revealed from the bottom up by a clip (loader.ts) */
-.coin-lit { clip-path: inset(100% 0 0 0); will-change: clip-path; }
+/* the liquid: two wave-topped masks, slid to the level and drifted sideways by loader.ts */
+.coin-lit {
+  --wave-a: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cpath fill='%23000' d='M0 20 Q12.5 13 25 20 T50 20 T75 20 T100 20 T125 20 T150 20 T175 20 T200 20 V300 H0 Z'/%3E%3C/svg%3E");
+  --wave-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cpath fill='%23000' d='M0 20 Q16.67 12 33.33 20 T66.67 20 T100 20 T133.33 20 T166.67 20 T200 20 V300 H0 Z'/%3E%3C/svg%3E");
+  -webkit-mask-image: var(--wave-a), var(--wave-b); mask-image: var(--wave-a), var(--wave-b);
+  -webkit-mask-size: 200% 300%; mask-size: 200% 300%;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: 0 80%, 0 80%; mask-position: 0 80%, 0 80%;
+}
 .coin-lit .c-reed { stroke: var(--light); }
 .coin-lit .c-disc { fill: url(#shine-l); stroke: #FFF4DC; stroke-width: 1.2; }
 .coin-lit .c-inner { stroke: rgba(20, 20, 20, .35); stroke-width: 1; }
 .coin-lit .c-text, .coin-lit .c-star { fill: #1A1510; }
-.coin-lit .c-j { stroke: #141414; }
 .coin-lit .c-sheen { fill: rgba(255, 255, 255, .42); transform: translateX(-10px) skewX(-18deg); }
 .loader.ready .coin-lit .c-sheen { animation: coin-glint 3.2s cubic-bezier(.4, 0, .3, 1) infinite; }
 @keyframes coin-glint { 0%, 55% { transform: translateX(-10px) skewX(-18deg); } 100% { transform: translateX(135px) skewX(-18deg); } }
-.coin-level { position: absolute; left: 0; right: 0; top: 0; height: 2px; will-change: transform;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .85) 35%, rgba(255, 255, 255, .85) 65%, transparent); }
 .coin-halo { position: absolute; inset: -30%; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .8s;
   background: radial-gradient(closest-side, rgba(255, 196, 110, .28), transparent); }
 .loader.ready .coin-halo { opacity: 1; }
@@ -134,6 +139,16 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .35); }
 .loader .loader-slot.hot { box-shadow: 0 0 0 2px #fff, 0 0 28px rgba(255, 225, 170, .95); }
 
+/* the sound pill: on by default; one tap mutes */
+.loader-sound { margin-top: 18px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px 7px 10px; border-radius: 999px; pointer-events: auto; cursor: pointer;
+  border: 1.3px solid var(--dim); background: none; color: var(--light); font: 700 11px/1 var(--font); letter-spacing: 1.2px; text-transform: uppercase; opacity: .8; transition: opacity .3s, border-color .3s; }
+.loader-sound:hover, .loader-sound:focus-visible { opacity: 1; border-color: var(--light); outline: none; }
+.loader-sound svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.loader-sound .s-waves { transition: opacity .3s; }
+.loader.muted .loader-sound { opacity: .5; }
+.loader.muted .loader-sound .s-waves { opacity: 0; }
+.loader.muted .loader-sound .s-off { opacity: 1; }
+.loader-sound .s-off { opacity: 0; transition: opacity .3s; }
 .loader-caption { margin: 24px 0 0; font: 700 12px/1 var(--font); letter-spacing: 2.4px; text-transform: uppercase; color: var(--light); opacity: .55; transition: opacity .4s; }
 .loader.ready .loader-caption { opacity: 1; }
 .loader-retry {

@@ -16,8 +16,9 @@ import { intro, onImpact } from './intro';
 import { SPOT, VIEW } from './layout';
 import { arcade, type MachineId } from './store';
 
-// The coin going in turns sound on (it has to happen inside that click); the screen opening starts the drop.
-loading.onEnter(unlockAudio);
+// The coin going in turns sound on if the loader's pill was left on (it has to happen inside that
+// click); the screen opening starts the drop.
+loading.onEnter(() => { if (loading.sound) unlockAudio(); });
 loading.onOpen(() => intro.set({ phase: 'dropping', startedAt: performance.now() / 1000 }));
 
 const FOOTPRINT: Record<MachineId, [number, number]> = { claw: [0.84, 0.84], gacha: [0.83, 0.87], vending: [0.92, 0.8] };
