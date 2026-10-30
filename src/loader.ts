@@ -25,23 +25,38 @@ const coin = q('.coin'), slot = q('.loader-slot'), caption = q('.loader-caption'
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- the coin: a disc that fills with light ----------
-const FACE = `<circle class="c-disc" cx="50" cy="50" r="45"/><circle class="c-ring" cx="50" cy="50" r="35.5" stroke-width="3" stroke-dasharray="0.1 7.2"/><path class="c-j" d="M57 31 V58 Q57 70 46 70 Q38 70 35 63" stroke-width="7"/>`;
-const face = (cls: string) => `<svg class="coin-face ${cls}" viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round">${FACE}</svg>`;
-coin.innerHTML = `<div class="coin-flip"><div class="coin-body">${face('coin-dim')}<div class="coin-fill">${face('coin-lit')}<i class="coin-level"></i></div></div><i class="coin-halo"></i></div>`;
-const body = q('.coin-body'), fill = q('.coin-fill'), lit = root.querySelector<SVGSVGElement>('.coin-lit')!;
+// Two faces drawn on top of each other, the unlit one and the lit one; the lit one is clipped
+// to the level, so filling only ever changes one clip and nothing shifts underneath.
+const face = (cls: string, id: string) => `<svg class="coin-face ${cls}" viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<defs>
+  <radialGradient id="shine-${id}" cx="36%" cy="30%" r="80%"><stop offset="0" stop-color="#FFF7DF"/><stop offset=".55" stop-color="#FFE3AE"/><stop offset="1" stop-color="#E2BA7A"/></radialGradient>
+  <path id="top-${id}" d="M14 50 A36 36 0 0 1 86 50"/>
+  <path id="bot-${id}" d="M8 50 A42 42 0 0 0 92 50"/>
+</defs>
+<circle class="c-reed" cx="50" cy="50" r="47.6" stroke-width="2.6" stroke-dasharray=".9 1.65" stroke-linecap="butt"/>
+<circle class="c-disc" cx="50" cy="50" r="45"/>
+<circle class="c-inner" cx="50" cy="50" r="32.5"/>
+<text class="c-text"><textPath href="#top-${id}" startOffset="50%" text-anchor="middle">JACK WEI</textPath></text>
+<text class="c-text"><textPath href="#bot-${id}" startOffset="50%" text-anchor="middle">ARCADE</textPath></text>
+<path class="c-star" d="M11 46.5 L12 49 L14.5 50 L12 51 L11 53.5 L10 51 L7.5 50 L10 49 Z"/>
+<path class="c-star" d="M89 46.5 L90 49 L92.5 50 L90 51 L89 53.5 L88 51 L85.5 50 L88 49 Z"/>
+<path class="c-j" d="M57 31 V58 Q57 70 46 70 Q38 70 35 63" stroke-width="7" transform="translate(50 50) scale(1.3) translate(-50 -50)"/>
+${cls === 'coin-lit' ? '<rect class="c-sheen" x="-30" y="-10" width="18" height="120"/>' : ''}
+</svg>`;
+coin.innerHTML = `<div class="coin-flip"><div class="coin-body">${face('coin-dim', 'd')}${face('coin-lit', 'l')}<i class="coin-level"></i></div><i class="coin-halo"></i></div>`;
+const body = q('.coin-body'), lit = root.querySelector<SVGSVGElement>('.coin-lit')!, level = q('.coin-level');
 
 let size = 112;                        // coin diameter, px
 let floorY = innerHeight * 0.85;       // where the machines stand, px from the top
 let font: FontData | null = null;
 
-// The lit face shows through a window that slides down as the level drops; the face inside slides
-// up by the same amount, so it stays put and only the window edge moves.
-const levelY = (p: number) => size * (1 - p);
+// The lit face is clipped from the top down to the level; a bright line rides on the level.
+const clipAt = (p: number) => `inset(${((1 - p) * 100).toFixed(3)}% 0 0 0)`;
+const lineAt = (p: number) => `translateY(${(Math.round(size * (1 - p) * 2) / 2).toFixed(1)}px)`;
 let shown = -1;
 function showLevel(p: number) {
-  const y = levelY(p);
-  fill.style.transform = `translateY(${y.toFixed(2)}px)`;
-  lit.style.transform = `translateY(${(-y).toFixed(2)}px)`;
+  lit.style.clipPath = clipAt(p);
+  level.style.transform = lineAt(p);
   const n = Math.round(p * 100);
   if (n !== shown) { shown = n; root.setAttribute('aria-valuenow', String(n)); }
 }
@@ -234,16 +249,17 @@ export const loading = {
       glide.anims.forEach((a) => a.cancel());
     }
     pos = target; vel = 0;
-    const opts = { duration: ms, easing: 'cubic-bezier(.25, .6, .35, 1)' };
+    // They hold their end value until the level is written back, so nothing flashes in between.
+    const opts: KeyframeAnimationOptions = { duration: ms, easing: 'cubic-bezier(.25, .6, .35, 1)', fill: 'forwards' };
     const g = {
       from, to: pos,
       anims: [
-        fill.animate([{ transform: `translateY(${levelY(from)}px)` }, { transform: `translateY(${levelY(pos)}px)` }], opts),
-        lit.animate([{ transform: `translateY(${-levelY(from)}px)` }, { transform: `translateY(${-levelY(pos)}px)` }], opts),
+        lit.animate([{ clipPath: clipAt(from) }, { clipPath: clipAt(pos) }], opts),
+        level.animate([{ transform: lineAt(from) }, { transform: lineAt(pos) }], opts),
       ],
     };
     glide = g;
-    g.anims[0].onfinish = () => { if (glide === g) { glide = null; showLevel(pos); } };
+    g.anims[0].onfinish = () => { if (glide === g) { glide = null; showLevel(pos); g.anims.forEach((a) => a.cancel()); } };
   },
 
   // Everything is ready: the coin fills to the brim and waits to be put in.
