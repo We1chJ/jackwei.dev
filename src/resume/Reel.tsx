@@ -1,8 +1,9 @@
 // The résumé reel. The button dims the arcade and shows two dots orbiting each other (after
 // TikTok's loader) while the clip downloads. When it is ready each dot flies to where the clip's
 // first frame has its orb of the same colour, at that orb's size, and the frame spreads out from
-// both like a watercolor wash (bloom.ts); scrolling then plays the clip. On its final white frame
-// the résumé rises to the front.
+// both like a watercolor wash (bloom.ts). The clip then plays by itself; a small toggle (or just
+// scrolling) pauses that and hands the clip to the scroll. On its final white frame the résumé
+// rises to the front.
 //
 // The page itself never scrolls (the arcade is a fixed canvas), so wheel, touch and keys move a
 // target frame and the shown frame eases toward it every display refresh. That turns notchy
@@ -12,6 +13,7 @@ import { bloom } from './bloom';
 import { Frames } from './frames';
 import ResumePages from './ResumePages';
 import { loadReel, reel, useReel } from './store';
+import { FPS } from './stream';
 
 type Phase = 'loading' | 'travel' | 'bloom' | 'play' | 'resume' | 'closing';
 
@@ -51,6 +53,7 @@ export default function Reel() {
 function Overlay() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [moved, setMoved] = useState(false);
+  const [auto, setAuto] = useState(true);          // the clip plays itself until paused
   const [beadDone, setBeadDone] = useState(false); // the bloom has taken over from the dots
   const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
   const layer = useRef<HTMLDivElement>(null);
@@ -61,8 +64,15 @@ function Overlay() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   // playhead and orbit, kept out of React state: they change every frame
-  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0 });
+  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0, auto: true });
 
+  const setPlaying = (on: boolean) => {
+    const st = s.current;
+    st.auto = on;
+    st.vel = 0;
+    if (on) st.dir = 1;
+    setAuto(on);
+  };
   const close = () => {
     if (phaseRef.current === 'closing') return;
     setPhase('closing');
@@ -79,11 +89,13 @@ function Overlay() {
     if (!st.frames) return;
     st.target = st.frames.count - 1 - 24; // rewind a little so the résumé does not pop straight back
     panel.current?.scrollTo({ top: 0 });
+    setPlaying(false); // they came back on purpose: leave it to the scroll
     setPhase('play');
   };
   const push = (dy: number) => {
     const st = s.current;
     if (!st.frames || phaseRef.current !== 'play') return;
+    if (st.auto) setPlaying(false); // scrolling takes over from autoplay
     st.target = Math.min(st.frames.count - 1, Math.max(0, st.target + dy / PX_PER_FRAME));
     if (dy) st.dir = Math.sign(dy);
     setMoved(true);
@@ -208,6 +220,7 @@ function Overlay() {
       st.then = now;
       const f = st.frames;
       if (f) {
+        if (st.auto && phaseRef.current === 'play') st.target = Math.min(f.count - 1, st.target + (dt * FPS) / 1000);
         if (st.vel) { push(st.vel * dt); st.vel *= Math.exp(-dt / 325); if (Math.abs(st.vel) < 0.02) st.vel = 0; }
         st.shown += (st.target - st.shown) * (1 - Math.exp(-dt / EASE_MS));
         if (Math.abs(st.target - st.shown) < 0.01) st.shown = st.target;
@@ -258,7 +271,7 @@ function Overlay() {
     const onEnd = (e: TouchEvent) => { if (e.timeStamp - lastT > 80) st.vel = 0; }; // a held finger leaves no fling
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { close(); return; }
-      if (phaseRef.current !== 'play') return;
+      if (phaseRef.current !== 'play' || e.target instanceof HTMLButtonElement) return;
       const step = innerHeight * 0.8;
       if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') push(e.key === 'ArrowDown' ? 120 : step);
       else if (e.key === 'ArrowUp' || e.key === 'PageUp') push(e.key === 'ArrowUp' ? -120 : -step);
@@ -289,7 +302,7 @@ function Overlay() {
       {phase === 'bloom' && <canvas ref={bloomCanvas} className="reel-bloom" aria-hidden="true" />}
       <div className="reel">
         <canvas ref={canvas} aria-hidden="true" />
-        <p className={`reel-hint${moved ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
+        <p className={`reel-hint${moved || auto ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
         <div ref={panel} className="reel-resume" aria-hidden={phase !== 'resume'}>
           <div className="reel-resume-bar">
             <a href={PDF} target="_blank" rel="noreferrer">Download PDF ↗</a>
@@ -297,6 +310,13 @@ function Overlay() {
           <ResumePages url={PDF} />
         </div>
         <div className="reel-ui">
+          {phase === 'play' && (
+            <button type="button" className="reel-toggle" onClick={() => setPlaying(!auto)} aria-label={auto ? 'Pause and scroll instead' : 'Play automatically'} title={auto ? 'Pause and scroll' : 'Play automatically'}>
+              <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                {auto ? <path d="M2 1h3v10H2zM7 1h3v10H7z" /> : <path d="M2.5 1v10l8-5z" />}
+              </svg>
+            </button>
+          )}
           {phase === 'play' && <button type="button" className="reel-skip" onClick={toResume}>Skip to résumé</button>}
           <button type="button" className="reel-close" onClick={close} aria-label="Close">✕</button>
         </div>

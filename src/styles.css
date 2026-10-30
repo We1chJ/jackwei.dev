@@ -194,6 +194,9 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
   border: 0; background: rgba(0, 0, 0, .45); color: #fff; backdrop-filter: blur(6px);
 }
 .reel-ui button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.reel-ui .reel-toggle { display: grid; place-items: center; padding: 9px 10px; opacity: .65; transition: opacity .2s; }
+.reel-ui .reel-toggle:hover, .reel-ui .reel-toggle:focus-visible { opacity: 1; }
+.reel-toggle svg { display: block; fill: currentColor; }
 .reel-layer.resume .reel-ui button { background: var(--ink); }
 
 /* The résumé rises to the front on the clip's final white frame and scrolls on its own. */
