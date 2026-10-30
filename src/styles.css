@@ -94,15 +94,16 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 
 /* The middle: the coin, the slot below it, a word under that. */
 .loader-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -56%); display: grid; justify-items: center; }
-.coin { position: relative; width: var(--coin); height: var(--coin); color: var(--light); opacity: 0; transition: opacity .6s; perspective: 600px; pointer-events: auto; touch-action: none; will-change: transform; }
+.coin-home { display: block; width: var(--coin); height: var(--coin); }   /* where the coin hovers (loader.ts measures it) */
+/* The coin itself is loose on the screen: loader.ts moves it, tilts .coin-flip and turns the faces. */
+.coin { position: absolute; left: 0; top: 0; width: var(--coin); height: var(--coin); color: var(--light); opacity: 0; transition: opacity .6s; perspective: 600px;
+  pointer-events: auto; touch-action: none; cursor: grab; will-change: transform; }
 .loader.on .coin { opacity: 1; }
-.loader.ready .coin { cursor: grab; }
 .loader.dragging .coin { cursor: grabbing; }
 .coin-flip { position: absolute; inset: 0; will-change: transform; }
-.loader.ready .coin-flip { animation: coin-bob 3.2s ease-in-out infinite; }
-.loader.dragging .coin-flip, .loader.inserting .coin-flip { animation: none; }
-@keyframes coin-bob { 0%, 100% { transform: translateY(0) rotateY(-9deg); } 50% { transform: translateY(-6px) rotateY(9deg); } }
 .coin-body { position: absolute; inset: 0; clip-path: circle(49.5% at 50% 50%); }
+.coin-spin { position: absolute; inset: 0; will-change: transform; }
+.coin-spark { position: absolute; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); pointer-events: none; }
 .coin-face { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
 .c-text { font: 900 6.6px var(--font); letter-spacing: 1.1px; }
 /* unlit: the same coin, faint */
@@ -112,7 +113,7 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .coin-dim .c-text, .coin-dim .c-star { fill: var(--dim); }
 /* lit: gold with the design struck into it, revealed from the bottom up by a clip (loader.ts) */
 /* the liquid: two wave-topped masks, slid to the level and drifted sideways by loader.ts */
-.coin-lit {
+.coin-liquid { position: absolute; inset: 0;
   --wave-a: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cpath fill='%23000' d='M0 20 Q12.5 13 25 20 T50 20 T75 20 T100 20 T125 20 T150 20 T175 20 T200 20 V300 H0 Z'/%3E%3C/svg%3E");
   --wave-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cpath fill='%23000' d='M0 20 Q16.67 12 33.33 20 T66.67 20 T100 20 T133.33 20 T166.67 20 T200 20 V300 H0 Z'/%3E%3C/svg%3E");
   -webkit-mask-image: var(--wave-a), var(--wave-b); mask-image: var(--wave-a), var(--wave-b);
@@ -139,9 +140,11 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .35); }
 .loader .loader-slot.hot { box-shadow: 0 0 0 2px #fff, 0 0 28px rgba(255, 225, 170, .95); }
 
-/* a note along the bottom edge, for reading only */
-.loader-note { position: absolute; left: 50%; bottom: max(30px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;
-  font: 700 11px/1 var(--font); letter-spacing: 2px; text-transform: uppercase; color: var(--light); opacity: .45; white-space: nowrap; }
+/* a line along the bottom, for reading only */
+.loader-note { position: absolute; left: 50%; bottom: max(15vh, 84px); transform: translateX(-50%); margin: 0; text-align: center; white-space: nowrap;
+  font: italic 500 clamp(13px, 1.25vw, 16px)/1.4 var(--font); letter-spacing: .5px; color: var(--light); opacity: .55; animation: note-breathe 6s ease-in-out infinite; }
+.loader-note::before { content: '✦'; display: block; margin-bottom: 8px; font-style: normal; font-size: 9px; letter-spacing: 0; opacity: .8; }
+@keyframes note-breathe { 50% { opacity: .8; } }
 .loader-caption { margin: 24px 0 0; font: 700 12px/1 var(--font); letter-spacing: 2.4px; text-transform: uppercase; color: var(--light); opacity: .55; transition: opacity .4s; }
 .loader.ready .loader-caption { opacity: 1; }
 .loader-retry {
