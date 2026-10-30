@@ -165,17 +165,14 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .reel-layer { position: fixed; inset: 0; z-index: 30; touch-action: none; transition: opacity .35s; }
 .reel-layer.closing { opacity: 0; pointer-events: none; }
 .reel-scrim {
-  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 18px;
+  position: absolute; inset: 0;
   background: rgba(12, 11, 14, .62); animation: reel-fade .25s both;
 }
 @keyframes reel-fade { from { opacity: 0; } }
 
-/* Two dots orbiting each other (after TikTok's loader). Reel.tsx moves them every frame on a true
-   orbit, then flies each to its orb in the clip's first frame; they blend with each other only
-   (isolate), so where they overlap is screen(red, blue). */
-.reel-dots { position: relative; width: 64px; height: 28px; isolation: isolate; }
-.reel-dots.done { opacity: 0; transition: opacity .35s; }
-.reel-dots .dot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 50%; mix-blend-mode: screen; will-change: transform; }
+/* The two dots and the orbs they land as (drawn by Reel.tsx at full resolution). */
+.reel-dots { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.reel-dots.done { visibility: hidden; }
 
 /* The clip shows once the bloom has finished painting its first frame (bloom.ts); without WebGL,
    or when going straight to the résumé, it fades in. */

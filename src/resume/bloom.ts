@@ -1,12 +1,12 @@
-// The watercolor bloom from the two loading dots into the clip's first frame. A short-lived
-// WebGL layer that only changes transparency: the frame appears inside two wet washes that
-// spread out from where its blue and red orbs sit (which is where the dots have just landed),
+// The watercolor bloom from the two orbs into the clip's first frame. A short-lived WebGL layer
+// that only changes transparency: the frame appears inside two wet washes that spread out from
+// where its blue and red orbs sit (the dots have just landed there, showing those same pixels),
 // each with a wavy front (domain-warped noise), a soft grainy edge, and merging like liquid
 // where they meet. At t = 1 it is exactly the first frame, drawn with the same cover fit as the
 // reel's own canvas, so swapping to that canvas is invisible.
 // Returns null when WebGL is unavailable (the caller crossfades instead).
 
-const FADE_IN = 0.12; // share of the bloom spent fading the orbs in before the washes spread
+const HOLD = 0.05; // share of the bloom the orbs rest on their landing spot before the washes spread
 
 const VERT = `attribute vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 
@@ -16,7 +16,7 @@ uniform sampler2D uFrame;
 uniform vec2 uRes, uImg;          // device px
 uniform vec2 uC0, uC1;            // wash centres, device px from the top left
 uniform vec2 uR, uR0;             // current and starting radii of the two washes, device px
-uniform float uT, uTime;          // progress 0..1, seconds
+uniform float uTime;              // seconds
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -51,7 +51,6 @@ void main() {
   float a = smoothstep(soft, -soft * 0.5, f);
   // granulation: the edge of the wash dries unevenly
   a = clamp(a + (fbm(q * 40.0) - 0.5) * 0.4 * a * (1.0 - a) * 4.0 * g, 0.0, 1.0);
-  a *= smoothstep(0.0, ${FADE_IN.toFixed(2)}, uT); // the orbs fade in over the dots
   gl_FragColor = vec4(frame * a, a);
 }`;
 
@@ -105,17 +104,15 @@ export function bloom(o: BloomOpts): Promise<void> | null {
   // radius inward) to clear it, so the screen is covered by the end whatever the other does
   const far = (c: Wash) => Math.hypot(Math.max(c.x, W - c.x), Math.max(c.y, H - c.y)) * 1.15 + 0.06 * H;
   const farA = far(a), farB = far(b);
-  const uT = u('uT'), uR = u('uR'), uTime = u('uTime');
+  const uR = u('uR'), uTime = u('uTime');
 
   return new Promise((done) => {
     const t0 = performance.now();
     let first = true;
     const tick = (now: number) => {
       const t = Math.min(1, (now - t0) / o.ms);
-      // first the orbs fade in over the dots at their size (FADE_IN), then the washes spread:
-      // quickly at first, slowing as they soak in
-      const e = 1 - Math.pow(1 - Math.max(0, (t - FADE_IN) / (1 - FADE_IN)), 1.3);
-      gl.uniform1f(uT, t);
+      // a brief rest on the landing spot, then the washes spread: quickly, slowing as they soak in
+      const e = 1 - Math.pow(1 - Math.max(0, (t - HOLD) / (1 - HOLD)), 1.3);
       gl.uniform2f(uR, a.r + (farA - a.r) * e, b.r + (farB - b.r) * e);
       gl.uniform1f(uTime, (now - t0) / 1000);
       gl.drawArrays(gl.TRIANGLES, 0, 3);

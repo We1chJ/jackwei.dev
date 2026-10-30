@@ -17,7 +17,7 @@ type Phase = 'loading' | 'travel' | 'bloom' | 'play' | 'resume' | 'closing';
 
 const MIN_DOTS_MS = 1000;
 const ORBIT = 17;          // px from the centre at full swing
-const DOT = 11;            // dot radius, px (matches .reel-dots .dot)
+const DOT = 11;            // dot radius while loading, px
 const ORBIT_S = 0.9;       // seconds per turn
 const TRAVEL_MS = 750;
 const BLOOM_MS = 1800;
@@ -51,13 +51,13 @@ export default function Reel() {
 function Overlay() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [moved, setMoved] = useState(false);
-  const [beadDone, setBeadDone] = useState(false); // the bloom has drawn over the dots
+  const [beadDone, setBeadDone] = useState(false); // the bloom has taken over from the dots
   const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
   const layer = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const bloomCanvas = useRef<HTMLCanvasElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const dots = useRef<HTMLSpanElement[]>([]);
+  const dotCanvas = useRef<HTMLCanvasElement>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   // playhead and orbit, kept out of React state: they change every frame
@@ -115,24 +115,48 @@ function Overlay() {
     return () => { dead = true; s.current.frames?.close(); s.current.frames = null; };
   }, []);
 
-  // the dots: a true circular orbit seen edge-on (constant speed, sinusoidal swing and size);
-  // when the clip is ready each one glides off the orbit to its orb, growing and shifting colour
+  // the dots, drawn at full resolution every frame so they stay crisp at any size: a true circular
+  // orbit seen edge-on (constant speed, sinusoidal swing and size). When the clip is ready each one
+  // glides to its orb, growing and shifting colour, while the orb's real pixels from the first
+  // frame fade in inside it, so it lands as the orb itself at video quality.
   useEffect(() => {
     if (phase !== 'loading' && phase !== 'travel') return;
-    const st = s.current;
+    const st = s.current, cv = dotCanvas.current!, g = cv.getContext('2d')!;
     const start = performance.now();
     let last = start, raf = 0;
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
       const m = phase === 'travel' ? easeInOut(Math.min(1, (now - start) / TRAVEL_MS)) : 0;
       st.theta += dt * ((2 * Math.PI) / ORBIT_S) * (1 - 0.6 * m);
-      dots.current.forEach((el, i) => {
-        const a = st.theta + i * Math.PI, d = DOTS[i], to = orbOnScreen(d.orb);
-        const x = mix(ORBIT * Math.cos(a), to.x, m), y = mix(0, to.y, m);
-        const scale = mix(1 + 0.22 * Math.sin(a), to.r / DOT, m);
-        el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(4)})`;
-        el.style.background = css(d.from.map((c, j) => mix(c, d.to[j], m)));
+      const frame = phase === 'travel' ? st.frames?.get(0) : undefined;
+      g.clearRect(0, 0, W, H);
+      g.imageSmoothingQuality = 'high';
+      DOTS.forEach((d, i) => {
+        const a = st.theta + i * Math.PI, to = orbOnScreen(d.orb);
+        const x = (innerWidth / 2 + mix(ORBIT * Math.cos(a), to.x, m)) * dpr;
+        const y = (innerHeight / 2 + mix(0, to.y, m)) * dpr;
+        const r = mix(DOT * (1 + 0.22 * Math.sin(a)), to.r, m) * dpr;
+        g.globalCompositeOperation = 'screen'; // where the dots overlap they add up
+        g.fillStyle = css(d.from.map((c, j) => mix(c, d.to[j], m)));
+        g.beginPath();
+        g.arc(x, y, r, 0, 2 * Math.PI);
+        g.fill();
+        if (frame && m > 0) {
+          // the frame scaled with the dot and placed so its orb sits exactly in it
+          const fh = r / d.orb.r, fw = fh * (frame.width / frame.height);
+          g.save();
+          g.beginPath();
+          g.arc(x, y, r, 0, 2 * Math.PI);
+          g.clip();
+          g.globalCompositeOperation = 'source-over';
+          g.globalAlpha = m * m;
+          g.drawImage(frame, x - d.orb.x * fw, y - d.orb.y * fh, fw, fh);
+          g.restore();
+        }
       });
       if (phase === 'travel' && m === 1) { setPhase('bloom'); return; }
       raf = requestAnimationFrame(tick);
@@ -260,11 +284,7 @@ function Overlay() {
   return (
     <div ref={layer} className={`reel-layer ${phase}${s.current.skip || fade ? ' fade' : ''}`} role="dialog" aria-modal="true" aria-label="Résumé">
       <div className="reel-scrim">
-        <div className={`reel-dots${beadDone ? ' done' : ''}`} role="status" aria-label="Loading">
-          {DOTS.map((d, i) => (
-            <span key={i} className="dot" style={{ background: css(d.from) }} ref={(el) => { if (el) dots.current[i] = el; }} />
-          ))}
-        </div>
+        <canvas ref={dotCanvas} className={`reel-dots${beadDone ? ' done' : ''}`} role="img" aria-label="Loading" />
       </div>
       {phase === 'bloom' && <canvas ref={bloomCanvas} className="reel-bloom" aria-hidden="true" />}
       <div className="reel">
