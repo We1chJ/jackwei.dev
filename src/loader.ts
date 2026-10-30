@@ -6,8 +6,8 @@
 // the slot; the floor line lights up yellow and the black opens along it, the floor sliding down
 // and the wall lifting away, onto the arcade as the machines drop into their outlines.
 //
-// Sound is on by default (a pill under the coin turns it off); the coin going in is the gesture
-// that lets the browser start audio, and the arcade inherits the choice.
+// A note at the bottom says it is best with sound on; the coin going in is the gesture that lets
+// the browser start audio.
 
 import type { FontData } from './arcade/heroName';
 import { heroOutline, type Pt } from './arcade/silhouette';
@@ -24,7 +24,7 @@ const root = document.getElementById('loader')!;
 const q = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
 const sky = q('.loader-sky'), ground = q('.loader-ground'), horizon = q('.loader-horizon');
 const outline = root.querySelector<SVGSVGElement>('.outline')!;
-const coin = q('.coin'), slot = q('.loader-slot'), caption = q('.loader-caption'), capText = q('.cap-text'), retry = q<HTMLButtonElement>('.loader-retry');
+const coin = q('.coin'), slot = q('.loader-slot'), caption = q('.loader-caption'), capText = q('.cap-text'), note = q('.loader-note'), retry = q<HTMLButtonElement>('.loader-retry');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- the coin: a disc that fills with gold ----------
@@ -72,11 +72,9 @@ function showLevel(p: number) {
 }
 
 // ---------- sound: a few struck-metal noises, synthesised ----------
-// Nothing can sound before the visitor's first gesture (the pill, or the coin going in).
-let soundOn = true;
+// Nothing can sound before the visitor's first gesture (the coin going in).
 let actx: AudioContext | null = null, noise: AudioBuffer | null = null;
 function ac(): AudioContext | null {
-  if (!soundOn) return null;
   if (!actx) {
     try { actx = new AudioContext(); } catch { return null; }
     noise = actx.createBuffer(1, actx.sampleRate / 2, actx.sampleRate);
@@ -101,8 +99,6 @@ function ring(freq: number, dur: number, gain: number, when = 0, to = freq) {
   o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
 }
 const sfx = {
-  /** the pill: a small click */
-  tick() { hiss(2600, 6, 0.03, 0.12); },
   /** the coin is full (only heard if sound has already been allowed) */
   ready() { ring(2093, 0.5, 0.05); ring(3136, 0.4, 0.025, 0.02); },
   /** the coin hits the slot and rattles down inside */
@@ -130,14 +126,6 @@ const sfx = {
     ring(110, 0.4, 0.5, 0.95, 38); hiss(300, 1, 0.3, 0.2, 0.95);
   },
 };
-const soundBtn = q<HTMLButtonElement>('.loader-sound');
-function showSound() {
-  soundBtn.setAttribute('aria-pressed', String(soundOn));
-  soundBtn.querySelector('span')!.textContent = soundOn ? 'Best with sound on' : 'Sound off';
-  root.classList.toggle('muted', !soundOn);
-}
-soundBtn.addEventListener('click', () => { soundOn = !soundOn; showSound(); if (soundOn) sfx.tick(); });
-
 // ---------- the hero, in wireframe ----------
 // Projected with the hero camera, so each outline lies exactly where its machine will land.
 // Every path carries where it sits, for the draw-in to flow outward from the slot.
@@ -279,7 +267,7 @@ function insert() {
     sfx.clink();
     void once(slot, [{ transform: 'scaleX(1)' }, { transform: 'scaleX(1.06)', offset: 0.4 }, { transform: 'scaleX(1)' }], 320, 'ease-out');
     void play(caption, [{ opacity: 1 }, { opacity: 0 }], 320, 'ease-out');
-    void play(soundBtn, [{ opacity: 1 }, { opacity: 0 }], 320, 'ease-out');
+    void play(note, [{ opacity: 1 }, { opacity: 0 }], 320, 'ease-out');
     await wait(ms - ms * Math.sqrt(gap / D) * 0.9);
     setTimeout(() => slot.classList.remove('hot'), 200);
     void play(slot, [{ opacity: 1 }, { opacity: 0 }], 500, 'ease-out', 500);
@@ -334,8 +322,6 @@ export const loading = {
     })();
   },
 
-  /** Whether the visitor left sound on (the pill under the coin). */
-  get sound() { return soundOn; },
   /** Called inside the visitor's gesture that puts the coin in (so audio may start). */
   onEnter(fn: () => void) { onEnter.push(fn); },
   /** Called as the floor opens. */
@@ -358,7 +344,6 @@ drawOutline();
 void fetch('/fonts/hero-display.json').then((r) => r.json()).then((f: FontData) => { font = f; if (!inserting) drawOutline(); }).catch(() => {});
 window.addEventListener('resize', () => { if (!inserting) drawOutline(); });
 showLevel(0);
-showSound();
 root.classList.add('on');
 void once(body, [{ transform: 'scale(.7)' }, { transform: 'scale(1)' }], 700, 'cubic-bezier(.2, .9, .3, 1.15)');
 requestAnimationFrame(tick);
