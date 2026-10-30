@@ -1,25 +1,56 @@
-// Product-photography stage: studio light-forms for reflections, one soft key light,
-// accumulated soft floor shadows, ambient occlusion and ACES tone mapping.
+// The arcade: three machines side by side on a product-photography stage (studio light-forms
+// for reflections, one soft key light, live floor and contact shadows, ambient occlusion,
+// neutral tone mapping). It opens on the hero: the machines drop in across the right of the
+// frame and the name stands on the left.
 import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { AccumulativeShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor, RandomizedLight } from '@react-three/drei';
+import { ContactShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import Machine from './Machine';
-import Warmup, { SHADOW_FRAMES } from './Warmup';
+import Machine from '../gacha/Machine';
+import Vending from '../vending/Vending';
+import Claw from '../claw/Claw';
+import CameraRig from './CameraRig';
+import Drop from './Drop';
+import Dust from './Dust';
+import { HeroCamera, HeroFx, HeroText } from './Hero';
+import Sparkles from './Sparkles';
+import Warmup from './Warmup';
+import { useReel } from '../resume/store';
+import { useIntro } from './intro';
+import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
 // Pixel density: sharp on retina without paying for full 2x; drops to 1x if frames slow down.
 const DPR_HIGH = Math.min(window.devicePixelRatio, 1.5);
 
+// Floor shadows that work while things fall: a transparent floor that only shows the key light's
+// real-time shadows, and soft contact shadows under the machines, rendered live during the drop and
+// frozen once everything has landed (so they cost nothing afterwards).
+function FloorShadows() {
+  const landed = useIntro((s) => s.phase === 'done');
+  return (
+    <>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.0004, 0]} receiveShadow>
+        <planeGeometry args={[30, 30]} />
+        <shadowMaterial transparent opacity={0.2} color="#5c3f00" />
+      </mesh>
+      <ContactShadows position={[0.05, 0.0008, 0]} scale={[5.6, 2.6]} resolution={1024} blur={2.4} far={1.2} opacity={0.8} color="#6b4a00" frames={landed ? 2 : Infinity} />
+    </>
+  );
+}
+
 export default function Stage() {
   const [dpr, setDpr] = useState(DPR_HIGH);
+  // nothing to draw while the résumé reel covers the screen
+  const covered = useReel((s) => s.covered);
   return (
     <Canvas
       shadows
+      frameloop={covered ? 'never' : 'always'}
       dpr={dpr}
-      camera={{ fov: 26, position: [1.0, 0.8, 2.08], near: 0.05, far: 20 }}
+      camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 30 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={(state) => { if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state; }}
     >
@@ -41,24 +72,29 @@ export default function Stage() {
       <directionalLight
         position={[-1.1, 2.5, 1.7]} intensity={2.2} color="#fffaf2" castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.01}
-        shadow-camera-left={-0.6} shadow-camera-right={0.6} shadow-camera-top={1} shadow-camera-bottom={-0.3}
+        shadow-camera-left={-1.9} shadow-camera-right={2} shadow-camera-top={2.3} shadow-camera-bottom={-0.4}
       />
 
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 120} lengthUnit={0.1} numSolverIterations={8}>
-          <Machine />
+          <Drop machine="claw" x={SPOT.claw.x}><group userData={{ machine: 'claw' }}><Claw /></group></Drop>
+          <Drop machine="gacha" x={SPOT.gacha.x}><group userData={{ machine: 'gacha' }}><Machine /></group></Drop>
+          <Drop machine="vending" x={SPOT.vending.x}><group userData={{ machine: 'vending' }}><Vending /></group></Drop>
           <Warmup />
         </Physics>
       </Suspense>
 
-      {/* Shadow-only catcher (no ambient term), so the floor is the backdrop colour everywhere else. */}
-      <AccumulativeShadows temporal frames={SHADOW_FRAMES} alphaTest={0.85} opacity={0.9} scale={4} resolution={2048} position={[0, 0.0004, 0]} color="#7a5600">
-        <RandomizedLight amount={4} radius={0.5} ambient={0} intensity={1.3} position={[-1.1, 2.5, 1.7]} bias={0.001} />
-      </AccumulativeShadows>
+      <FloorShadows />
+      <Suspense fallback={null}><HeroText /></Suspense>
 
+      <Sparkles />
+      <Dust />
+      <CameraRig />
+      <HeroCamera />
+      <HeroFx />
       <OrbitControls
-        makeDefault target={[0, 0.37, 0]} enablePan={false} enableDamping
-        minDistance={1.0} maxDistance={3.4} minPolarAngle={0.95} maxPolarAngle={1.62}
+        makeDefault target={VIEW.hero.main.target} enablePan={false} enableDamping enabled={false}
+        minDistance={VIEW.hero.main.minDistance} maxDistance={VIEW.hero.main.maxDistance} minPolarAngle={0.95} maxPolarAngle={1.62}
         minAzimuthAngle={-1.15} maxAzimuthAngle={1.15}
       />
 

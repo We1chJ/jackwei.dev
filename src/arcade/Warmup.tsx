@@ -5,7 +5,8 @@ import { useLayoutEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';
 import { loading } from '../loader';
-import { gacha } from './store';
+import { intro } from './intro';
+import { gacha } from '../gacha/store';
 
 export const SHADOW_FRAMES = 40;
 const SETTLE_CHUNKS = 6;   // x 0.5 s of simulated time
@@ -19,7 +20,7 @@ export default function Warmup() {
   // available), so no frame stalls compiling them one by one.
   useLayoutEffect(() => {
     let alive = true;
-    loading.coast(1000, 'settle');   // compile + settle run in heavy frames: let the coin glide
+    loading.coast(1000, 'settle');   // compile + settle run in heavy frames: let the bar glide
     setFrameloop('never');
     gl.compileAsync(scene, camera).finally(() => {
       if (!alive) return;
@@ -40,10 +41,11 @@ export default function Warmup() {
       if (s.settleSteps === SETTLE_CHUNKS) gacha.set({ phase: 'idle' });
       return;
     }
-    if (s.frames >= SHADOW_FRAMES) return;
+    if (s.frames >= SHADOW_FRAMES + 4) return;
     s.frames++;
-    loading.report('shadows', s.frames / SHADOW_FRAMES);
-    if (s.frames === SHADOW_FRAMES) loading.finish();
+    loading.report('shadows', Math.min(1, s.frames / SHADOW_FRAMES));
+    // A few frames' margin so the shadow bake is done before the machines are lifted out of sight.
+    if (s.frames === SHADOW_FRAMES + 4) { loading.finish(); intro.set({ phase: 'ready' }); }
   });
   return null;
 }

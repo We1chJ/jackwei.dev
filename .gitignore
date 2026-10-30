@@ -7,3 +7,6 @@ dist
 # build outputs and scratch
 3d/**/preview-dist/
 *.ts.bak
+
+# scroll reel video (not committed; see src/resume/)
+public/media/

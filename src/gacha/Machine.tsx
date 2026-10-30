@@ -1,8 +1,9 @@
 // The gashapon mechanism. Physics (Rapier): capsules pile in the hopper on a kinematic
 // dispensing disc geared to the handle; one handle turn advances the disc and releases one
 // capsule into a hidden chute, where it rolls under gravity into the cup and rests against a
-// spring-hinged flap. Choreographed (the "hybrid" part): the hand-off from the disc pocket
-// into the chute, which happens out of sight inside the cabinet.
+// hinged push-flap (src/arcade/flap.ts). Push the flap in (drag it, or click) and the capsule
+// slides out under it, lifting it as it passes. Choreographed (the "hybrid" part): the hand-off
+// from the disc pocket into the chute, which happens out of sight inside the cabinet.
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -14,22 +15,26 @@ import { RigidBodyType } from '@dimforge/rapier3d-compat';
 import { CabinetColliders, CabinetVisual, FlapVisual, Knob } from './Cabinet';
 import { Capsule } from './Capsule';
 import {
-  CAPSULE_COUNT, CAPSULE_R, CHUTE_SPAWN, DISC_RATIO, DISPENSE_POINT, FLAP, HOPPER, INNER,
+  CAPSULE_COUNT, CAPSULE_R, CHUTE_SPAWN, DISC_RATIO, DISPENSE_POINT, EXIT, FLAP, HOPPER, FRONT_Z, INNER, SCALE as S, WINDOW,
 } from './dims';
 import { G } from './groups';
 import { materials } from './materials';
 import { clack, clunk, flapSound, ratchet } from './sound';
 import { gacha } from './store';
+import { arcade } from '../arcade/store';
+import { sparkle } from '../arcade/Sparkles';
+import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
+import { pushFlap } from '../arcade/flap';
+import { onImpact } from '../arcade/intro';
 
 type Mode = 'hopper' | 'lift' | 'chute' | 'cup' | 'out' | 'held' | 'return';
 
 const TAU = Math.PI * 2;
 const DETENT = TAU / 12;                       // 12 ratchet clicks per turn
-// The taken capsule hovers in front of the camera, slightly right of centre, whatever the view.
-const HOLD = { distance: 0.62, right: 0.07, down: 0.03 };
 // The door swings inward (positive about X): a capsule pushing outward meets the frame.
-const FLAP_CLOSED = 0, FLAP_OPEN = 1.42;
-const FLAP_K = 1500, FLAP_C = 70;
+const FLAP_OPEN = 1.25;                    // how far a hand pushes it in (joint limit 1.5)
+// Capsules in the hand: the scaled-up capsule needs to hover further out to read the same size.
+const HOLD = [1.5, 0.17, 0.07] as const;
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 // Deterministic initial pile: four columns x five rows x three layers, jittered.
@@ -59,20 +64,17 @@ export default function Machine() {
   const flapGroup = useRef<THREE.Group>(null);
   const disc = useRef<RapierRigidBody>(null);
   const knob = useRef<THREE.Group>(null);
-  const joint = useRevoluteJoint(chute, flap, [[0, FLAP.hingeY, FLAP.z], [0, 0, 0], [1, 0, 0], [0, 1.5]]);
+  const joint = useRevoluteJoint(chute, flap, [[0, FLAP.hingeY * S, FLAP.z * S], [0, 0, 0], [1, 0, 0], [0, 1.5]]);
 
   // Handle state: angle is negative going clockwise (as seen from the front).
   const h = useRef({ angle: 0, target: 0, dragging: false, lastPointer: 0, auto: null as null | { from: number; t: number }, detent: 0, turn: 0 });
   // Per-capsule choreography.
-  const anim = useRef(new Map<number, { kind: 'lift' | 'out' | 'return'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion }>());
+  const anim = useRef(new Map<number, { kind: 'lift' | 'reach' | 'slide' | 'out' | 'return' | 'land'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion }>());
+  const door = useMemo(() => pushFlap(FLAP_OPEN, () => flapSound()), []);
   const restTimer = useRef(new Map<number, number>());
-  const clock = useRef({ t: 0, flapCloseAt: -1 });
+  const clock = useRef({ t: 0, heldAt: 0, flapDown: null as null | { x: number; y: number } });
 
   // ---------- actions ----------
-  // Rapier motors are acceleration-based: k and c act like a spring on angular acceleration,
-  // so they are large (gravity alone gives the light flap ~180 rad/s^2). c ~ 2*sqrt(k).
-  const setFlap = (target: number) => joint.current?.configureMotorPosition(target, FLAP_K, FLAP_C);
-
   const dispense = () => {
     const waiting = mode.current.filter((m) => m === 'chute' || m === 'cup').length;
     if (waiting >= 2) return;                   // cup is full: the wheel turns but nothing drops
@@ -81,8 +83,8 @@ export default function Machine() {
       const b = bodies.current[i];
       if (m !== 'hopper' || !b) return;
       const p = b.translation();
-      const lowness = p.y - (HOPPER.discTop + CAPSULE_R);
-      const score = Math.hypot(p.x - DISPENSE_POINT.x, p.z - DISPENSE_POINT.z) + Math.max(0, lowness) * 3;
+      const lowness = p.y / S - (HOPPER.discTop + CAPSULE_R);
+      const score = Math.hypot(p.x / S - DISPENSE_POINT.x, p.z / S - DISPENSE_POINT.z) + Math.max(0, lowness) * 3;
       if (score < bestScore) { bestScore = score; best = i; }
     });
     const b = bodies.current[best];
@@ -103,13 +105,11 @@ export default function Machine() {
     });
     const b = bodies.current[best];
     if (!b) return;
-    setFlap(FLAP_OPEN); flapSound();
-    clock.current.flapCloseAt = clock.current.t + 1.3;
-    const p = b.translation(), q = b.rotation();
-    b.collider(0).setEnabled(false);
-    b.setBodyType(RigidBodyType.KinematicPositionBased, true);
+    // A hand pushes the flap in and reaches for the capsule (still loose in the cup: the flap
+    // nudges it back as it swings in).
+    door.holdOpen(true);
     mode.current[best] = 'out';
-    anim.current.set(best, { kind: 'out', t: -0.22, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
+    anim.current.set(best, { kind: 'reach', t: 0, from: new THREE.Vector3(), fromQ: new THREE.Quaternion() });
     gacha.set({ phase: 'taking' });
   };
 
@@ -151,7 +151,7 @@ export default function Machine() {
       let o: THREE.Object3D | null = first.object;
       while (o) {
         if (o.userData.knob) return { kind: 'knob' as const };
-        if (o.userData.flap) return { kind: 'cup' as const };
+        if (o.userData.flap) return { kind: 'flap' as const };
         if (typeof o.userData.capsule === 'number') return { kind: mode.current[o.userData.capsule] === 'held' ? 'held' as const : 'cup' as const };
         o = o.parent;
       }
@@ -165,6 +165,7 @@ export default function Machine() {
     const pointerAngle = (e: PointerEvent) => { const [cx, cy] = knobScreen(); return Math.atan2(-(e.clientY - cy), e.clientX - cx); };
 
     const down = (e: PointerEvent) => {
+      if (arcade.get().focus !== 'gacha') return;
       const target = hit(e);
       if (import.meta.env.DEV) document.body.dataset.lastHit = target?.kind ?? 'none';
       if (!target) return;
@@ -174,6 +175,11 @@ export default function Machine() {
         if (s.auto) return;
         s.dragging = true; s.lastPointer = pointerAngle(e);
         gacha.set({ phase: 'turning' });
+        try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
+      } else if (target.kind === 'flap') {
+        // Push it with the pointer; a plain click is a quick push (or a reach for a waiting capsule).
+        door.grab(e.clientY);
+        clock.current.flapDown = { x: e.clientX, y: e.clientY };
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
       } else if (target.kind === 'cup') take();
       else if (target.kind === 'held') putBack();
@@ -188,16 +194,31 @@ export default function Machine() {
         if (d < 0) s.target += Math.max(d, -0.6);   // the pawl only lets it go clockwise
         return;
       }
-      el.style.cursor = hit(e) ? 'pointer' : 'grab';
+      if (door.dragging) {
+        door.drag(e.clientY);
+        return;
+      }
+      if (arcade.get().focus === 'gacha') el.style.cursor = hit(e) ? 'pointer' : 'grab';
     };
     const up = (e: PointerEvent) => {
       const s = h.current;
+      const fd = clock.current.flapDown;
+      if (fd) {
+        clock.current.flapDown = null;
+        door.release();
+        try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        if (Math.hypot(e.clientX - fd.x, e.clientY - fd.y) < 6) {
+          if (mode.current.includes('cup')) take(); else door.push(0.35);
+        }
+        return;
+      }
       if (!s.dragging) return;
       s.dragging = false;
       try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
       if (gacha.get().phase === 'turning') gacha.set({ phase: 'idle' });
     };
     const key = (e: KeyboardEvent) => {
+      if (arcade.get().focus !== 'gacha') return;
       if (e.key === 'Escape') putBack();
       if (e.key === ' ' && e.target === document.body) { e.preventDefault(); turnOnce(); }
     };
@@ -215,6 +236,18 @@ export default function Machine() {
     };
   }, [camera, gl]);
 
+  // Landing on the floor in the hero opening: the whole pile jumps and rattles.
+  useEffect(() => onImpact(({ machine }) => {
+    if (machine !== 'gacha') return;
+    mode.current.forEach((m, i) => {
+      const b = bodies.current[i];
+      if (m !== 'hopper' || !b) return;
+      const r = () => Math.random() - 0.5;
+      b.setLinvel({ x: r() * 0.3 * S, y: (0.25 + Math.random() * 0.35) * S, z: r() * 0.3 * S }, true);
+      b.setAngvel({ x: r() * 12, y: r() * 12, z: r() * 12 }, true);
+    });
+  }), []);
+
   // Keep the orbit controls from fighting the handle.
   useEffect(() => {
     const c = controls as unknown as { enabled: boolean } | null;
@@ -228,18 +261,13 @@ export default function Machine() {
     if (!b) return;
     const v = b.linvel();
     const speed = Math.hypot(v.x, v.y, v.z);
-    if (speed > 0.08) clack(speed / 1.2);
+    if (speed > 0.08 * S) clack(speed / (1.2 * S));
     void p;
   };
 
   // ---------- simulation step ----------
-  const holdTmp = useMemo(() => ({ p: new THREE.Vector3(), dir: new THREE.Vector3(), right: new THREE.Vector3() }), []);
-  const holdPoint = () => {
-    const { p, dir, right } = holdTmp;
-    camera.getWorldDirection(dir);
-    right.crossVectors(dir, camera.up).normalize();
-    return p.copy(camera.position).addScaledVector(dir, HOLD.distance).addScaledVector(right, HOLD.right).addScaledVector(camera.up, -HOLD.down);
-  };
+  const [hTmp, oTmp, p1Tmp, p2Tmp, axisTmp] = useMemo(() => Array.from({ length: 5 }, () => new THREE.Vector3()), []);
+  const [sTmp, rTmp] = useMemo(() => [new THREE.Quaternion(), new THREE.Quaternion()], []);
   const qTmp = useMemo(() => new THREE.Quaternion(), []);
   const vTmp = useMemo(() => new THREE.Vector3(), []);
   const eTmp = useMemo(() => new THREE.Euler(), []);
@@ -281,52 +309,92 @@ export default function Machine() {
     // Dispensing disc geared to the handle (kinematic, so capsules ride and tumble on it).
     disc.current?.setNextKinematicRotation(qTmp.setFromEuler(eTmp.set(0, s.angle * DISC_RATIO, 0)));
 
-    // Flap closes itself after the capsule has been taken.
-    if (clock.current.flapCloseAt > 0 && clock.current.t > clock.current.flapCloseAt) {
-      clock.current.flapCloseAt = -1; setFlap(FLAP_CLOSED);
-    }
+    door.step(dt, flap.current, joint.current);
+    if (door.dragging && door.angle > 0.7 && mode.current.includes('cup') && !anim.current.size) take();   // pushed open: reach in
 
     // Choreographed segments.
     for (const [i, a] of anim.current) {
       const b = bodies.current[i];
       if (!b) { anim.current.delete(i); continue; }
+      // Rapier won't move a sleeping kinematic body (nor sync its mesh), so keep it awake while it is choreographed.
+      b.wakeUp();
       if (a.kind === 'lift') {
         a.t = Math.min(1, a.t + dt / 0.24);
-        vTmp.set(DISPENSE_POINT.x, HOPPER.floor - 0.05, DISPENSE_POINT.z).sub(a.from).multiplyScalar(ease(a.t)).add(a.from);
+        vTmp.set(DISPENSE_POINT.x, HOPPER.floor - 0.05, DISPENSE_POINT.z).multiplyScalar(S).sub(a.from).multiplyScalar(ease(a.t)).add(a.from);
         b.setNextKinematicTranslation(vTmp);
         if (a.t >= 1) {
           anim.current.delete(i);
-          b.setTranslation(CHUTE_SPAWN, true);
+          b.setTranslation(vTmp.set(CHUTE_SPAWN.x, CHUTE_SPAWN.y, CHUTE_SPAWN.z).multiplyScalar(S), true);
           b.collider(0).setCollisionGroups(G.capsuleChute);
           b.collider(0).setEnabled(true);
           b.setBodyType(RigidBodyType.Dynamic, true);
-          b.setLinvel({ x: 0, y: -0.15, z: 0.12 }, true);
+          b.setLinvel({ x: 0, y: -0.15 * S, z: 0.12 * S }, true);
           mode.current[i] = 'chute';
         }
-      } else if (a.kind === 'out') {
-        a.t += dt / 0.95;
-        if (a.t < 0) continue;                      // wait for the flap to swing open
-        const t = Math.min(1, a.t), k = ease(t);
-        const p1 = new THREE.Vector3(a.from.x, a.from.y - 0.01, 0.31);
-        // quadratic Bezier: cup -> just outside the flap -> held position
-        const u = 1 - k;
-        vTmp.copy(a.from).multiplyScalar(u * u).addScaledVector(p1, 2 * u * k).addScaledVector(holdPoint(), k * k);
-        b.setNextKinematicTranslation(vTmp);
-        qTmp.setFromEuler(eTmp.set(-0.35, 0.6 + k * 0.4, 0.15));
-        b.setNextKinematicRotation(new THREE.Quaternion().copy(a.fromQ).slerp(qTmp, k));
-        if (t >= 1) { anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held' }); }
-      } else if (a.kind === 'return') {
-        a.t = Math.min(1, a.t + dt / 0.28);
-        const v = visuals.current[i];
-        if (v) v.scale.setScalar(Math.max(0.001, 1 - ease(a.t)));
+      } else if (a.kind === 'reach') {
+        // Wait for the flap to be pushed in far enough to get the capsule out under it.
+        a.t += dt;
+        if (door.angle < 0.75 && a.t < 0.8) continue;
+        const p = b.translation(), q = b.rotation();
+        a.from.set(p.x, p.y, p.z); a.fromQ.set(q.x, q.y, q.z, q.w);
+        b.setBodyType(RigidBodyType.KinematicPositionBased, true);
+        a.kind = 'slide'; a.t = 0;
+      } else if (a.kind === 'slide') {
+        // Drawn out of the cup along its floor, under the raised flap (it lifts the flap as it
+        // passes; its collider is still on), then the hand lets the flap fall shut behind it.
+        a.t = Math.min(1, a.t + dt / 0.45);
+        const k = easeInOut(a.t);
+        oTmp.set(a.from.x, (EXIT.y0 + EXIT.y1) / 2 * S, (FLAP.z + CAPSULE_R + 0.02) * S);
+        b.setNextKinematicTranslation(vTmp.copy(a.from).lerp(oTmp, k));
         if (a.t >= 1) {
+          door.holdOpen(false);
+          b.collider(0).setEnabled(false);
+          sparkle.burst(oTmp, 26, 0.32 * S);
+          a.from.copy(oTmp);
+          a.kind = 'out'; a.t = 0;
+        }
+      } else if (a.kind === 'out') {
+        // Up to the hand in an arc that overshoots the hold point, spinning down as it comes.
+        a.t += dt;
+        const hold = holdPoint(camera, hTmp, ...HOLD);
+        const t = clamp01(a.t / 0.85), k = easeOut(t);
+        const c1 = p1Tmp.copy(a.from).add(oTmp.set(0, 0.03, 0.12).multiplyScalar(S));
+        const c2 = p2Tmp.copy(hold).add(oTmp.set(0, 0.09, -0.12).multiplyScalar(S));
+        b.setNextKinematicTranslation(bezier(vTmp, a.from, c1, c2, hold, k));
+        qTmp.setFromEuler(eTmp.set(-0.35, 1.0, 0.15));
+        const spin = spinDown(sTmp, axisTmp.set(0.25, 1, 0.1).normalize(), 2, k);
+        b.setNextKinematicRotation(rTmp.copy(a.fromQ).slerp(qTmp, easeInOut(t)).premultiply(spin));
+        if (t < 0.85) sparkle.trail(vTmp, 2);
+        if (t >= 1) { a.kind = 'land'; a.t = 0; }
+      } else if (a.kind === 'land') {
+        // Settles into the hand: squash-and-stretch wobble, then the idle float takes over.
+        a.t += dt;
+        const v = visuals.current[i];
+        if (v) v.scale.copy(landWobble(oTmp, a.t, 0.1));
+        b.setNextKinematicTranslation(holdPoint(camera, hTmp, ...HOLD));
+        if (a.t > 0.6) {
+          if (v) v.scale.setScalar(1);
+          anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held' });
+          clock.current.heldAt = clock.current.t;
+        }
+      } else if (a.kind === 'return') {
+        // Tossed back: a quick arc up to the window, shrinking into a puff of sparkles.
+        a.t = Math.min(1, a.t + dt / 0.55);
+        const k = easeInOut(a.t);
+        const top = p2Tmp.set(0, (WINDOW.y0 + WINDOW.y1) / 2, FRONT_Z + 0.05).multiplyScalar(S);
+        b.setNextKinematicTranslation(bezier(vTmp, a.from, p1Tmp.copy(a.from).add(oTmp.set(0, 0.16 * S, 0)), oTmp.copy(top).add(hTmp.set(0, 0.12, 0.1).multiplyScalar(S)), top, k));
+        b.setNextKinematicRotation(rTmp.copy(a.fromQ).premultiply(spinDown(sTmp, axisTmp.set(1, 0.3, 0).normalize(), 1, k)));
+        const v = visuals.current[i];
+        if (v) v.scale.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.55) / 0.45), 2)));
+        if (a.t >= 1) {
+          sparkle.burst(top, 18, 0.22 * S);
           anim.current.delete(i);
-          const x = (Math.random() - 0.5) * 0.2, z = (Math.random() - 0.5) * 0.18;
-          b.setTranslation({ x, y: HOPPER.ceiling - 0.05, z }, true);
+          const x = (Math.random() - 0.5) * 0.2 * S, z = (Math.random() - 0.5) * 0.18 * S;
+          b.setTranslation({ x, y: (HOPPER.ceiling - 0.05) * S, z }, true);
           b.collider(0).setCollisionGroups(G.capsuleHopper);
           b.collider(0).setEnabled(true);
           b.setBodyType(RigidBodyType.Dynamic, true);
-          b.setLinvel({ x: 0, y: -0.4, z: 0 }, true);
+          b.setLinvel({ x: 0, y: -0.4 * S, z: 0 }, true);
           if (v) v.scale.setScalar(1);
           mode.current[i] = 'hopper';
           const waiting = mode.current.some((m) => m === 'cup' || m === 'chute');
@@ -340,13 +408,20 @@ export default function Machine() {
       const b = bodies.current[i];
       if (!b) return;
       if (m === 'held' && !anim.current.has(i)) {
+        b.wakeUp();
         const t = clock.current.t;
-        b.setNextKinematicTranslation(vTmp.copy(holdPoint()).add(new THREE.Vector3(0, Math.sin(t * 1.7) * 0.004, 0)));
-        b.setNextKinematicRotation(qTmp.setFromEuler(eTmp.set(-0.35 + Math.sin(t * 0.9) * 0.08, 1.0 + t * 0.35, 0.15)));
+        // Ease from the landing pose into the slow presenting turn, so nothing snaps.
+        const since = t - clock.current.heldAt, blend = clamp01(since / 0.8);
+        b.setNextKinematicTranslation(vTmp.copy(holdPoint(camera, hTmp, ...HOLD)).add(oTmp.set(0, Math.sin(since * 1.7) * 0.004 * S * blend, 0)));
+        b.setNextKinematicRotation(qTmp.setFromEuler(eTmp.set(-0.35 + Math.sin(since * 0.9) * 0.08 * blend, 1.0 + since * 0.35 * blend * blend, 0.15)));
+        if (Math.random() < dt * 1.4) {
+          const v = visuals.current[i];
+          if (v) sparkle.twinkle(v.localToWorld(oTmp.set((Math.random() - 0.5) * 0.04, CAPSULE_R * 0.7, CAPSULE_R * 0.5)));
+        }
       } else if (m === 'chute') {
         // Settled in the cup against the flap?
         const p = b.translation(), v = b.linvel();
-        if (p.z > 0.12 && p.y < 0.16 && Math.hypot(v.x, v.y, v.z) < 0.04) {
+        if (p.z > 0.12 * S && p.y < 0.16 * S && Math.hypot(v.x, v.y, v.z) < 0.04 * S) {
           const t0 = restTimer.current.get(i) ?? clock.current.t;
           restTimer.current.set(i, t0);
           if (clock.current.t - t0 > 0.35) { mode.current[i] = 'cup'; restTimer.current.delete(i); gacha.set({ phase: 'ready' }); }
@@ -354,8 +429,8 @@ export default function Machine() {
       } else if (m === 'hopper') {
         // Anything that escaped the hopper (it should not) goes back in.
         const p = b.translation();
-        if (p.y < HOPPER.floor - 0.05 || Math.abs(p.x) > INNER.x + 0.02) {
-          b.setTranslation({ x: 0, y: HOPPER.ceiling - 0.05, z: 0 }, true);
+        if (p.y < (HOPPER.floor - 0.05) * S || Math.abs(p.x) > (INNER.x + 0.02) * S) {
+          b.setTranslation({ x: 0, y: (HOPPER.ceiling - 0.05) * S, z: 0 }, true);
           b.setLinvel({ x: 0, y: 0, z: 0 }, true);
         }
       }
@@ -366,7 +441,7 @@ export default function Machine() {
   const m = materials();
   const ribs = [0, 1, 2, 3].map((k) => (k * Math.PI) / 2 + Math.PI / 4);
   return (
-    <group>
+    <group scale={S}>
       <CabinetVisual />
       <CabinetColliders ref={chute} />
       <Knob ref={knob} />
@@ -384,12 +459,11 @@ export default function Machine() {
         ))}
       </RigidBody>
 
-      {/* Exit flap: hinged at its top edge, held shut by a joint motor (a spring). */}
-      <RigidBody ref={flap} colliders={false} position={[0, FLAP.hingeY, FLAP.z]} mass={0.03} angularDamping={0.6} collisionGroups={G.chuteStatic} ccd>
+      {/* Exit flap: hinged at its top edge, swings inward only, hangs shut under its own weight. */}
+      <RigidBody ref={flap} colliders={false} position={[0, FLAP.hingeY, FLAP.z]} mass={0.03} angularDamping={0.6} gravityScale={S} collisionGroups={G.chuteStatic} ccd>
         <CuboidCollider args={[FLAP.width / 2, FLAP.height / 2, FLAP.thickness / 2]} position={[0, -FLAP.height / 2, 0]} />
         <group ref={flapGroup}><FlapVisual width={FLAP.width} height={FLAP.height} thickness={FLAP.thickness} /></group>
       </RigidBody>
-      <FlapMotor joint={joint} />
 
       {spawn.map((s, i) => (
         <Capsule
@@ -404,15 +478,4 @@ export default function Machine() {
       ))}
     </group>
   );
-}
-
-/** Arms the flap's spring once the joint exists. */
-function FlapMotor({ joint }: { joint: ReturnType<typeof useRevoluteJoint> }) {
-  const armed = useRef(false);
-  useFrame(() => {
-    if (armed.current || !joint.current) return;
-    joint.current.configureMotorPosition(FLAP_CLOSED, FLAP_K, FLAP_C);
-    armed.current = true;
-  });
-  return null;
 }

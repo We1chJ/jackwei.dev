@@ -1,6 +1,12 @@
 // Real-world dimensions (metres) of a single Bandai-style gashapon cabinet.
 // Y up, +Z faces the viewer, origin on the floor under the cabinet centre.
 // Proportions follow a standard 1-tier machine (~360 x 380 x 800 mm).
+//
+// In the arcade the whole machine is blown up by SCALE so it stands as tall as the claw and
+// vending machines. Everything here stays in real-size units: the Machine's root group applies
+// the scale, so Rapier sees it in world space; code that talks to Rapier directly (positions,
+// velocities, joint anchors) converts with SCALE.
+export const SCALE = 2.3;
 
 export const CAB = {
   w: 0.36,          // outer width

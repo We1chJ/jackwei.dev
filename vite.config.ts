@@ -11,7 +11,8 @@ function chunkList(base: string): Plugin {
       order: 'post',
       handler(html, ctx) {
         const chunks = Object.values(ctx.bundle ?? {})
-          .filter((c) => c.type === 'chunk' && !c.isEntry)
+          // pdf.js is only needed once the résumé reel opens (src/resume/), so it stays out of the first load
+          .filter((c) => c.type === 'chunk' && !c.isEntry && !c.name.startsWith('pdf'))
           .map((c) => [base + c.fileName, new TextEncoder().encode(c.type === 'chunk' ? c.code : '').length]);
         return { html, tags: [{ tag: 'script', children: `window.__CHUNKS=${JSON.stringify(chunks)}`, injectTo: 'head' }] };
       },
@@ -23,6 +24,9 @@ function chunkList(base: string): Plugin {
 export default defineConfig({
   base: '/',
   plugins: [react(), chunkList('/')],
+  // pdf.js is imported lazily (the résumé reel); listing it here stops the dev server from
+  // discovering it mid-session and force-reloading the page
+  optimizeDeps: { include: ['pdfjs-dist'] },
   build: {
     chunkSizeWarningLimit: 2500,
     rollupOptions: {

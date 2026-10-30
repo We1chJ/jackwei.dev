@@ -36,160 +36,181 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .controls button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .controls .quiet { background: transparent; }
 
-/* ---------- "Insert coin" loading screen (index.html + src/loader.ts) ---------- */
-/* Only transform/opacity animate, so it stays smooth while the 3D engine warms up. */
-.loader { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden; perspective: 1600px; }
+/* ---------- Arcade: machine tabs, card info ---------- */
+.tabs {
+  position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--ink);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+}
+.tabs button {
+  font: 400 16px/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .4px; padding: 9px 18px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--paper); cursor: pointer; transition: background .2s, color .2s;
+}
+.tabs button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+.tabs button:focus-visible { outline: 3px solid #FFC800; outline-offset: 2px; }
+@media (max-width: 560px) { .brand { display: none; } }
 
-/* Two hinged doors; the halftone lives on a full-width layer inside each so the halves line up. */
-.door {
-  position: absolute; top: 0; bottom: 0; width: 50%; overflow: hidden;
-  transition: transform .95s cubic-bezier(.6, 0, .25, 1), opacity .3s .65s;
+.card-info {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: min(300px, calc(100% - 32px));
+  padding: 18px 18px 16px; border-radius: 18px; background: var(--paper); border: 3px solid var(--ink);
+  box-shadow: 6px 6px 0 var(--ink); animation: card-in .45s cubic-bezier(.3, 1.4, .5, 1);
 }
-.door-l { left: 0; transform-origin: left center; }
-.door-r { right: 0; transform-origin: right center; }
-.door-content {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 200%; display: grid; place-items: center;
-  background:
-    radial-gradient(rgba(20, 20, 20, .07) 1.6px, transparent 1.8px) 0 0 / 18px 18px,
-    radial-gradient(110% 90% at 50% 42%, #F8D766, #EDBA31);
-}
-.door-r .door-content { left: -100%; }
-.door::after {   /* the door darkens as it turns away from the light */
-  content: ""; position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .95s;
-  background: linear-gradient(90deg, rgba(40, 25, 0, .05), rgba(40, 25, 0, .5));
-}
-.door-r::after { background: linear-gradient(270deg, rgba(40, 25, 0, .05), rgba(40, 25, 0, .5)); }
-.open .door-l { transform: rotateY(-82deg); opacity: 0; }
-.open .door-r { transform: rotateY(82deg); opacity: 0; }
-.open .door::after { opacity: 1; }
-.open .door-l .door-content { box-shadow: inset -3px 0 0 rgba(60, 40, 0, .45); }
-.open .door-r .door-content { box-shadow: inset 3px 0 0 rgba(60, 40, 0, .45); }
-
-.loader-body { position: relative; z-index: 1; display: grid; justify-items: center; gap: 24px; width: min(640px, calc(100% - 32px)); }
-
-.loader-title { display: flex; align-items: center; gap: 14px; }
-.loader-title h1 {
-  margin: 0; font: 400 clamp(34px, 9vw, 52px) / 1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: 1px;
-  color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 4px 4px 0 var(--ink);
-}
-.loader-mascot {
-  width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff; background: #FFC800;
-  box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px var(--ink);
-  animation: wobble 2.4s cubic-bezier(.45, 0, .55, 1) infinite;
-}
-@keyframes wobble { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-6deg) translateY(-3px); } }
-
-/* Brushed-steel front plate, like the machine's. No overflow clipping here: it would flatten the 3D coin. */
-.plate {
-  position: relative; width: 100%; height: 176px; border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 35%, rgba(0, 0, 0, .1)),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, .07) 0 1px, rgba(0, 0, 0, .045) 1px 2px, rgba(255, 255, 255, 0) 2px 3px),
-    linear-gradient(90deg, #A9AEB3, #DDE0E3 18%, #BFC3C7 38%, #EEF0F2 62%, #C3C7CB 80%, #A4A9AE);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(0, 0, 0, .25),
-    0 0 0 1px #7E8388, 0 3px 0 #6F7479, 0 22px 34px -10px rgba(90, 60, 0, .5);
-}
-.plate-glint { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
-.plate-glint::before {
-  content: ""; position: absolute; top: -20%; bottom: -20%; left: 0; width: 28%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .42), transparent);
-  transform: translateX(-120%) skewX(-18deg); animation: glint 5.5s cubic-bezier(.45, 0, .3, 1) infinite 1s;
-}
-@keyframes glint { 0% { transform: translateX(-120%) skewX(-18deg); } 35%, 100% { transform: translateX(480%) skewX(-18deg); } }
-.screw {
-  position: absolute; width: 12px; height: 12px; border-radius: 50%;
-  background:
-    linear-gradient(var(--a, 30deg), transparent 43%, rgba(40, 40, 40, .7) 44% 56%, transparent 57%),
-    radial-gradient(circle at 35% 30%, #fff, #C5C9CD 45%, #7C8187);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(0, 0, 0, .22);
+@keyframes card-in { from { opacity: 0; transform: translate(24px, -50%) rotate(3deg); } }
+.card-info h2 { margin: 8px 0 6px; font: 400 26px/1.05 'Lilita One', 'Arial Black', sans-serif; }
+.card-info p { margin: 0 0 10px; font-weight: 700; font-size: 15px; line-height: 1.4; }
+.card-info ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.card-info li { padding: 4px 10px; border-radius: 999px; background: #ECEAF5; font-weight: 800; font-size: 12px; }
+.card-info a { font-weight: 900; color: var(--ink); }
+.card-rarity { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: #fff; font: 900 11px/1 var(--font); letter-spacing: 1.5px; }
+.rarity-legendary .card-rarity { background: linear-gradient(90deg, #FF8A1F, #FFC800); color: var(--ink); }
+.rarity-shiny .card-rarity { background: linear-gradient(90deg, #FF9EE0, #FFF27A, #7AF5FF); color: var(--ink); }
+.rarity-rare .card-rarity { background: linear-gradient(90deg, #7A5CFF, #8FE3FF); }
+@media (max-width: 700px) {
+  .card-info { top: auto; bottom: 150px; right: 50%; transform: translateX(50%); animation: none; }
 }
 
-/* Recessed coin track with a chrome rail. */
-.groove {
-  position: absolute; z-index: 1; left: 26px; right: 104px; top: 24px; height: 88px; border-radius: 10px;   /* above the bezel, so the coin visibly enters the slit */
-  background:
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #6C7176, #969BA0 34%, #A7ACB1);
-  box-shadow: inset 0 3px 7px rgba(0, 0, 0, .5), inset 0 -1px 0 rgba(255, 255, 255, .35), 0 1px 0 rgba(255, 255, 255, .75);
-}
-.rail {
-  position: absolute; left: 6px; right: -2px; top: 62px; height: 7px; border-radius: 4px;
-  background: linear-gradient(180deg, #fff, #C9CED3 35%, #6E747A 72%, #A7ACB1);
-  box-shadow: 0 2px 2px rgba(0, 0, 0, .4); transform-origin: left center; transform: rotate(1.8deg);
-}
+/* ---------- Loading screen (index.html + src/loader.ts) ---------- */
+/* One language throughout: warm light on black. Only transform/opacity animate, so it stays smooth
+   while the 3D engine warms up. */
+.loader { --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .2); position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
+.loader-bg { position: absolute; inset: 0; background: var(--night); }
+.loader-body, .loader-retry, .loader.ready .coin { pointer-events: auto; }
 
-/* The coin: faces + reeded edge in real 3D; shine and contact shadow stay put while it rolls. */
-.coin-fly { position: absolute; left: 8px; top: 8px; width: 56px; height: 56px; perspective: 500px; will-change: transform; }
-.coin-shadow {
-  position: absolute; left: 8px; right: 8px; bottom: -4px; height: 8px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, .5), transparent);
-}
-.coin-hop { position: relative; display: block; width: 56px; height: 56px; padding: 0; border: 0; background: none; cursor: pointer; transform-style: preserve-3d; }
-.coin-hop:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 50%; }
-.coin3d { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
-.coin-face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; }
+/* The hero in outline: dim, and lit behind a window that rises with the progress. */
+.outline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+.outline path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.outline .face { fill: var(--night); transition: fill-opacity .6s; }
+.outline-dim path { stroke: var(--dim); stroke-width: 1; }
+.outline-window { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
+.outline-lit { will-change: transform; }
+.outline-lit .face { fill: #18120B; }
+.outline-lit .line, .outline-lit .face { stroke: var(--light); stroke-width: 1.3; }
+.outline-lit .glow { stroke: rgba(255, 196, 110, .2); stroke-width: 6; }
+.loader.open .face { fill-opacity: 0; }
+
+/* Under the name: the sloped hairline, the coin rolling on it and the slot it goes into. */
+.loader-body { position: absolute; display: grid; justify-items: start; gap: 30px; color: var(--light); }
+.loader-row { position: relative; width: 200px; height: 30px; transform: rotate(5deg); }
+.loader-track { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--dim); }
+.loader-fill { position: absolute; inset: 0; background: var(--light); box-shadow: 0 0 6px rgba(255, 196, 110, .6); transform: scaleX(0); transform-origin: left center; will-change: transform; }
+.loader-glow { position: absolute; inset: 0; opacity: 0; background: #fff; box-shadow: 0 0 8px 1px rgba(255, 220, 160, .8); }
+
+/* The coin: a line-art disc (built by loader.ts). .coin moves along the line, .coin-drop falls and
+   bounces, .coin-flip tumbles, .coin-body rolls; the soft glow behind it stays put. */
+.coin { position: absolute; left: -13px; bottom: 1px; width: 26px; height: 26px; opacity: 0; color: var(--light); will-change: transform; }
+.coin-drop { position: absolute; inset: 0; transform-origin: 50% 100%; perspective: 260px; will-change: transform; }
+.coin-flip, .coin-body { position: absolute; inset: 0; will-change: transform; }
+.coin-face { position: absolute; inset: 0; filter: drop-shadow(0 0 3px rgba(255, 196, 110, .7)); }
 .coin-face svg { display: block; width: 100%; height: 100%; }
-.coin-face.front { transform: translateZ(3.5px); }
-.coin-face.back { transform: rotateY(180deg) translateZ(3.5px); }
-.coin-edge { position: absolute; inset: 0; transform-style: preserve-3d; }
-.coin-edge i {
-  position: absolute; left: 50%; top: 50%; width: 4.9px; height: 7px; margin: -3.5px 0 0 -2.45px; backface-visibility: hidden;
-  background: linear-gradient(90deg, #7A5605, #F6D873 45%, #C9961B 70%, #7A5605);
-}
-.coin-sheen {
-  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; transform: translateZ(4px);
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, .9) 0 5%, rgba(255, 255, 255, .32) 13%, transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, .28), transparent 45%, rgba(90, 55, 0, .3));
-}
-.poked { animation: poke .55s cubic-bezier(.3, 1.5, .5, 1); }
-@keyframes poke { 35% { transform: translateY(-26px) rotate(-10deg); } }
+.coin-sheen { position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(closest-side, rgba(255, 196, 110, .22), transparent); }
+.coin-spark { position: absolute; left: -1.5px; bottom: 0; width: 3px; height: 3px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); }
 
-/* Chrome coin slot. */
-.slot-bezel {
-  position: absolute; right: 30px; top: 32px; width: 50px; height: 78px; border-radius: 11px; overflow: hidden;
-  display: grid; place-items: center;
-  background: linear-gradient(160deg, #fff, #CDD2D7 28%, #80878E 50%, #E6E9EC 68%, #9BA2A9);
-  box-shadow: 0 3px 4px rgba(0, 0, 0, .35), inset 0 1px 0 #fff, inset 0 -1px 1px rgba(0, 0, 0, .3), 0 0 0 1px #6B7177;
+/* The slot: a lit slit standing at the bottom of the slope, above the coin so it vanishes into it. */
+.loader-slot {
+  position: absolute; z-index: 1; left: calc(100% + 14px); bottom: -16px; width: 10px; height: 34px; border-radius: 5px; transform: rotate(-5deg);
+  background: var(--night); box-shadow: 0 0 0 1.3px var(--dim); transition: box-shadow .15s;
 }
-.slot-bezel::after {
-  content: ""; position: absolute; inset: -40% -60%; opacity: 0; pointer-events: none;
-  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .95) 50%, transparent 60%);
-}
-.clink .slot-bezel::after { animation: flash .6s ease-out; }
-@keyframes flash { 0% { opacity: 1; transform: translateX(-40%); } 100% { opacity: 0; transform: translateX(40%); } }
-.slot { width: 9px; height: 52px; border-radius: 5px; background: linear-gradient(90deg, #000, #222 50%, #000); box-shadow: inset 0 2px 3px #000, 0 1px 0 rgba(255, 255, 255, .7); }
+.loader.ready .loader-slot { box-shadow: 0 0 0 1.3px var(--light), 0 0 10px rgba(255, 196, 110, .35); }
+.loader-slot.hot { box-shadow: 0 0 0 1.6px #fff, 0 0 16px rgba(255, 196, 110, .7) !important; }
 
-/* Red LED counter behind smoked glass. */
-.led {
-  position: absolute; left: 26px; bottom: 18px; width: min(240px, calc(100% - 52px)); height: 38px; padding: 0 14px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px),
-    radial-gradient(120% 140% at 50% 0%, #2A1512, #0C0606 60%);
-  box-shadow: inset 0 2px 5px #000, 0 1px 0 rgba(255, 255, 255, .75), 0 0 0 2px #5D6268;
-  font: 700 17px / 1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: 2px; white-space: nowrap;
-  color: #FF4B3A; text-shadow: 0 0 4px rgba(255, 75, 58, .9), 0 0 12px rgba(255, 40, 20, .55);
-}
-.led-num { font-variant-numeric: tabular-nums; }
-.blink { animation: blink .8s steps(1) infinite; }
-@keyframes blink { 50% { opacity: .2; } }
-.engraved {
-  position: absolute; right: 30px; bottom: 30px; font-weight: 900; font-size: 10px; letter-spacing: 1.5px;
-  color: rgba(70, 74, 78, .8); text-shadow: 0 1px 0 rgba(255, 255, 255, .85), 0 -1px 0 rgba(0, 0, 0, .15);
-}
-@media (max-width: 600px) { .engraved { display: none; } }
+.loader-caption { margin: 0; display: flex; gap: 14px; font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; white-space: nowrap; }
+.cap-text { opacity: .72; }
+.cap-num { font-variant-numeric: tabular-nums; }
+.loader.ready .cap-text { opacity: 1; }
 
-.loader-status { margin: 0; min-height: 24px; font-weight: 800; font-size: 16px; text-align: center; }
-.loader-line { display: inline-block; transition: opacity .16s, transform .16s; }
-.loader-line.out { opacity: 0; transform: translateY(4px); }
+/* Once loaded, the coin is the way in: click it, or drag it into the slot. */
+.loader.ready .coin { cursor: grab; touch-action: none; }
+.loader.ready.dragging .coin { cursor: grabbing; }
+.coin:focus-visible { outline: 1.5px solid var(--light); outline-offset: 5px; border-radius: 50%; }
+
 .loader-retry {
-  font: inherit; font-weight: 800; font-size: 14px; padding: 9px 16px; border-radius: 999px;
-  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--light); text-decoration: underline; text-underline-offset: 4px;
 }
-.jammed .coin-hop { animation: poke .55s 3; }
+.jammed .loader-fill { background: #E0695C; }
+.jammed .coin { opacity: .35 !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .loader *, .loader *::before, .loader *::after { animation: none !important; }
-  .open .door-l, .open .door-r { transform: none; transition: opacity .4s; }
+  .loader *, .loader *::before, .loader *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Hero: copy under the 3D name, sound toggle ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hero-copy { position: absolute; left: 7vw; display: grid; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
+.hero-copy.in { opacity: 1; transform: none; transition-delay: 2.9s; pointer-events: auto; }
+.hero-line { margin: 0; font: 800 clamp(18px, 2.1vw, 30px)/1.15 var(--font); letter-spacing: -.2px; }
+.hero-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.hero-links a {
+  font: 800 14px/1 var(--font); color: var(--ink); text-decoration: none; padding: 10px 16px; border-radius: 999px;
+  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); transition: transform .15s, box-shadow .15s;
+}
+.hero-links a:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.hero-links a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.sound-toggle {
+  position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); right: 20px; font: 800 13px/1 var(--font); padding: 8px 14px; border-radius: 999px;
+  border: 2px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .5s 3.2s;
+}
+.sound-toggle.in { opacity: 1; }
+
+/* ---------- Résumé reel (src/resume/) ---------- */
+.resume-btn {
+  position: absolute; top: calc(max(16px, env(safe-area-inset-top, 0px)) + 38px); left: 20px;
+  font: 800 14px/1 var(--font); color: var(--ink); padding: 10px 16px; border-radius: 999px; cursor: pointer;
+  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); transition: transform .15s, box-shadow .15s;
+}
+.resume-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.resume-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+@media (max-width: 560px) { .resume-btn { top: calc(max(14px, env(safe-area-inset-top, 0px)) + 56px); left: 14px; } }
+
+.reel-layer { position: fixed; inset: 0; z-index: 30; touch-action: none; transition: opacity .35s; }
+.reel-layer.closing { opacity: 0; pointer-events: none; }
+.reel-scrim {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 18px;
+  background: rgba(12, 11, 14, .62); animation: reel-fade .25s both;
+}
+@keyframes reel-fade { from { opacity: 0; } }
+
+/* Two dots orbiting the centre, seen edge-on (after TikTok's loader): each swings side to side,
+   growing as it comes to the front, and the overlap blends. */
+.reel-dots { position: relative; width: 64px; height: 28px; transition: opacity .2s; }
+.reel-layer:not(.loading) .reel-dots { opacity: 0; }
+.reel-dots .dot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 50%; mix-blend-mode: screen; }
+.reel-dots .red { background: #F2273C; animation: reel-orbit .9s cubic-bezier(.45, 0, .55, 1) infinite; }
+.reel-dots .blue { background: #2E7BFF; animation: reel-orbit .9s cubic-bezier(.45, 0, .55, 1) infinite; animation-delay: -.45s; }
+@keyframes reel-orbit {
+  0%   { transform: translateX(-17px) scale(1);    z-index: 1; }
+  25%  { transform: translateX(0)     scale(1.22); z-index: 2; }
+  50%  { transform: translateX(17px)  scale(1);    z-index: 2; }
+  75%  { transform: translateX(0)     scale(.78);  z-index: 1; }
+  100% { transform: translateX(-17px) scale(1);    z-index: 1; }
+}
+.reel-progress { margin: 0; color: #fff; font: 800 13px/1 var(--font); letter-spacing: .5px; opacity: .8; }
+
+/* The clip opens out of the centre as a growing circle (75vmax covers any window's corners). */
+.reel { position: absolute; inset: 0; background: #F6F6F7; clip-path: circle(0 at 50% 50%); }
+.reel-layer:not(.loading) .reel { clip-path: circle(75vmax at 50% 50%); transition: clip-path .75s cubic-bezier(.7, 0, .25, 1); }
+.reel canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.reel-hint {
+  position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;
+  padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, .45); color: #fff; font: 800 13px/1 var(--font);
+  opacity: 0; transition: opacity .4s; pointer-events: none;
+}
+.reel-layer.play .reel-hint.in { opacity: 1; transition-delay: .6s; }
+.reel-ui { position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); right: 16px; display: flex; gap: 8px; }
+.reel-ui button {
+  font: 800 13px/1 var(--font); padding: 9px 14px; border-radius: 999px; cursor: pointer;
+  border: 0; background: rgba(0, 0, 0, .45); color: #fff; backdrop-filter: blur(6px);
+}
+.reel-ui button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.reel-layer.resume .reel-ui button { background: var(--ink); }
+
+/* The résumé rises to the front on the clip's final white frame and scrolls on its own. */
+.reel-resume {
+  position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  display: grid; justify-items: center; align-content: start; gap: 18px; padding: 72px 16px 48px;
+  opacity: 0; transform: translateY(40px); pointer-events: none; transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1);
+}
+.reel-layer.resume .reel-resume { opacity: 1; transform: none; pointer-events: auto; }
+.reel-resume-bar a { font: 800 14px/1 var(--font); color: var(--ink); }
+.reel-pages { display: grid; gap: 18px; }
+.reel-pages canvas { display: block; background: #fff; border-radius: 4px; box-shadow: 0 10px 40px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .08); }

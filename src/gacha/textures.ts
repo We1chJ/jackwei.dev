@@ -2,14 +2,14 @@
 // and the printed artwork (header card, price label, arrow sticker, flap print).
 import * as THREE from 'three';
 
-function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   return [c, c.getContext('2d')!];
 }
 
 // Deterministic value noise so every load looks the same.
-function rng(seed: number) {
+export function rng(seed: number) {
   let s = seed >>> 0;
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
@@ -69,15 +69,15 @@ export function brushedRoughness(): THREE.CanvasTexture {
   return t;
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 }
 
-async function fontsReady(spec: string) {
+export async function fontsReady(spec: string) {
   try { await document.fonts.load(spec); } catch { /* fall back to the stack */ }
 }
 
-function finish(c: HTMLCanvasElement): THREE.CanvasTexture {
+export function finish(c: HTMLCanvasElement): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -175,5 +175,27 @@ export function flapPrint(): THREE.CanvasTexture {
   };
   draw();
   fontsReady('800 64px Nunito').then(draw);
+  return tex;
+}
+
+/** Topper sign on the capsule station: wordmark on gloss black over a hazard stripe. */
+export function stationSign(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(1024, 256);
+  const tex = finish(c);
+  const draw = () => {
+    ctx.fillStyle = '#121214'; ctx.fillRect(0, 0, 1024, 256);
+    ctx.fillStyle = '#FFC800'; ctx.fillRect(0, 208, 1024, 14);
+    for (let x = -40; x < 1024; x += 56) { ctx.fillStyle = '#121214'; ctx.beginPath(); ctx.moveTo(x, 208); ctx.lineTo(x + 24, 208); ctx.lineTo(x + 38, 222); ctx.lineTo(x + 14, 222); ctx.fill(); }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '120px "Lilita One", "Arial Black", sans-serif';
+    ctx.fillText('CAPSULE TOYS', 512, 150);
+    ctx.fillStyle = '#FFC800';
+    ctx.font = '800 34px Nunito, "Segoe UI", sans-serif';
+    ctx.fillText('★  JACK’S PROJECTS INSIDE  ★', 512, 194);
+    tex.needsUpdate = true;
+  };
+  draw();
+  Promise.all([fontsReady('120px "Lilita One"'), fontsReady('800 34px Nunito')]).then(draw);
   return tex;
 }

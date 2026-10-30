@@ -170,3 +170,47 @@ hard offset shadows (sticker look), yellow `#FFC800` as the brand color.
   separate cached chunks). Behind the loader, `src/gacha/Warmup.tsx` compiles shaders, settles the
   capsule pile instantly and finishes the floor-shadow bake, so the first visible frame is smooth.
   Pixel density capped at 1.5x with automatic drop to 1x on slow frames.
+- 2026-10-28 — **Arcade room: claw, gacha and vending side by side** in one scene (`src/arcade/`); the
+  camera glides between them (tabs, or click a machine). Shared prize choreography
+  (`src/arcade/present.ts`: anticipation, Bezier pop with spin-down, squash-and-stretch landing) and a
+  sparkle particle pool (`src/arcade/Sparkles.tsx`), used by all three machines.
+  - **Vending (`src/vending/`)**: "JACK CARDS" spiral-coil machine. Working keypad (letter + number, CLR, ★ =
+    random) with an LED screen; also typeable. The coil turns, the front card tips off the shelf and falls
+    with Rapier physics into the bin. Items are graded holo project cards (iridescent foil in acrylic slabs,
+    from `src/data/projects.ts`); the held card shows the project in an info panel.
+  - **Claw (`src/claw/`)**: on-screen gamepad (joystick + DROP). Gantry with limited acceleration, claw on a
+    damped pendulum, physical fingers; random-strength grip so prizes can slip. Prizes: Yellow Jack
+    plushies (one shiny gold), prize chute and door.
+  - **Gacha**: eased, overshooting flap; capsule pop-out with anticipation, arc, spin and landing wobble.
+- 2026-10-28 — **Quality pass on the claw and vending machines** (procedural; Sketchfab models declined for now).
+  No extra on-screen UI: the claw is played with its own 3D joystick (drag it; it springs back) and DROP
+  button, with a red aim ring under the claw and MOVE/DROP printed on the panel. Camera framings are close
+  ("main"), and glide to a "pickup" close-up while a prize waits (`VIEW` in `src/arcade/layout.ts`).
+  Added mechanical detail (gantry belt/pulleys/winch spool, claw spring/solenoid/linkages, coin doors, bill
+  acceptor, lock, vents, gaskets, side wraps) and guidance glows (key attract wave, row/slot highlight,
+  bin and prize-door glow, scrolling LED). One shared interior point light follows focus: every light costs
+  on every surface, and per-machine lights dropped the arcade to ~42 fps.
+
+### 2026-10-28: Quieter loader, split reveal, full-height gacha
+- Loader is now a hairline bar on near-black, replacing the CSS-3D coin and steel plate: the arcade is the show, the loader should not compete with it. Fun comes from motion instead: wordmark letters drift in and shimmer; a 3D gold coin (embossed faces, stacked discs for thickness, a fixed sheen) falls in from the top tumbling, bounces onto the left end of the sloped line (the line dips, sparks fly) and rolls down it with the progress; the percentage is an odometer whose strips only roll forward.
+- Reveal: the coin hops and drops edge-on into a coin slot (letters bounce), the line levels out, flashes and stretches edge to edge, and the screen splits along it (a bright slit, then the halves fly apart) while the arcade settles in with a slight push-in. WAAPI transform/opacity only. (A velvet-curtain version was tried first and dropped.)
+- Tab title: a coin rolls along an underscore track (after bruno-simon.com 2019).
+- Gashapon scaled 2.3x (0.8 m to 1.84 m) to stand level with the claw and vending machines: one scaled root group (@react-three/rapier scales colliders by world scale), Rapier-facing positions, velocities and the flap joint anchor converted with `SCALE`, and `gravityScale = SCALE` so drops keep real-size timing.
+
+### 2026-10-28: Physical claw, push-flaps, true-scale capsule station
+- Claw is fully physical: kinematic gantry carriage, the head hanging on a Rapier rope joint (length set through the raw joint limit, since the JS API exposes no setter), touchdown detected by rope slack, three dynamic fingers on force-based revolute motors. The motor target is kept within REACH of each finger, capping the squeeze at K*REACH like a coil's pull, so fingers grip but can't crush through a plushie. Strong pickup, weaker carry (varies +-20% per play). No grip spring, no slip dice: in automated trials with +-3 cm aim error it wins about 3 in 8.
+- Rapier JS 0.14 silently drops revolute joint limits at creation (only prismatic reads them); every hinge now calls setLimits once the joint exists.
+- All three prize trays use one push-flap (src/arcade/flap.ts): a dynamic panel on an inward-only hinge that hangs shut under gravity, follows a drag via a compliant motor, is held open by a reaching hand, and clacks with a small rebound. The prize is drawn out under it with its collider on, so it lifts the flap as it passes.
+- A true-scale two-unit capsule station (wheeled base, stocked upper unit) was tried and dropped: the single scaled machine reads better as the centrepiece. The suggested Sketchfab model was not used (view-only, marked NoAI).
+
+
+### 2026-10-29: Hero section, coin-to-enter, machines drop in
+- The site opens on a hero: camera from the front-left (`VIEW.hero`) so the three machines recede diagonally across the right of the frame; "JACK WEI" on the left in thick bevelled, clear-coated enamel letters (three.js TextGeometry, a subset of Lilita One converted to a typeface JSON; renamed "Hero Display" because the OFL reserves the name for unmodified copies). The block is pinned to the hero frame by unprojecting a screen anchor. HTML below it: tagline and GitHub / résumé links; an sr-only h1 carries the name. Machines are decoration in the hero for now (`focus: 'hero'`, no tabs, no click-to-focus).
+- Loader: no auto-enter. The coin waits at the end of the line; click it or drag it into the slot. That click turns sound on (browsers only start audio from a gesture). Plain caption ("Loading the arcade · 64%") replaces the rolling odometer, which read as garbled mid-roll.
+- Drop: each machine's visuals ride a pivot group that free-falls, bounces and rocks on its base (Drop.tsx). The physics bodies never move: @react-three/rapier caches each body's parent inverse at creation, so a parent moved later carries the visuals rigidly while Rapier keeps simulating in place. The group must be at rest while the machine mounts and is lifted only once the scene is ready. Landing fires `impact`: synthesised slam per machine, dust puff, camera shake, and the real contents get jolted (capsules bounce, plushies hop, flap rattles).
+- Floor shadows: the baked AccumulativeShadows layer was replaced. It baked machines that are not there yet, picked up meshes added after its scene scan (ghost letters) and darkened the floor far from the lights. Now: a ShadowMaterial floor for the key light's real-time shadows plus ContactShadows rendered live during the drop and frozen after.
+
+### 2026-10-29: Mirrored hero, loader drawn as the hero in light
+- Hero camera now from the front-right: the row starts big at the right edge and recedes toward the middle, meeting the name (which turns away to the right). Vending is nearest.
+- Loader redesigned in one visual language, warm light on black, replacing a mix of plain text, typographic symbols, flat shapes and a 3D coin. It draws the hero itself as line-art: the three machines (main blocks, camera-facing faces only, painter-ordered, plus recognisable features) and the name (front-face contours of the 3D letters), projected with the hero camera. Placement maths lives in plain TypeScript (src/arcade/heroName.ts, silhouette.ts) shared by the loader and the 3D scene, so outlines match the real scene exactly. Progress is light rising through the outlines (a clipping window and its contents translate in opposite directions: transform-only). The coin, slot and line are line-art too, under the name.
+- Reveal: outlines flare, the dark lifts (outlines stay), each machine drops into its own outline, which flashes out on landing; the name's outline gives way as the 3D letters stamp in. Parallax waits until everything has landed so outlines stay registered.

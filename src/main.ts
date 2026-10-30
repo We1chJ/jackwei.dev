@@ -6,6 +6,15 @@ import { loading } from './loader';
 
 declare global { interface Window { __CHUNKS?: [url: string, bytes: number][] } }
 
+// Tab title: a coin rolling along a line, wrapping round (after bruno-simon.com, 2019).
+// The static <title> in index.html stays for crawlers and bookmarks.
+const TRACK = 14;
+let coinAt = 0;
+setInterval(() => {
+  coinAt = (coinAt + 1) % TRACK;
+  document.title = '_'.repeat(coinAt) + '🪙' + '_'.repeat(TRACK - 1 - coinAt);
+}, 180);
+
 async function prefetch() {
   const chunks = window.__CHUNKS;
   if (!chunks?.length) return;

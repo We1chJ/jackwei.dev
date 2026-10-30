@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { BallCollider, RigidBody, type RapierRigidBody, type CollisionEnterPayload } from '@react-three/rapier';
-import { CAPSULE_R } from './dims';
+import { CAPSULE_R, SCALE } from './dims';
 import { capsuleBottom, capsuleTop } from './geometry';
 import { capsuleMaterials, materials } from './materials';
 import { G } from './groups';
@@ -34,6 +34,7 @@ export const Capsule = forwardRef<RapierRigidBody, Props>(function Capsule({ ind
       friction={0.45}
       restitution={0.28}
       linearDamping={0.15}
+      gravityScale={SCALE}   // the machine is scaled up; this keeps drops at real-size timing
       angularDamping={0.6}   // stands in for rolling resistance, which Rapier lacks
       ccd
       collisionGroups={G.capsuleHopper}
