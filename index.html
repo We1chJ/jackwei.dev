@@ -14,16 +14,17 @@
 
 <body>
     <!-- Loading screen: static so it paints before any script arrives (src/loader.ts drives it).
-         The hero drawn in light on black, filling as it loads; a coin mints itself as it does.
-         Flick it into the slot to enter. -->
+         A coin in the middle of a black screen fills with light as the site loads. Put it in the
+         slot to enter: the hero draws itself in wireframe, then the floor opens onto the arcade. -->
     <div id="loader" class="loader" role="progressbar" aria-label="Loading jackwei.dev" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div class="loader-bg"></div>
-        <svg class="outline outline-dim" aria-hidden="true"></svg>
-        <div class="outline-window" aria-hidden="true"><svg class="outline outline-lit"></svg><i class="outline-sweep"></i></div>
-        <i class="loader-slot" aria-hidden="true"></i>
-        <div class="coin" aria-hidden="true"></div>
-        <div class="loader-body">
-            <p class="loader-caption" aria-live="polite"><span class="cap-text">Loading the arcade</span><span class="cap-num"></span></p>
+        <div class="loader-sky"></div>
+        <div class="loader-ground"></div>
+        <i class="loader-horizon" aria-hidden="true"></i>
+        <svg class="outline" aria-hidden="true"></svg>
+        <div class="loader-centre">
+            <div class="coin" aria-hidden="true"></div>
+            <i class="loader-slot" aria-hidden="true"></i>
+            <p class="loader-caption" aria-live="polite"><span class="cap-text">Loading</span></p>
             <button class="loader-retry" type="button" hidden>Couldn’t load. Reload</button>
         </div>
     </div>

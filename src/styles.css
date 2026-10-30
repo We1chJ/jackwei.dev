@@ -70,64 +70,68 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 }
 
 /* ---------- Loading screen (index.html + src/loader.ts) ---------- */
-/* One language throughout: warm light on black. Only transform/opacity animate, so it stays smooth
-   while the 3D engine warms up. */
-.loader { --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .2); position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
-.loader-bg { position: absolute; inset: 0; background: var(--night); transform-origin: 50% 100%; will-change: transform, opacity; }
-.loader-body, .loader-retry, .coin { pointer-events: auto; }
+/* Warm light on black. Only transforms, opacity and clip-paths animate, so it stays smooth while
+   the 3D engine warms up. */
+.loader { --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .22); --gold: #F2C744; --coin: 112px; --floor: 85%;
+  position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
+/* The black is two panels meeting at the floor line (loader.ts places it); they slide apart to open. */
+.loader-sky, .loader-ground { position: absolute; left: 0; width: 100%; background: var(--night); will-change: transform; }
+.loader-sky { top: 0; height: var(--floor); }
+.loader-ground { top: var(--floor); bottom: 0; }
+.loader-horizon { position: absolute; left: 0; width: 100%; top: var(--floor); height: 2px; margin-top: -1px; background: var(--gold);
+  box-shadow: 0 0 12px rgba(242, 199, 68, .85), 0 0 40px rgba(242, 199, 68, .35); transform: scaleX(0); opacity: 0; will-change: transform, opacity; }
 
-/* The hero in outline: dim, and lit behind a window that rises with the progress. */
+/* The hero in wireframe: every line hidden until the coin is in, then each draws itself (loader.ts). */
 .outline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
-.outline path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.outline .face { fill: var(--night); transition: fill-opacity .6s; }
-.outline-dim path { stroke: var(--dim); stroke-width: 1; }
-.outline-window { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
-.outline-lit { will-change: transform, filter; }
-.outline-lit .face { fill: #18120B; }
-.outline-lit .line, .outline-lit .face { stroke: var(--light); stroke-width: 1.3; }
-.outline-lit .glow { stroke: rgba(255, 196, 110, .2); stroke-width: 6; }
-.loader.open .face { fill-opacity: 0; }
-/* a band of light that wanders over the lit outlines while idle (loader.ts moves it) */
-.outline-sweep { position: absolute; top: -10%; bottom: -10%; left: 0; width: 40%; opacity: 0; mix-blend-mode: screen; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255, 220, 160, .14) 45%, rgba(255, 240, 210, .22) 50%, rgba(255, 220, 160, .14) 55%, transparent); }
+.outline path { fill: none; stroke: var(--light); stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke .5s; }
+.outline .face { fill: var(--night); transition: fill-opacity .5s, stroke .5s; }
+.outline .glow { stroke: rgba(255, 196, 110, .22); stroke-width: 6; }
+/* once the floor opens the lines stand on yellow, so they turn to ink until the machines fill them */
+.loader.open .outline path { stroke: rgba(20, 20, 20, .62); }
+.loader.open .outline .glow { stroke: transparent; }
+.loader.open .outline .face { fill-opacity: 0; }
 
-/* The coin: a disc that mints itself (loader.ts draws each part as loading progresses) and a real
-   object the whole time. .coin moves, .coin-flip tilts and squashes, .coin-body rolls. */
-.coin { position: absolute; left: 0; top: 0; width: 96px; height: 96px; opacity: 0; color: var(--light); will-change: transform; cursor: grab; touch-action: none; }
+/* The middle: the coin, the slot below it, a word under that. */
+.loader-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -56%); display: grid; justify-items: center; }
+.coin { position: relative; width: var(--coin); height: var(--coin); color: var(--light); opacity: 0; transition: opacity .6s; pointer-events: auto; touch-action: none; will-change: transform; }
+.loader.on .coin { opacity: 1; }
+.loader.ready .coin { cursor: grab; }
 .loader.dragging .coin { cursor: grabbing; }
-.coin-flip { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-.coin-body { position: absolute; inset: 0; will-change: transform; }
-.coin-face { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 6px rgba(255, 196, 110, .55)); }
-.c-disc { fill: #15100A; stroke: var(--dim); stroke-width: 1.2; }
-.c-rim { stroke: var(--light); stroke-dasharray: 100; stroke-dashoffset: 100; }
-.c-ring { opacity: 0; }
-.c-j { stroke-dasharray: 100; stroke-dashoffset: 100; }
-.c-flash { fill: #fff; opacity: 0; }
-.c-sheen { fill: rgba(255, 245, 220, .22); }
-.coin-sheen { position: absolute; inset: -22%; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 196, 110, .2), transparent); }
-.coin-spark { position: absolute; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); pointer-events: none; }
+.coin-flip { position: absolute; inset: 0; will-change: transform; }
+.loader.ready .coin-flip { animation: coin-bob 2.6s ease-in-out infinite; }
+.loader.dragging .coin-flip, .loader.inserting .coin-flip { animation: none; }
+@keyframes coin-bob { 50% { transform: translateY(-5px); } }
+.coin-body { position: absolute; inset: 0; clip-path: circle(47% at 50% 50%); }
+.coin-face { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+.coin-dim .c-disc { fill: #15100A; stroke: var(--dim); stroke-width: 1.2; }
+.coin-dim .c-ring, .coin-dim .c-j { stroke: var(--dim); }
+/* the lit face shows through a window that rises with the progress (only transforms animate) */
+.coin-fill { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
+.coin-fill > .coin-face { will-change: transform; }
+.coin-level { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .8) 35%, rgba(255, 255, 255, .8) 65%, transparent); }
+.coin-lit .c-disc { fill: var(--light); stroke: #FFF4DC; stroke-width: 1.2; }
+.coin-lit .c-ring { stroke: rgba(20, 20, 20, .38); }
+.coin-lit .c-j { stroke: #141414; }
+.coin-halo { position: absolute; inset: -30%; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .8s;
+  background: radial-gradient(closest-side, rgba(255, 196, 110, .28), transparent); }
+.loader.ready .coin-halo { opacity: 1; }
+.coin:focus-visible { outline: 1.5px solid var(--light); outline-offset: 8px; border-radius: 50%; }
 
-/* The slot: a lit slit standing to the right of the name, where the coin goes in. */
-.loader-slot {
-  position: absolute; z-index: 1; width: 12px; height: 100px; border-radius: 6px; transform: translate(-50%, -50%) rotate(-5deg);
-  background: var(--night); box-shadow: 0 0 0 1.3px var(--dim); transition: box-shadow .2s;
-}
-.loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .4); }
-.loader-slot.hot { box-shadow: 0 0 0 1.8px #fff, 0 0 22px rgba(255, 196, 110, .8) !important; }
+/* The slot: a slit under the coin. */
+.loader-slot { position: relative; margin-top: 28px; width: calc(var(--coin) * 1.3); height: 7px; border-radius: 4px; background: #000;
+  box-shadow: 0 0 0 1.3px var(--dim); transition: box-shadow .25s; }
+.loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .35); }
+.loader .loader-slot.hot { box-shadow: 0 0 0 2px #fff, 0 0 28px rgba(255, 225, 170, .95); }
 
-.loader-body { position: absolute; display: grid; justify-items: start; gap: 14px; color: var(--light); }
-.loader-caption { margin: 0; display: flex; gap: 14px; font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; white-space: nowrap; }
-.cap-text { opacity: .72; }
-.cap-num { font-variant-numeric: tabular-nums; }
-.loader.ready .cap-text { opacity: 1; }
-.coin:focus-visible { outline: 1.5px solid var(--light); outline-offset: 6px; border-radius: 50%; }
-
+.loader-caption { margin: 24px 0 0; font: 700 12px/1 var(--font); letter-spacing: 2.4px; text-transform: uppercase; color: var(--light); opacity: .55; transition: opacity .4s; }
+.loader.ready .loader-caption { opacity: 1; }
 .loader-retry {
-  padding: 0; border: 0; background: none; cursor: pointer;
+  margin-top: 16px; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto;
   font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--light); text-decoration: underline; text-underline-offset: 4px;
 }
-.jammed .c-rim, .jammed .c-j { stroke: #E0695C; }
-.jammed .coin { opacity: .45 !important; }
+.jammed .coin-lit .c-disc { fill: #E0695C; }
+.jammed .coin { opacity: .5 !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .loader *, .loader *::before, .loader *::after { animation: none !important; transition: none !important; }
