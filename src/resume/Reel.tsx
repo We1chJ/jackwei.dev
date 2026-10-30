@@ -304,9 +304,6 @@ function Overlay() {
         <canvas ref={canvas} aria-hidden="true" />
         <p className={`reel-hint${moved || auto ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
         <div ref={panel} className="reel-resume" aria-hidden={phase !== 'resume'}>
-          <div className="reel-resume-bar">
-            <a href={PDF} target="_blank" rel="noreferrer">Download PDF ↗</a>
-          </div>
           <ResumePages url={PDF} />
         </div>
         <div className="reel-ui">
@@ -318,6 +315,7 @@ function Overlay() {
             </button>
           )}
           {phase === 'play' && <button type="button" className="reel-skip" onClick={toResume}>Skip to résumé</button>}
+          {phase === 'resume' && <a className="reel-download" href={PDF} target="_blank" rel="noreferrer">Download PDF ↗</a>}
           <button type="button" className="reel-close" onClick={close} aria-label="Close">✕</button>
         </div>
       </div>

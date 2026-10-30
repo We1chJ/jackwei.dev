@@ -181,7 +181,7 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .reel-layer.play .reel, .reel-layer.resume .reel { opacity: 1; }
 .reel-layer.fade .reel { transition: opacity .6s ease; }
 .reel-layer.fade.bloom .reel { opacity: 1; }
-.reel canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.reel > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .reel-hint {
   position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;
   padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, .45); color: #fff; font: 800 13px/1 var(--font);
@@ -199,13 +199,19 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .reel-toggle svg { display: block; fill: currentColor; }
 .reel-layer.resume .reel-ui button { background: var(--ink); }
 
-/* The résumé rises to the front on the clip's final white frame and scrolls on its own. */
+/* The résumé rises to the front on the clip's final white frame, centred in the window. It is
+   sized to fit (ResumePages.tsx); anything taller scrolls from its top. */
 .reel-resume {
-  position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
-  display: grid; justify-items: center; align-content: start; gap: 18px; padding: 72px 16px 48px;
-  opacity: 0; transform: translateY(40px); pointer-events: none; transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1);
+  position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y pinch-zoom;
+  display: flex; flex-direction: column; opacity: 0; transform: translateY(40px); pointer-events: none;
+  transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1);
 }
+.reel-layer.resume { touch-action: auto; } /* phones can pinch to read it */
 .reel-layer.resume .reel-resume { opacity: 1; transform: none; pointer-events: auto; }
-.reel-resume-bar a { font: 800 14px/1 var(--font); color: var(--ink); }
-.reel-pages { display: grid; gap: 18px; }
-.reel-pages canvas { display: block; background: #fff; border-radius: 4px; box-shadow: 0 10px 40px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .08); }
+.reel-pages { margin: auto; display: grid; gap: 18px; padding: 24px 0; }
+.reel-pages canvas { display: block; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .1); }
+.reel-ui { align-items: center; }
+.reel-download {
+  font: 800 13px/1 var(--font); color: #fff; text-decoration: none; padding: 9px 14px; border-radius: 999px; background: var(--ink);
+}
+.reel-download:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
