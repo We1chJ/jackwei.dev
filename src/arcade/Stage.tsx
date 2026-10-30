@@ -43,12 +43,14 @@ function FloorShadows() {
 
 export default function Stage() {
   const [dpr, setDpr] = useState(DPR_HIGH);
-  // nothing to draw while the résumé reel covers the screen
+  // nothing to draw while the résumé reel covers the screen; while its loading dots dim the
+  // arcade it only redraws on demand, so the decoder and the dots get the machine
   const covered = useReel((s) => s.covered);
+  const dimmed = useReel((s) => s.dimmed);
   return (
     <Canvas
       shadows
-      frameloop={covered ? 'never' : 'always'}
+      frameloop={covered ? 'never' : dimmed ? 'demand' : 'always'}
       dpr={dpr}
       camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 30 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}

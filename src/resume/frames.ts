@@ -1,21 +1,31 @@
-// Decodes the reel a group (key frame to key frame) at a time with the hardware video decoder and keeps the
-// results as GPU images, decoding ahead in the direction of scroll and dropping the groups
-// furthest away once a memory budget is reached. Drawing a cached frame is then nearly free.
+// Decodes the reel a group (key frame to key frame) at a time with the hardware video decoder and
+// keeps the results as GPU images, decoding ahead in the direction of travel and dropping the
+// groups furthest away once a memory budget is reached. Drawing a cached frame is then nearly free.
 import { FPS, type Stream } from './stream';
 
-const BUDGET = 400e6; // bytes of decoded frames kept at once
-const AHEAD = 4, BEHIND = 1; // groups decoded ahead of / behind the current one
+// Decoded frames are big (1080p is 8 MB each), so the cache is sized from the machine's memory
+// and the look-ahead is cut to fit: it must never want more groups than it may keep, or it would
+// evict groups it is about to need and decode them again.
+const memoryGB = (navigator as { deviceMemory?: number }).deviceMemory ?? 4;
+const BUDGET = memoryGB >= 8 ? 700e6 : memoryGB >= 4 ? 450e6 : 250e6;
+const MAX_AHEAD = 6, BEHIND = 1;
+const BENCH_FRAMES = 16; // frames timed to judge the decoder's speed, after the first one (warm-up)
 
 export class Frames {
   readonly count: number;
+  /** decoded frames per second over the first BENCH_FRAMES, once known */
+  decodeFps = 0;
   private readonly keys: number[] = []; // first frame of each group
   private readonly cache = new Map<number, ImageBitmap>();
   private readonly done = new Set<number>(); // groups fully decoded
   private maxGroups = 0; // set from the frame size once the first frame is out
+  private ahead = MAX_AHEAD;
   private busy = false;
   private wanted: number[] = [];
   private decoder!: VideoDecoder;
   private closed = false;
+  private benchStart = 0;
+  private benched = 0;
 
   constructor(private readonly stream: Stream, private readonly onFrame: (k: number) => void) {
     this.count = stream.units.length;
@@ -34,12 +44,18 @@ export class Frames {
         const k = Math.round((frame.timestamp * FPS) / 1e6);
         if (!this.maxGroups) {
           const perGroup = this.count / this.keys.length;
-          this.maxGroups = Math.max(3, Math.floor(BUDGET / (frame.displayWidth * frame.displayHeight * 4 * perGroup)));
+          const fits = Math.floor(BUDGET / (frame.displayWidth * frame.displayHeight * 4 * perGroup));
+          this.maxGroups = Math.max(3, fits);
+          this.ahead = Math.max(1, Math.min(MAX_AHEAD, this.maxGroups - BEHIND - 1));
         }
         createImageBitmap(frame).then((bm) => {
           if (this.closed) { bm.close(); return; }
           this.cache.get(k)?.close();
           this.cache.set(k, bm);
+          if (!this.decodeFps) {
+            if (!this.benchStart) this.benchStart = performance.now(); // the clock starts on the first frame out
+            else if (++this.benched === BENCH_FRAMES) this.decodeFps = (BENCH_FRAMES * 1000) / (performance.now() - this.benchStart);
+          }
           this.onFrame(k);
         }).finally(() => frame.close());
       },
@@ -70,7 +86,7 @@ export class Frames {
   want(k: number, dir: number) {
     const g = this.group(k), s = dir < 0 ? -1 : 1;
     const list = [g];
-    for (let d = 1; d <= AHEAD; d++) list.push(g + s * d);
+    for (let d = 1; d <= this.ahead; d++) list.push(g + s * d);
     for (let d = 1; d <= BEHIND; d++) list.push(g - s * d);
     this.wanted = list.filter((x) => x >= 0 && x < this.keys.length);
     this.evict(g);

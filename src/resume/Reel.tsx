@@ -13,7 +13,7 @@ import { bloom } from './bloom';
 import { Frames } from './frames';
 import ResumePages, { type ZoomApi } from './ResumePages';
 import { loadReel, reel, useReel } from './store';
-import { FPS } from './stream';
+import { FPS, pickSize, smaller } from './stream';
 
 type Phase = 'loading' | 'travel' | 'bloom' | 'play' | 'resume' | 'closing';
 
@@ -35,6 +35,7 @@ const PX_PER_FRAME = 7;    // scroll distance per frame (the clip is 1390 frames
 const TOUCH_GAIN = 1.6;    // fingers travel less than wheels
 const EASE_MS = 70;        // time constant of the shown frame chasing the target
 const PDF = '/assets/ResumeOfficial.pdf';
+const AUDIO = '/media/reel.m4a'; // the clip's own sound, cut from the source at the same point (see stream.ts)
 
 const css = (c: number[]) => `rgb(${c.map(Math.round).join(' ')})`;
 const mix = (a: number, b: number, k: number) => a + (b - a) * k;
@@ -63,27 +64,39 @@ function Overlay() {
   const bloomCanvas = useRef<HTMLCanvasElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const dotCanvas = useRef<HTMLCanvasElement>(null);
+  const audio = useRef<HTMLAudioElement>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   // playhead and orbit, kept out of React state: they change every frame
   const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0, auto: true, zoom: 1 });
 
+  // the sound only plays while the clip plays itself: it stops the moment the scroll takes over
+  const sound = (on: boolean) => {
+    const a = audio.current;
+    if (!a) return;
+    if (!on) { a.pause(); return; }
+    a.currentTime = s.current.shown / FPS;
+    a.play().catch(() => { /* blocked: the clip still plays, silently */ });
+  };
   const setPlaying = (on: boolean) => {
     const st = s.current;
     st.auto = on;
     st.vel = 0;
     if (on) st.dir = 1;
     setAuto(on);
+    sound(on && phaseRef.current === 'play');
   };
   const close = () => {
     if (phaseRef.current === 'closing') return;
+    sound(false);
     setPhase('closing');
-    reel.set({ covered: false });
+    reel.set({ covered: false, dimmed: false });
     setTimeout(() => reel.set({ open: false }), 350);
   };
   const toResume = () => {
     const st = s.current;
     if (st.frames) st.target = st.shown = st.frames.count - 1;
+    sound(false);
     setPhase('resume');
   };
   const backToReel = () => {
@@ -103,23 +116,30 @@ function Overlay() {
     setMoved(true);
   };
 
-  // load: dots for at least a second, until the first frame is decoded
+  // load: dots for at least a second, until the first frames are decoded. The first group is
+  // timed; a machine whose decoder cannot keep up gets the next smaller rendition instead.
   useEffect(() => {
     let dead = false;
     const t0 = performance.now();
+    reel.set({ dimmed: true });
+    const start = async (size: ReturnType<typeof pickSize>) => {
+      const stream = await loadReel(size);
+      if (!(await Frames.supported(stream.codec))) return null;
+      if (dead) return null;
+      const f = await new Promise<Frames>((res) => {
+        const frames = new Frames(stream, () => { if (frames.decodeFps) res(frames); });
+        frames.want(0, 1);
+      });
+      s.current.frames?.close();
+      s.current.frames = f;
+      if (import.meta.env.DEV) (window as unknown as { __reel: object }).__reel = { size, decodeFps: f.decodeFps };
+      const next = smaller(size);
+      if (f.decodeFps < 150 && next && !dead) return start(next); // too slow at this size
+      return f;
+    };
     (async () => {
       let ok = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      try {
-        const stream = await loadReel();
-        ok &&= await Frames.supported(stream.codec);
-        if (ok && !dead) {
-          await new Promise<void>((res) => {
-            const f = new Frames(stream, (k) => { if (k === 0) res(); });
-            s.current.frames = f;
-            f.want(0, 1);
-          });
-        }
-      } catch { ok = false; }
+      try { ok &&= !!(await start(pickSize())); } catch { ok = false; }
       await new Promise((r) => setTimeout(r, Math.max(0, MIN_DOTS_MS - (performance.now() - t0))));
       if (dead) return;
       s.current.skip = !ok; // no decoder, reduced motion or no download: straight to the résumé
@@ -179,15 +199,23 @@ function Overlay() {
     return () => cancelAnimationFrame(raf);
   }, [phase]);
 
-  // the bead blooms into the first frame; without WebGL the frame crossfades in instead
+  // the device pixels per CSS pixel worth drawing: never more than the clip itself has
+  const drawDpr = () => {
+    const bm = s.current.frames?.get(0);
+    const cap = bm ? Math.max(bm.width / innerWidth, bm.height / innerHeight) : 2;
+    return Math.min(devicePixelRatio || 1, 2, cap);
+  };
+
+  // the orbs bloom into the first frame; without WebGL the frame crossfades in instead
   useEffect(() => {
     if (phase !== 'bloom') return;
     const st = s.current, cv = bloomCanvas.current!;
     const first = st.frames?.get(0);
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const dpr = drawDpr();
     cv.width = Math.round(innerWidth * dpr);
     cv.height = Math.round(innerHeight * dpr);
-    const finish = () => { reel.set({ covered: true }); setPhase('play'); };
+    reel.set({ covered: true }); // the arcade is gone from here on; stop drawing it
+    const finish = () => { setPhase('play'); if (s.current.auto) sound(true); };
     const wash = (i: number) => {
       const o = orbOnScreen(DOTS[i].orb);
       return { x: (innerWidth / 2 + o.x) * dpr, y: (innerHeight / 2 + o.y) * dpr, r: o.r * dpr };
@@ -208,7 +236,7 @@ function Overlay() {
     const cv = canvas.current!, ctx = cv.getContext('2d')!;
     const st = s.current;
     const size = () => {
-      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const dpr = drawDpr();
       cv.width = Math.round(innerWidth * dpr);
       cv.height = Math.round(innerHeight * dpr);
       st.drawn = null;
@@ -222,7 +250,14 @@ function Overlay() {
       st.then = now;
       const f = st.frames;
       if (f) {
-        if (st.auto && phaseRef.current === 'play') st.target = Math.min(f.count - 1, st.target + (dt * FPS) / 1000);
+        if (st.auto && phaseRef.current === 'play') {
+          const a = audio.current;
+          // the sound is the clock while it plays: the shown frame trails the target by EASE_MS,
+          // so the target runs that far ahead of the sound and the picture lands on its time
+          st.target = a && !a.paused && !a.ended
+            ? Math.min(f.count - 1, (a.currentTime + EASE_MS / 1000) * FPS)
+            : Math.min(f.count - 1, st.target + (dt * FPS) / 1000);
+        }
         if (st.vel) { push(st.vel * dt); st.vel *= Math.exp(-dt / 325); if (Math.abs(st.vel) < 0.02) st.vel = 0; }
         st.shown += (st.target - st.shown) * (1 - Math.exp(-dt / EASE_MS));
         if (Math.abs(st.target - st.shown) < 0.01) st.shown = st.target;
@@ -302,6 +337,7 @@ function Overlay() {
         <canvas ref={dotCanvas} className={`reel-dots${beadDone ? ' done' : ''}`} role="img" aria-label="Loading" />
       </div>
       {phase === 'bloom' && <canvas ref={bloomCanvas} className="reel-bloom" aria-hidden="true" />}
+      <audio ref={audio} src={AUDIO} preload="auto" />
       <div className="reel">
         <canvas ref={canvas} aria-hidden="true" />
         <p className={`reel-hint${moved || auto ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
