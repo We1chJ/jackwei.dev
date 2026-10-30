@@ -73,8 +73,8 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 /* One language throughout: warm light on black. Only transform/opacity animate, so it stays smooth
    while the 3D engine warms up. */
 .loader { --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .2); position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
-.loader-bg { position: absolute; inset: 0; background: var(--night); }
-.loader-body, .loader-retry, .loader.ready .coin { pointer-events: auto; }
+.loader-bg { position: absolute; inset: 0; background: var(--night); transform-origin: 50% 100%; will-change: transform, opacity; }
+.loader-body, .loader-retry, .coin { pointer-events: auto; }
 
 /* The hero in outline: dim, and lit behind a window that rises with the progress. */
 .outline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
@@ -82,53 +82,52 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .outline .face { fill: var(--night); transition: fill-opacity .6s; }
 .outline-dim path { stroke: var(--dim); stroke-width: 1; }
 .outline-window { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
-.outline-lit { will-change: transform; }
+.outline-lit { will-change: transform, filter; }
 .outline-lit .face { fill: #18120B; }
 .outline-lit .line, .outline-lit .face { stroke: var(--light); stroke-width: 1.3; }
 .outline-lit .glow { stroke: rgba(255, 196, 110, .2); stroke-width: 6; }
 .loader.open .face { fill-opacity: 0; }
+/* a band of light that wanders over the lit outlines while idle (loader.ts moves it) */
+.outline-sweep { position: absolute; top: -10%; bottom: -10%; left: 0; width: 40%; opacity: 0; mix-blend-mode: screen; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 220, 160, .14) 45%, rgba(255, 240, 210, .22) 50%, rgba(255, 220, 160, .14) 55%, transparent); }
 
-/* Under the name: the sloped hairline, the coin rolling on it and the slot it goes into. */
-.loader-body { position: absolute; display: grid; justify-items: start; gap: 30px; color: var(--light); }
-.loader-row { position: relative; width: 200px; height: 30px; transform: rotate(5deg); }
-.loader-track { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--dim); }
-.loader-fill { position: absolute; inset: 0; background: var(--light); box-shadow: 0 0 6px rgba(255, 196, 110, .6); transform: scaleX(0); transform-origin: left center; will-change: transform; }
-.loader-glow { position: absolute; inset: 0; opacity: 0; background: #fff; box-shadow: 0 0 8px 1px rgba(255, 220, 160, .8); }
+/* The coin: a disc that mints itself (loader.ts draws each part as loading progresses) and a real
+   object the whole time. .coin moves, .coin-flip tilts and squashes, .coin-body rolls. */
+.coin { position: absolute; left: 0; top: 0; width: 96px; height: 96px; opacity: 0; color: var(--light); will-change: transform; cursor: grab; touch-action: none; }
+.loader.dragging .coin { cursor: grabbing; }
+.coin-flip { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
+.coin-body { position: absolute; inset: 0; will-change: transform; }
+.coin-face { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 6px rgba(255, 196, 110, .55)); }
+.c-disc { fill: #15100A; stroke: var(--dim); stroke-width: 1.2; }
+.c-rim { stroke: var(--light); stroke-dasharray: 100; stroke-dashoffset: 100; }
+.c-ring { opacity: 0; }
+.c-j { stroke-dasharray: 100; stroke-dashoffset: 100; }
+.c-flash { fill: #fff; opacity: 0; }
+.c-sheen { fill: rgba(255, 245, 220, .22); }
+.coin-sheen { position: absolute; inset: -22%; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 196, 110, .2), transparent); }
+.coin-spark { position: absolute; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); pointer-events: none; }
 
-/* The coin: a line-art disc (built by loader.ts). .coin moves along the line, .coin-drop falls and
-   bounces, .coin-flip tumbles, .coin-body rolls; the soft glow behind it stays put. */
-.coin { position: absolute; left: -13px; bottom: 1px; width: 26px; height: 26px; opacity: 0; color: var(--light); will-change: transform; }
-.coin-drop { position: absolute; inset: 0; transform-origin: 50% 100%; perspective: 260px; will-change: transform; }
-.coin-flip, .coin-body { position: absolute; inset: 0; will-change: transform; }
-.coin-face { position: absolute; inset: 0; filter: drop-shadow(0 0 3px rgba(255, 196, 110, .7)); }
-.coin-face svg { display: block; width: 100%; height: 100%; }
-.coin-sheen { position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(closest-side, rgba(255, 196, 110, .22), transparent); }
-.coin-spark { position: absolute; left: -1.5px; bottom: 0; width: 3px; height: 3px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); }
-
-/* The slot: a lit slit standing at the bottom of the slope, above the coin so it vanishes into it. */
+/* The slot: a lit slit standing to the right of the name, where the coin goes in. */
 .loader-slot {
-  position: absolute; z-index: 1; left: calc(100% + 14px); bottom: -16px; width: 10px; height: 34px; border-radius: 5px; transform: rotate(-5deg);
-  background: var(--night); box-shadow: 0 0 0 1.3px var(--dim); transition: box-shadow .15s;
+  position: absolute; z-index: 1; width: 12px; height: 100px; border-radius: 6px; transform: translate(-50%, -50%) rotate(-5deg);
+  background: var(--night); box-shadow: 0 0 0 1.3px var(--dim); transition: box-shadow .2s;
 }
-.loader.ready .loader-slot { box-shadow: 0 0 0 1.3px var(--light), 0 0 10px rgba(255, 196, 110, .35); }
-.loader-slot.hot { box-shadow: 0 0 0 1.6px #fff, 0 0 16px rgba(255, 196, 110, .7) !important; }
+.loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .4); }
+.loader-slot.hot { box-shadow: 0 0 0 1.8px #fff, 0 0 22px rgba(255, 196, 110, .8) !important; }
 
+.loader-body { position: absolute; display: grid; justify-items: start; gap: 14px; color: var(--light); }
 .loader-caption { margin: 0; display: flex; gap: 14px; font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; white-space: nowrap; }
 .cap-text { opacity: .72; }
 .cap-num { font-variant-numeric: tabular-nums; }
 .loader.ready .cap-text { opacity: 1; }
-
-/* Once loaded, the coin is the way in: click it, or drag it into the slot. */
-.loader.ready .coin { cursor: grab; touch-action: none; }
-.loader.ready.dragging .coin { cursor: grabbing; }
-.coin:focus-visible { outline: 1.5px solid var(--light); outline-offset: 5px; border-radius: 50%; }
+.coin:focus-visible { outline: 1.5px solid var(--light); outline-offset: 6px; border-radius: 50%; }
 
 .loader-retry {
   padding: 0; border: 0; background: none; cursor: pointer;
   font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--light); text-decoration: underline; text-underline-offset: 4px;
 }
-.jammed .loader-fill { background: #E0695C; }
-.jammed .coin { opacity: .35 !important; }
+.jammed .c-rim, .jammed .c-j { stroke: #E0695C; }
+.jammed .coin { opacity: .45 !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .loader *, .loader *::before, .loader *::after { animation: none !important; transition: none !important; }

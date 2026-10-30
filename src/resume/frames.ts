@@ -9,7 +9,9 @@ import { FPS, type Stream } from './stream';
 const memoryGB = (navigator as { deviceMemory?: number }).deviceMemory ?? 4;
 const BUDGET = memoryGB >= 8 ? 700e6 : memoryGB >= 4 ? 450e6 : 250e6;
 const MAX_AHEAD = 6, BEHIND = 1;
-const BENCH_FRAMES = 16; // frames timed to judge the decoder's speed, after the first one (warm-up)
+const BENCH_FRAMES = 40; // frames timed to judge the decoder's speed, after the first one (warm-up)
+const QUEUE = 8;         // chunks waiting in the decoder before feeding pauses
+const IDLE_FLUSH_MS = 400;
 
 export class Frames {
   readonly count: number;
@@ -25,6 +27,8 @@ export class Frames {
   private decoder!: VideoDecoder;
   private closed = false;
   private benchStart = 0;
+  private fed = false;  // chunks went in since the last flush
+  private idle = 0;     // the pending idle flush
   private benched = 0;
 
   constructor(private readonly stream: Stream, private readonly onFrame: (k: number) => void) {
@@ -59,7 +63,11 @@ export class Frames {
           this.onFrame(k);
         }).finally(() => frame.close());
       },
-      error: () => { if (!this.closed) this.open(); }, // reconfigure; the next group starts on a key frame
+      error: () => {
+        if (this.closed) return;
+        this.done.clear(); // whatever was in flight is lost; the groups are decoded again
+        this.open();       // reconfigure; the next group starts on a key frame
+      },
     });
     this.decoder.configure({ codec: this.stream.codec, hardwareAcceleration: 'prefer-hardware', optimizeForLatency: true });
   }
@@ -104,30 +112,48 @@ export class Frames {
     }
   }
 
+  // Chunks are fed continuously and the decoder is never flushed mid-stream: a flush costs about
+  // 200 ms on real hardware, which at one per group capped decoding near 45 fps. Every group starts
+  // on a key frame, so jumping to another group needs no flush either. The decoder holds back its
+  // last few frames until more arrive, so it is flushed only once nothing has been fed for a while
+  // (paused, or at the end of the clip).
   private async pump() {
     if (this.busy) return;
     this.busy = true;
+    clearTimeout(this.idle);
     try {
       for (;;) {
         const g = this.wanted.find((x) => !this.done.has(x));
         if (g === undefined || this.closed) break;
         const a = this.keys[g], b = this.keys[g + 1] ?? this.count;
         for (let i = a; i < b; i++) {
+          while (this.decoder.decodeQueueSize > QUEUE && !this.closed) await new Promise((r) => this.decoder.addEventListener('dequeue', r, { once: true }));
+          if (this.closed) return;
           const u = this.stream.units[i];
           this.decoder.decode(new EncodedVideoChunk({
             type: i === a ? 'key' : 'delta', timestamp: (i * 1e6) / FPS, data: this.stream.data.subarray(u.start, u.end),
           }));
         }
         this.done.add(g);
-        await this.decoder.flush().catch(() => this.done.delete(g));
+        this.fed = true;
       }
+    } catch {
+      /* the decoder errored and was reopened: its error handler has cleared what was lost */
     } finally {
       this.busy = false;
+    }
+    if (this.fed && !this.closed) {
+      this.idle = window.setTimeout(() => {
+        if (this.busy || this.closed) return;
+        this.fed = false;
+        this.decoder.flush().catch(() => {});
+      }, IDLE_FLUSH_MS);
     }
   }
 
   close() {
     this.closed = true;
+    clearTimeout(this.idle);
     try { this.decoder.close(); } catch { /* already closed */ }
     this.cache.forEach((bm) => bm.close());
     this.cache.clear();

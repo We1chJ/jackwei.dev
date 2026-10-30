@@ -35,6 +35,7 @@ const PX_PER_FRAME = 7;    // scroll distance per frame (the clip is 1390 frames
 const TOUCH_GAIN = 1.6;    // fingers travel less than wheels
 const EASE_MS = 70;        // time constant of the shown frame chasing the target
 const PDF = '/assets/ResumeOfficial.pdf';
+const MIN_DECODE_FPS = 60; // the first frames read low (a machine at 90 here still draws every refresh)
 const AUDIO = '/media/reel.m4a'; // the clip's own sound, cut from the source at the same point (see stream.ts)
 
 const css = (c: number[]) => `rgb(${c.map(Math.round).join(' ')})`;
@@ -132,9 +133,10 @@ function Overlay() {
       });
       s.current.frames?.close();
       s.current.frames = f;
-      if (import.meta.env.DEV) (window as unknown as { __reel: object }).__reel = { size, decodeFps: f.decodeFps };
+      if (import.meta.env.DEV) ((window as unknown as { __reel: object[] }).__reel ??= []).push({ size, decodeFps: f.decodeFps });
       const next = smaller(size);
-      if (f.decodeFps < 150 && next && !dead) return start(next); // too slow at this size
+      // below this the picture would visibly drop frames; the sound keeps the time either way
+      if (f.decodeFps < MIN_DECODE_FPS && next && !dead) return start(next);
       return f;
     };
     (async () => {
