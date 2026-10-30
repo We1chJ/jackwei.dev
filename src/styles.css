@@ -202,15 +202,20 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 /* The résumé rises to the front on the clip's final white frame, centred in the window. It is
    sized to fit (ResumePages.tsx); anything taller scrolls from its top. */
 .reel-resume {
-  position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y pinch-zoom;
+  position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y;
   display: flex; flex-direction: column; opacity: 0; transform: translateY(40px); pointer-events: none;
   transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1);
 }
-.reel-layer.resume { touch-action: auto; } /* phones can pinch to read it */
+.reel-layer.resume { touch-action: auto; }
+.reel-resume.zoomed { cursor: grab; }
+.reel-resume.dragging { cursor: grabbing; user-select: none; }
 .reel-layer.resume .reel-resume { opacity: 1; transform: none; pointer-events: auto; }
-.reel-pages { margin: auto; display: grid; gap: 18px; padding: 24px 0; }
+.reel-pages { flex: none; margin: auto; display: grid; gap: 18px; padding: 24px; }
 .reel-pages canvas { display: block; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .1); }
 .reel-ui { align-items: center; }
+.reel-zoom { display: flex; align-items: center; border-radius: 999px; background: var(--ink); }
+.reel-ui .reel-zoom button { min-width: 34px; padding: 9px 8px; background: none; font-variant-numeric: tabular-nums; }
+.reel-ui .reel-zoom button:disabled { opacity: .35; cursor: default; }
 .reel-download {
   font: 800 13px/1 var(--font); color: #fff; text-decoration: none; padding: 9px 14px; border-radius: 999px; background: var(--ink);
 }

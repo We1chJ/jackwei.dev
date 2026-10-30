@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bloom } from './bloom';
 import { Frames } from './frames';
-import ResumePages from './ResumePages';
+import ResumePages, { type ZoomApi } from './ResumePages';
 import { loadReel, reel, useReel } from './store';
 import { FPS } from './stream';
 
@@ -54,6 +54,8 @@ function Overlay() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [moved, setMoved] = useState(false);
   const [auto, setAuto] = useState(true);          // the clip plays itself until paused
+  const [zoom, setZoom] = useState(1);             // of the résumé page
+  const zoomApi = useRef<ZoomApi | null>(null);
   const [beadDone, setBeadDone] = useState(false); // the bloom has taken over from the dots
   const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
   const layer = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ function Overlay() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   // playhead and orbit, kept out of React state: they change every frame
-  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0, auto: true });
+  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0, auto: true, zoom: 1 });
 
   const setPlaying = (on: boolean) => {
     const st = s.current;
@@ -249,7 +251,7 @@ function Overlay() {
     const atTop = () => (panel.current?.scrollTop ?? 0) <= 0;
     const onWheel = (e: WheelEvent) => {
       if (phaseRef.current === 'resume') {
-        if (e.deltaY < 0 && atTop()) { e.preventDefault(); backToReel(); }
+        if (e.deltaY < 0 && atTop() && !e.ctrlKey && !e.metaKey && st.zoom === 1) { e.preventDefault(); backToReel(); }
         return;
       }
       e.preventDefault();
@@ -261,7 +263,7 @@ function Overlay() {
       const y = e.touches[0].clientY, dy = (lastY - y) * TOUCH_GAIN, dt = Math.max(1, e.timeStamp - lastT);
       lastY = y; lastT = e.timeStamp;
       if (phaseRef.current === 'resume') {
-        if (dy < -8 && atTop()) backToReel();
+        if (dy < -8 && atTop() && e.touches.length === 1 && st.zoom === 1) backToReel();
         return;
       }
       e.preventDefault();
@@ -304,7 +306,7 @@ function Overlay() {
         <canvas ref={canvas} aria-hidden="true" />
         <p className={`reel-hint${moved || auto ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
         <div ref={panel} className="reel-resume" aria-hidden={phase !== 'resume'}>
-          <ResumePages url={PDF} />
+          <ResumePages url={PDF} active={phase === 'resume'} scroller={panel} api={zoomApi} onZoom={(z) => { s.current.zoom = z; setZoom(z); }} />
         </div>
         <div className="reel-ui">
           {phase === 'play' && (
@@ -315,6 +317,13 @@ function Overlay() {
             </button>
           )}
           {phase === 'play' && <button type="button" className="reel-skip" onClick={toResume}>Skip to résumé</button>}
+          {phase === 'resume' && (
+            <div className="reel-zoom" role="group" aria-label="Zoom">
+              <button type="button" onClick={() => zoomApi.current?.by(1 / 1.5)} disabled={zoom <= 1} aria-label="Zoom out">−</button>
+              <button type="button" onClick={() => zoomApi.current?.reset()} aria-label="Reset zoom">{Math.round(zoom * 100)}%</button>
+              <button type="button" onClick={() => zoomApi.current?.by(1.5)} disabled={zoom >= 4} aria-label="Zoom in">+</button>
+            </div>
+          )}
           {phase === 'resume' && <a className="reel-download" href={PDF} target="_blank" rel="noreferrer">Download PDF ↗</a>}
           <button type="button" className="reel-close" onClick={close} aria-label="Close">✕</button>
         </div>
