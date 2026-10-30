@@ -170,25 +170,20 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 }
 @keyframes reel-fade { from { opacity: 0; } }
 
-/* Two dots orbiting the centre, seen edge-on (after TikTok's loader): each swings side to side,
-   growing as it comes to the front, and the overlap blends. */
-.reel-dots { position: relative; width: 64px; height: 28px; transition: opacity .2s; }
-.reel-layer:not(.loading) .reel-dots { opacity: 0; }
-.reel-dots .dot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 50%; mix-blend-mode: screen; }
-.reel-dots .red { background: #F2273C; animation: reel-orbit .9s cubic-bezier(.45, 0, .55, 1) infinite; }
-.reel-dots .blue { background: #2E7BFF; animation: reel-orbit .9s cubic-bezier(.45, 0, .55, 1) infinite; animation-delay: -.45s; }
-@keyframes reel-orbit {
-  0%   { transform: translateX(-17px) scale(1);    z-index: 1; }
-  25%  { transform: translateX(0)     scale(1.22); z-index: 2; }
-  50%  { transform: translateX(17px)  scale(1);    z-index: 2; }
-  75%  { transform: translateX(0)     scale(.78);  z-index: 1; }
-  100% { transform: translateX(-17px) scale(1);    z-index: 1; }
-}
-.reel-progress { margin: 0; color: #fff; font: 800 13px/1 var(--font); letter-spacing: .5px; opacity: .8; }
+/* Two dots orbiting each other (after TikTok's loader). Reel.tsx moves them every frame on a true
+   orbit, then flies each to its orb in the clip's first frame; they blend with each other only
+   (isolate), so where they overlap is screen(red, blue). */
+.reel-dots { position: relative; width: 64px; height: 28px; isolation: isolate; }
+.reel-dots.done { opacity: 0; transition: opacity .35s; }
+.reel-dots .dot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 50%; mix-blend-mode: screen; will-change: transform; }
 
-/* The clip opens out of the centre as a growing circle (75vmax covers any window's corners). */
-.reel { position: absolute; inset: 0; background: #F6F6F7; clip-path: circle(0 at 50% 50%); }
-.reel-layer:not(.loading) .reel { clip-path: circle(75vmax at 50% 50%); transition: clip-path .75s cubic-bezier(.7, 0, .25, 1); }
+/* The clip shows once the bloom has finished painting its first frame (bloom.ts); without WebGL,
+   or when going straight to the résumé, it fades in. */
+.reel-bloom { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.reel { position: absolute; inset: 0; background: #F6F6F7; opacity: 0; }
+.reel-layer.play .reel, .reel-layer.resume .reel { opacity: 1; }
+.reel-layer.fade .reel { transition: opacity .6s ease; }
+.reel-layer.fade.bloom .reel { opacity: 1; }
 .reel canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .reel-hint {
   position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;

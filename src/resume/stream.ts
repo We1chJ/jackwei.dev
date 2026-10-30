@@ -19,24 +19,10 @@ export function pickUrl() {
   return `/media/reel-${size}.h264`;
 }
 
-export async function fetchStream(url: string, onProgress: (f: number) => void): Promise<Stream> {
+export async function fetchStream(url: string): Promise<Stream> {
   const res = await fetch(url);
-  if (!res.ok || !res.body) throw new Error(`reel: ${res.status}`);
-  const total = Number(res.headers.get('content-length')) || 0;
-  const reader = res.body.getReader();
-  const parts: Uint8Array[] = [];
-  let got = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value);
-    got += value.length;
-    if (total) onProgress(got / total);
-  }
-  const data = new Uint8Array(got);
-  let o = 0;
-  for (const p of parts) { data.set(p, o); o += p.length; }
-  return parse(data);
+  if (!res.ok) throw new Error(`reel: ${res.status}`);
+  return parse(new Uint8Array(await res.arrayBuffer()));
 }
 
 function parse(data: Uint8Array): Stream {

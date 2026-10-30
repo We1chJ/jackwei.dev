@@ -1,22 +1,47 @@
-// The résumé reel. The button dims the arcade and shows two orbiting dots (after TikTok's
-// loader) while the clip downloads; then the clip opens out of the centre in a growing circle
-// and scrolling plays it. On its final white frame the résumé rises to the front.
+// The résumé reel. The button dims the arcade and shows two dots orbiting each other (after
+// TikTok's loader) while the clip downloads. When it is ready each dot flies to where the clip's
+// first frame has its orb of the same colour, at that orb's size, and the frame spreads out from
+// both like a watercolor wash (bloom.ts); scrolling then plays the clip. On its final white frame
+// the résumé rises to the front.
 //
 // The page itself never scrolls (the arcade is a fixed canvas), so wheel, touch and keys move a
 // target frame and the shown frame eases toward it every display refresh. That turns notchy
 // wheels and uneven trackpads into a glide.
 import { useEffect, useRef, useState } from 'react';
+import { bloom } from './bloom';
 import { Frames } from './frames';
 import ResumePages from './ResumePages';
 import { loadReel, reel, useReel } from './store';
 
-type Phase = 'loading' | 'reveal' | 'play' | 'resume' | 'closing';
+type Phase = 'loading' | 'travel' | 'bloom' | 'play' | 'resume' | 'closing';
 
 const MIN_DOTS_MS = 1000;
-const PX_PER_FRAME = 7;   // scroll distance per frame (the clip is 1390 frames)
-const TOUCH_GAIN = 1.6;   // fingers travel less than wheels
-const EASE_MS = 70;       // time constant of the shown frame chasing the target
+const ORBIT = 17;          // px from the centre at full swing
+const DOT = 11;            // dot radius, px (matches .reel-dots .dot)
+const ORBIT_S = 0.9;       // seconds per turn
+const TRAVEL_MS = 750;
+const BLOOM_MS = 1800;
+// The orbs in the clip's first frame, measured off it: centre as a fraction of the frame's width
+// and height, radius as a fraction of its height, and the colour of the orb's saturated half.
+// Each dot flies to its orb, so the clip appears around the dots.
+const DOTS = [
+  { from: [0xf2, 0x27, 0x3c], orb: { x: 0.5019, y: 0.8705, r: 0.0396 }, to: [0xe9, 0x79, 0x87] }, // red
+  { from: [0x2e, 0x7b, 0xff], orb: { x: 0.5006, y: 0.154, r: 0.105 }, to: [0x38, 0x96, 0xec] },   // blue
+];
+const FRAME_ASPECT = 16 / 9;
+const PX_PER_FRAME = 7;    // scroll distance per frame (the clip is 1390 frames)
+const TOUCH_GAIN = 1.6;    // fingers travel less than wheels
+const EASE_MS = 70;        // time constant of the shown frame chasing the target
 const PDF = '/assets/ResumeOfficial.pdf';
+
+const css = (c: number[]) => `rgb(${c.map(Math.round).join(' ')})`;
+const mix = (a: number, b: number, k: number) => a + (b - a) * k;
+/** An orb's centre (CSS px from the window centre) and radius, with the frame covering the window. */
+function orbOnScreen(o: { x: number; y: number; r: number }) {
+  const sc = Math.max(innerWidth / FRAME_ASPECT, innerHeight); // displayed frame height
+  return { x: (o.x - 0.5) * sc * FRAME_ASPECT, y: (o.y - 0.5) * sc, r: o.r * sc };
+}
+const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 export default function Reel() {
   const open = useReel((s) => s.open);
@@ -25,16 +50,18 @@ export default function Reel() {
 
 function Overlay() {
   const [phase, setPhase] = useState<Phase>('loading');
-  const [slow, setSlow] = useState(false);
   const [moved, setMoved] = useState(false);
-  const progress = useReel((s) => s.progress);
+  const [beadDone, setBeadDone] = useState(false); // the bloom has drawn over the dots
+  const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
   const layer = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const bloomCanvas = useRef<HTMLCanvasElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const dots = useRef<HTMLSpanElement[]>([]);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  // playhead, kept out of React state: it changes every frame
-  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false });
+  // playhead and orbit, kept out of React state: they change every frame
+  const s = useRef({ frames: null as Frames | null, target: 0, shown: 0, dir: 1, vel: 0, drawn: null as ImageBitmap | null, then: 0, skip: false, theta: 0 });
 
   const close = () => {
     if (phaseRef.current === 'closing') return;
@@ -66,7 +93,6 @@ function Overlay() {
   useEffect(() => {
     let dead = false;
     const t0 = performance.now();
-    const slowTimer = setTimeout(() => setSlow(true), 1500);
     (async () => {
       let ok = !matchMedia('(prefers-reduced-motion: reduce)').matches;
       try {
@@ -83,20 +109,62 @@ function Overlay() {
       await new Promise((r) => setTimeout(r, Math.max(0, MIN_DOTS_MS - (performance.now() - t0))));
       if (dead) return;
       s.current.skip = !ok; // no decoder, reduced motion or no download: straight to the résumé
-      setPhase('reveal');
+      if (ok) setPhase('travel');
+      else { reel.set({ covered: true }); toResume(); }
     })();
-    return () => { dead = true; clearTimeout(slowTimer); s.current.frames?.close(); s.current.frames = null; };
+    return () => { dead = true; s.current.frames?.close(); s.current.frames = null; };
   }, []);
 
-  // the circle normally reports its end; this covers browsers that skip the transition
+  // the dots: a true circular orbit seen edge-on (constant speed, sinusoidal swing and size);
+  // when the clip is ready each one glides off the orbit to its orb, growing and shifting colour
   useEffect(() => {
-    if (phase !== 'reveal') return;
-    const t = setTimeout(() => onRevealed(), 1000);
+    if (phase !== 'loading' && phase !== 'travel') return;
+    const st = s.current;
+    const start = performance.now();
+    let last = start, raf = 0;
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const m = phase === 'travel' ? easeInOut(Math.min(1, (now - start) / TRAVEL_MS)) : 0;
+      st.theta += dt * ((2 * Math.PI) / ORBIT_S) * (1 - 0.6 * m);
+      dots.current.forEach((el, i) => {
+        const a = st.theta + i * Math.PI, d = DOTS[i], to = orbOnScreen(d.orb);
+        const x = mix(ORBIT * Math.cos(a), to.x, m), y = mix(0, to.y, m);
+        const scale = mix(1 + 0.22 * Math.sin(a), to.r / DOT, m);
+        el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+        el.style.background = css(d.from.map((c, j) => mix(c, d.to[j], m)));
+      });
+      if (phase === 'travel' && m === 1) { setPhase('bloom'); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [phase]);
+
+  // the bead blooms into the first frame; without WebGL the frame crossfades in instead
+  useEffect(() => {
+    if (phase !== 'bloom') return;
+    const st = s.current, cv = bloomCanvas.current!;
+    const first = st.frames?.get(0);
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.round(innerWidth * dpr);
+    cv.height = Math.round(innerHeight * dpr);
+    const finish = () => { reel.set({ covered: true }); setPhase('play'); };
+    const wash = (i: number) => {
+      const o = orbOnScreen(DOTS[i].orb);
+      return { x: (innerWidth / 2 + o.x) * dpr, y: (innerHeight / 2 + o.y) * dpr, r: o.r * dpr };
+    };
+    const run = first && bloom({
+      canvas: cv, frame: first, washes: [wash(1), wash(0)], ms: BLOOM_MS, onFirstFrame: () => setBeadDone(true),
+    });
+    if (run) { run.then(finish); return; }
+    setFade(true);
+    const t = setTimeout(finish, 600); // .reel fades in over this (styles.css)
     return () => clearTimeout(t);
   }, [phase]);
 
   // draw loop: ease the shown frame toward the target and draw it when it changes
-  const drawing = phase !== 'loading' && phase !== 'closing';
+  const drawing = phase === 'bloom' || phase === 'play' || phase === 'resume';
   useEffect(() => {
     if (!drawing) return;
     const cv = canvas.current!, ctx = cv.getContext('2d')!;
@@ -123,7 +191,7 @@ function Overlay() {
         f.want(k, st.dir);
         const bm = f.get(k);
         if (bm && bm !== st.drawn) {
-          // cover the window, cropping whichever sides overflow
+          // cover the window, cropping whichever sides overflow (bloom.ts samples the same way)
           const sc = Math.max(cv.width / bm.width, cv.height / bm.height);
           const w = bm.width * sc, h = bm.height * sc;
           ctx.drawImage(bm, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
@@ -189,21 +257,17 @@ function Overlay() {
     };
   }, []);
 
-  const onRevealed = (e?: React.TransitionEvent) => {
-    if ((e && e.target !== e.currentTarget) || phaseRef.current !== 'reveal') return;
-    reel.set({ covered: true });
-    if (s.current.skip) toResume(); else setPhase('play');
-  };
-
   return (
-    <div ref={layer} className={`reel-layer ${phase}`} role="dialog" aria-modal="true" aria-label="Résumé">
-      <div className="reel-scrim" aria-hidden={phase !== 'loading'}>
-        <div className="reel-dots" role="status" aria-label="Loading">
-          <span className="dot red" /><span className="dot blue" />
+    <div ref={layer} className={`reel-layer ${phase}${s.current.skip || fade ? ' fade' : ''}`} role="dialog" aria-modal="true" aria-label="Résumé">
+      <div className="reel-scrim">
+        <div className={`reel-dots${beadDone ? ' done' : ''}`} role="status" aria-label="Loading">
+          {DOTS.map((d, i) => (
+            <span key={i} className="dot" style={{ background: css(d.from) }} ref={(el) => { if (el) dots.current[i] = el; }} />
+          ))}
         </div>
-        {slow && phase === 'loading' && <p className="reel-progress">{Math.round(progress * 100)}%</p>}
       </div>
-      <div className="reel" onTransitionEnd={(e) => onRevealed(e)}>
+      {phase === 'bloom' && <canvas ref={bloomCanvas} className="reel-bloom" aria-hidden="true" />}
+      <div className="reel">
         <canvas ref={canvas} aria-hidden="true" />
         <p className={`reel-hint${moved ? '' : ' in'}`} aria-hidden="true">Scroll ↓</p>
         <div ref={panel} className="reel-resume" aria-hidden={phase !== 'resume'}>
