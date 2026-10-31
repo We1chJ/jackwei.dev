@@ -32,6 +32,8 @@ type Props = {
   bodies: MutableRefObject<(RapierRigidBody | null)[]>;
   /** Per-item scale (squash and stretch, shrinking away); 1 when absent. */
   scales?: MutableRefObject<THREE.Vector3[]>;
+  /** Per-item give along a world direction (a soft thing squashing against what it hit). */
+  bends?: MutableRefObject<Bend[]>;
   /** The bodies' parent group is scaled by this (the gashapon is blown up): converts world to local. */
   unit?: number;
   parts: Part[];
@@ -41,7 +43,23 @@ type Props = {
 
 const ONE = new THREE.Vector3(1, 1, 1);
 
-export function ItemInstances({ count, bodies, scales, unit = 1, parts, meshesRef }: Props) {
+/** Squash along n: amount below 0 flattens, above stretches. The sides bulge to keep the volume. */
+export type Bend = { n: THREE.Vector3; amount: number };
+function squash(m: THREE.Matrix4, { n, amount }: Bend, a: THREE.Matrix4) {
+  const k = 1 + amount, side = 1 / Math.sqrt(k), c = k - side;
+  a.set(
+    side + c * n.x * n.x, c * n.x * n.y, c * n.x * n.z, 0,
+    c * n.x * n.y, side + c * n.y * n.y, c * n.y * n.z, 0,
+    c * n.x * n.z, c * n.y * n.z, side + c * n.z * n.z, 0,
+    0, 0, 0, 1,
+  );
+  const e = m.elements, x = e[12], y = e[13], z = e[14];
+  e[12] = e[13] = e[14] = 0;
+  m.premultiply(a);
+  e[12] = x; e[13] = y; e[14] = z;
+}
+
+export function ItemInstances({ count, bodies, scales, bends, unit = 1, parts, meshesRef }: Props) {
   const built = useMemo(() => parts.map((p) => {
     const items = p.items ?? Array.from({ length: count }, (_, i) => i);
     const mesh = new THREE.InstancedMesh(p.geometry, p.material, items.length);
@@ -69,7 +87,7 @@ export function ItemInstances({ count, bodies, scales, unit = 1, parts, meshesRe
     return () => { built.forEach((b) => b.mesh.dispose()); if (meshesRef) meshesRef.current = []; };
   }, [built, meshesRef]);
 
-  const [m, mp] = useMemo(() => [new THREE.Matrix4(), new THREE.Matrix4()], []);
+  const [m, mp, ma] = useMemo(() => [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()], []);
   const [v, q] = useMemo(() => [new THREE.Vector3(), new THREE.Quaternion()], []);
   // Just after the physics step (priority 0), before the effects draw (1).
   useFrame(() => {
@@ -78,6 +96,8 @@ export function ItemInstances({ count, bodies, scales, unit = 1, parts, meshesRe
       if (!b) continue;
       const t = b.translation(), r = b.rotation();
       m.compose(v.set(t.x / unit, t.y / unit, t.z / unit), q.set(r.x, r.y, r.z, r.w), scales?.current[i] ?? ONE);
+      const bend = bends?.current[i];
+      if (bend && Math.abs(bend.amount) > 0.002) squash(m, bend, ma);
       for (const p of built) {
         const k = p.slot[i];
         if (k < 0) continue;

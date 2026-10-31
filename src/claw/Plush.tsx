@@ -1,19 +1,23 @@
 // Yellow Jack plushie: fleece blob body (sheen fabric with a fine fuzz normal map), mismatched
-// googly eyes, open mouth, sprout and stub arms. A rounded-box collider, so plushies sit and
-// stack in the pit instead of rolling like balls. One of them (SHINY) is the gold one.
+// googly eyes, open mouth, sprout and stub arms. The collider is almost entirely rounding, so it fits
+// the body's egg shape: no invisible corners for the claw to catch and knock about, and nothing to
+// see through. It has no bounce and plenty of drag; the give you see is Claw.tsx squashing the looks.
+// One of them (SHINY) is the gold one.
 // The bodies are one component each; all the looks are drawn together, instanced per part.
 import { forwardRef, useMemo, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { RigidBody, RoundCuboidCollider, interactionGroups, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier';
 import { orangePeelNormal } from '../gacha/textures';
-import { ItemInstances, place, type Part } from '../arcade/instances';
+import { ItemInstances, place, type Bend, type Part } from '../arcade/instances';
 
 export const PG = {
   static: interactionGroups(6, [7, 8]),
   plush: interactionGroups(7, [6, 7, 8]),
+  held: interactionGroups(7, [6, 7]),       // in the claw: the fleece gives round the fingers, nothing grinds
+  wedged: interactionGroups(7, [6]),        // held but pinned in the pile: it squeezes out past its neighbours
   finger: interactionGroups(8, [6, 7]),     // the claw head and fingers
 };
-export const PLUSH = { hx: 0.034, hy: 0.03, hz: 0.027, r: 0.018 };   // collider: half extents + rounding
+export const PLUSH = { hx: 0.016, hy: 0.012, hz: 0.01, r: 0.036 };   // collider: half extents + rounding
 export const PLUSH_TOP = PLUSH.hy + PLUSH.r;
 export const SHINY = 7;
 
@@ -52,7 +56,7 @@ export const PlushBody = forwardRef<RapierRigidBody, Props>(function PlushBody({
   return (
     <RigidBody
       ref={ref} colliders={false} position={position} rotation={rotation}
-      mass={0.09} friction={0.95} restitution={0.05} linearDamping={0.3} angularDamping={0.9} ccd
+      mass={0.09} friction={1.1} restitution={0} linearDamping={0.5} angularDamping={1.4} ccd
       collisionGroups={PG.plush} onCollisionEnter={(p) => onHit?.(index, p)}
     >
       <RoundCuboidCollider args={[PLUSH.hx, PLUSH.hy, PLUSH.hz, PLUSH.r]} />
@@ -64,11 +68,12 @@ type AllProps = {
   count: number;
   bodies: MutableRefObject<(RapierRigidBody | null)[]>;
   scales: MutableRefObject<THREE.Vector3[]>;
+  bends: MutableRefObject<Bend[]>;
   meshesRef: MutableRefObject<THREE.InstancedMesh[]>;
 };
 
 /** Every plushie, a draw per part. */
-export function Plushies({ count, bodies, scales, meshesRef }: AllProps) {
+export function Plushies({ count, bodies, scales, bends, meshesRef }: AllProps) {
   const parts = useMemo((): Part[] => {
     const m = (mats ??= build());
     const all = Array.from({ length: count }, (_, i) => i);
@@ -110,5 +115,5 @@ export function Plushies({ count, bodies, scales, meshesRef }: AllProps) {
       { geometry: smallSphere, material: m.leaf, at: place([0.013, 0.071, 0], [0, 0, -0.5], [0.012, 0.004, 0.007]) },
     ];
   }, [count]);
-  return <ItemInstances count={count} bodies={bodies} scales={scales} parts={parts} meshesRef={meshesRef} />;
+  return <ItemInstances count={count} bodies={bodies} scales={scales} bends={bends} parts={parts} meshesRef={meshesRef} />;
 }

@@ -7,9 +7,11 @@
 //     rope goes slack, which is how the machine knows to stop lowering;
 //   - three fingers on motorised hinges squeeze with a limited force, strong for the pickup and
 //     weaker for the carry, as real machines are set up.
-// Nothing holds a plushie but finger contact and friction: aim, how it lies, the swing and the
-// claw's strength decide whether it makes it to the chute. The prize door is a push-flap
-// (src/arcade/flap.ts); the hand-off to the visitor is choreographed.
+// The claw comes down gently to just over what is under it. As it closes it scoops up a plushie in
+// reach: that plushie stops colliding with the fingers and is held by a soft spring to the head,
+// because friction between rigid bodies is all jitter and shoves things out of the way. The further
+// off-centre the catch, the more likely it works loose on the way home. The prize door is a push-flap (src/arcade/flap.ts); the
+// hand-off to the visitor is choreographed.
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -30,7 +32,7 @@ import { ClawColliders, ClawVisual, DoorGlow, DoorVisual, clawMaterials } from '
 import { BOX_TOP, CABLE, DOOR, FINGER, FLOOR_Y, GANTRY_Y, HOLE, HOME, HUB, IN, STICK, TRAVEL } from './dims';
 import { PG, PLUSH_TOP, PlushBody, Plushies, SHINY } from './Plush';
 import { claw, pad } from './store';
-import { itemOf, itemPoint } from '../arcade/instances';
+import { itemOf, itemPoint, type Bend } from '../arcade/instances';
 
 const OX = SPOT.claw.x;
 const N_PLUSH = 24;
@@ -43,7 +45,13 @@ const SPOOL_Y = -0.03;                   // the cable leaves the carriage here
 // ahead of where a finger is, so the squeeze is capped at K * REACH, like a claw coil's pull: it
 // grips, it can't crush through a plushie. Strong to grab, weaker to carry (the weight can pry the
 // fingers open); the carry strength varies a little from play to play, as an operator's settings do.
-const GRAB_K = 0.1, CARRY_K = 0.025, FINGER_C = 0.0045, IDLE_K = 0.05, REACH = 0.12;
+const GRAB_K = 0.1, CARRY_K = 0.05, FINGER_C = 0.012, IDLE_K = 0.05, REACH = 0.08;
+// The catch: how near the claw's axis counts, where the plushie is held, how hard it is drawn there.
+const CATCH_R = 0.115, HOLD_BELOW = 0.09, HOLD_PULL = 7, HOLD_SETTLE = 10, HOLD_WEDGED = 0.07, HOLD_LOST = 0.26, HOLD_MAX = 1.2;
+const HELD_FRICTION = 0.05, HOLD_ANGLE = -0.02, FREE_AFTER = 0.35;   // fingers round a held plushie; seconds to fall clear of them when let go
+const TIP_CLEAR = 0.105;                 // the fingers reach this far under the hub
+// How plushies give when something hits them: a damped spring on the squash.
+const GIVE_K = 130, GIVE_C = 10, GIVE_HIT = 4.5, GIVE_MIN = 0.16, GIVE_FLAT = -0.24, GIVE_LONG = 0.14;
 const SQUEEZE = FINGER.closed - 0.03;    // just past fully shut, so they keep pressing on whatever they hold
 const DOOR_OPEN = 1.3;                   // pushed in far enough for a plushie to pass under
 type Mode = 'pit' | 'chute' | 'prize' | 'out' | 'land' | 'held' | 'return';
@@ -91,6 +99,8 @@ export default function Claw() {
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
   const scales = useRef(pile.map(() => new THREE.Vector3(1, 1, 1)));
   const plushMeshes = useRef<THREE.InstancedMesh[]>([]);
+  const bends = useRef<Bend[]>(pile.map(() => ({ n: new THREE.Vector3(0, 1, 0), amount: 0 })));
+  const give = useRef(pile.map(() => ({ v: 0, was: new THREE.Vector3() })));
   const mode = useRef<Mode[]>(pile.map(() => 'pit'));
   const bridge = useRef<THREE.Group>(null), carriage = useRef<THREE.Group>(null), cable = useRef<THREE.Mesh>(null);
   const spool = useRef<THREE.Group>(null), plunger = useRef<THREE.Mesh>(null), pulleys = useRef<(THREE.Mesh | null)[]>([]), aim = useRef<THREE.Group>(null);
@@ -111,7 +121,7 @@ export default function Claw() {
 
   const c = useRef({
     t: 0, step: 0, cx: HOME.x, cz: HOME.z, vx: 0, vz: 0,
-    L: CABLE.min, carry: -1, carryK: CARRY_K, slack: 0, armed: false, pressedAt: -9, celebrateUntil: 0,
+    L: CABLE.min, stopL: CABLE.max, carry: -1, holding: -1, slipAt: Infinity, freeing: -1, freeAt: 0, carryK: CARRY_K, slack: 0, armed: false, pressedAt: -9, celebrateUntil: 0,
     sx: 0, sz: 0, svx: 0, svz: 0, dragging: false, hover: '' as '' | 'stick' | 'button',
     auto: null as null | { x: number; z: number }, heldAt: 0, doorDown: null as null | { x: number; y: number },
   });
@@ -146,6 +156,31 @@ export default function Claw() {
     });
     return best;
   };
+  // What the closing fingers have round them, and how far off the claw's axis: the one on top if
+  // there is a stack (one underneath couldn't be lifted out), else the nearest.
+  const caught = () => {
+    let best = -1, bestD = CATCH_R, bestScore = Infinity;
+    mode.current.forEach((md, i) => {
+      const p = md === 'pit' ? bodies.current[i]?.translation() : null;
+      if (!p || p.y > H.y - 0.01 || p.y < H.y - 0.17) return;
+      const d = Math.hypot(p.x - H.x, p.z - H.z), score = d - (p.y - FLOOR_Y);
+      if (d < CATCH_R && score < bestScore) { bestScore = score; bestD = d; best = i; }
+    });
+    return { i: best, d: bestD };
+  };
+  const hold = (i: number, on: boolean) => bodies.current[i]?.collider(0).setCollisionGroups(on ? PG.held : PG.plush);
+  // Fleece gives: what is right under the claw isn't shoved aside by the fingers coming down round it.
+  const under = useRef<number[]>([]);
+  const yieldUnder = (x: number, z: number) => mode.current.forEach((md, i) => {
+    const p = md === 'pit' ? bodies.current[i]?.translation() : null;
+    if (p && Math.hypot(p.x - x, p.z - z) < CATCH_R + 0.02) { hold(i, true); under.current.push(i); }
+  });
+  const stopYielding = () => { under.current.forEach((i) => { if (i !== c.current.holding) hold(i, false); }); under.current = []; };
+  const letGo = () => {
+    const s = c.current;
+    if (s.holding >= 0) { s.freeing = s.holding; s.freeAt = s.t + FREE_AFTER; bodies.current[s.holding]?.setGravityScale(1, true); }
+    s.holding = -1; s.slipAt = Infinity;
+  };
   // A finger's hinge angle, from the head's and the finger's orientations.
   const fingerAngle = (k: number) => {
     const f = fingerBodies[k].current, hb = head.current;
@@ -163,6 +198,9 @@ export default function Claw() {
     if (!canPlay()) return;
     c.current.step = 0; c.current.auto = null;
     c.current.carryK = CARRY_K * (0.8 + Math.random() * 0.4);
+    // Down to just over whatever is under it (the fingers stop short of the floor), not into it.
+    c.current.stopL = THREE.MathUtils.clamp(GANTRY_Y - Math.max(topUnder(H.x, H.z) + HUB.h / 2 + 0.012, FLOOR_Y + TIP_CLEAR + HUB.h / 2), CABLE.min, CABLE.max);
+    yieldUnder(H.x, H.z);
     claw.set({ phase: 'dropping', lastGrab: null });
     motor(1.2, 70, 0.05);
   };
@@ -374,27 +412,42 @@ export default function Claw() {
     let fingerTarget = FINGER.idle, k = IDLE_K;
     if (phase === 'dropping') {
       fingerTarget = FINGER.open; k = GRAB_K;
-      s.L = Math.min(CABLE.max, s.L + 0.26 * dt);
-      // Stop when the rope goes slack (it landed on something) or runs out.
-      if ((s.slack > 0.008 && s.step > 0.3) || s.L >= CABLE.max) {
+      s.L = Math.min(s.stopL, s.L + Math.min(0.26, 0.05 + (s.stopL - s.L) * 3.5) * dt);   // slows as it arrives
+      // Stop there, or if the rope goes slack first (it landed on something).
+      if ((s.slack > 0.008 && s.step > 0.3) || s.L >= s.stopL - 1e-4) {
         s.L -= Math.max(0, s.slack - 0.004);
         s.step = 0; claw.set({ phase: 'grabbing' }); ratchet();
       }
     } else if (phase === 'grabbing') {
-      fingerTarget = s.step < 0.1 ? FINGER.open : SQUEEZE; k = GRAB_K;
+      fingerTarget = s.step < 0.1 ? FINGER.open : s.holding >= 0 ? HOLD_ANGLE : SQUEEZE; k = GRAB_K;
+      if (s.holding < 0 && s.step > 0.15) {
+        const got = caught();
+        if (got.i >= 0) {
+          s.holding = s.carry = got.i;
+          hold(got.i, true);
+          const b = bodies.current[got.i];
+          b?.collider(0).setFriction(HELD_FRICTION);   // slides out from among its neighbours
+          b?.setGravityScale(0, true);                 // the hold carries its weight: it would drag behind otherwise
+          // Dead centre it nearly always comes home; on the edge of the fingers, about one in two.
+          if (Math.random() < 0.06 + 0.45 * (got.d / CATCH_R) ** 2) s.slipAt = 0.3 + Math.random() * 1.2;
+        }
+      }
       if (s.step > 0.85) { s.step = 0; claw.set({ phase: 'lifting' }); motor(1.4, 60, 0.05); }
     } else if (phase === 'lifting') {
-      fingerTarget = SQUEEZE; k = s.step < 0.9 ? GRAB_K : s.carryK;   // the pickup strength drops once it is off the floor
+      fingerTarget = s.holding >= 0 ? HOLD_ANGLE : SQUEEZE; k = s.step < 0.9 ? GRAB_K : s.carryK;   // the pickup strength drops once it is off the floor
       if (s.step > 0.25) s.L = Math.max(CABLE.min, s.L - 0.2 * dt);
+      if (under.current.length && s.stopL - s.L > 0.13) stopYielding();   // the fingers are clear of the pile
       if (s.L <= CABLE.min + 1e-4 && s.step > 0.6) {
-        s.step = 0; s.carry = inClaw();
+        s.step = 0; s.carry = s.holding >= 0 ? s.holding : inClaw();
         claw.set({ phase: 'returning' }); motor(Math.hypot(HOME.x - s.cx, HOME.z - s.cz) / VMAX + 0.6, 85, 0.05);
       }
     } else if (phase === 'returning') {
-      fingerTarget = SQUEEZE; k = s.carryK;
-      if (s.carry >= 0 && inClaw() !== s.carry) { s.carry = -1; claw.set({ lastGrab: 'slipped' }); }
+      fingerTarget = s.holding >= 0 ? HOLD_ANGLE : SQUEEZE; k = s.carryK;
+      if (s.holding >= 0 && s.step > s.slipAt) letGo();
+      if (s.carry >= 0 && s.holding < 0 && inClaw() !== s.carry) { s.carry = -1; claw.set({ lastGrab: 'slipped' }); }
       if (Math.hypot(HOME.x - s.cx, HOME.z - s.cz) < 0.003 && Math.hypot(s.vx, s.vz) < 0.02 && s.step > 0.4) { s.step = 0; claw.set({ phase: 'releasing' }); }
     } else if (phase === 'releasing') {
+      letGo();
       if (s.carry >= 0) { wobble.current.set(s.carry, { at: s.t, amount: 0.12 }); s.carry = -1; }
       fingerTarget = s.step < 0.9 ? FINGER.open : FINGER.idle; k = GRAB_K;
       if (s.step > 1.4) claw.set({ phase: mode.current.includes('prize') ? 'prize' : 'idle', lastGrab: claw.get().lastGrab ?? 'missed' });
@@ -440,6 +493,45 @@ export default function Claw() {
         aim.current.scale.setScalar(1 + 0.12 * Math.sin(s.t * 6));
       }
     }
+
+    if (s.freeing >= 0 && s.t > s.freeAt) {
+      hold(s.freeing, false);
+      bodies.current[s.freeing]?.collider(0).setFriction(1.1);
+      s.freeing = -1;
+    }
+
+    // Held: drawn toward the spot between the fingers by a soft spring, moving with the head.
+    if (s.holding >= 0) {
+      const b = bodies.current[s.holding];
+      if (!b || mode.current[s.holding] !== 'pit') letGo();
+      else {
+        const p = b.translation(), v = b.linvel(), w = b.angvel(), hv = hb.linvel();
+        vTmp.set(H.x - p.x, H.y - HOLD_BELOW - p.y, H.z - p.z);
+        if (vTmp.length() > HOLD_WEDGED) b.collider(0).setCollisionGroups(PG.wedged);
+        if (vTmp.length() > HOLD_LOST) { letGo(); claw.set({ lastGrab: 'slipped' }); }
+        else {
+          const a = 1 - Math.exp(-HOLD_SETTLE * dt);
+          vTmp.multiplyScalar(HOLD_PULL).add(hv as THREE.Vector3).clampLength(0, HOLD_MAX);
+          b.setLinvel({ x: v.x + (vTmp.x - v.x) * a, y: v.y + (vTmp.y - v.y) * a, z: v.z + (vTmp.z - v.z) * a }, true);
+          b.setAngvel({ x: w.x * (1 - a), y: w.y * (1 - a), z: w.z * (1 - a) }, true);
+        }
+      }
+    }
+
+    // Soft bodies: a knock shows as a squash along it, springing back. Sleeping ones are left alone.
+    mode.current.forEach((md, i) => {
+      const b = bodies.current[i], g = give.current[i], bend = bends.current[i];
+      if (!b || (md !== 'pit' && md !== 'chute')) { bend.amount = g.v = 0; return; }
+      if (b.isSleeping() && !bend.amount) return;
+      const v = b.linvel();
+      oTmp.set(v.x, v.y, v.z).sub(g.was);
+      g.was.set(v.x, v.y, v.z);
+      const hit = oTmp.length();
+      if (hit > GIVE_MIN) { bend.n.copy(oTmp).divideScalar(hit); g.v -= Math.min(hit, 1.5) * GIVE_HIT; }
+      g.v += (-GIVE_K * bend.amount - GIVE_C * g.v) * dt;
+      bend.amount = THREE.MathUtils.clamp(bend.amount + g.v * dt, GIVE_FLAT, GIVE_LONG);
+      if (Math.abs(bend.amount) < 0.002 && Math.abs(g.v) < 0.02) bend.amount = g.v = 0;
+    });
 
     // A plushie in the claw looks squeezed.
     if (s.carry >= 0) scales.current[s.carry].lerp(c1.set(1.06, 0.9, 1.06), 1 - Math.exp(-10 * dt));
@@ -620,8 +712,8 @@ export default function Claw() {
         <RigidBody key={k} ref={fingerBodies[k]} canSleep={false} colliders={false} position={start} angularDamping={0.5} ccd>
           <group rotation-y={a}>
             <group position={[FINGER.root, -HUB.h / 2, 0]}>
-              <CapsuleCollider args={[SHAFT_COLLIDER.half, SHAFT_COLLIDER.r]} position={SHAFT_COLLIDER.pos} rotation={[0, 0, SHAFT_COLLIDER.rotZ]} mass={0.02} collisionGroups={PG.finger} friction={0.5} />
-              <CapsuleCollider args={[TIP_COLLIDER.half, TIP_COLLIDER.r]} position={TIP_COLLIDER.pos} rotation={[0, 0, TIP_COLLIDER.rotZ]} mass={0.008} collisionGroups={PG.finger} friction={0.9} />
+              <CapsuleCollider args={[SHAFT_COLLIDER.half, SHAFT_COLLIDER.r]} position={SHAFT_COLLIDER.pos} rotation={[0, 0, SHAFT_COLLIDER.rotZ]} mass={0.02} collisionGroups={PG.finger} friction={0.8} />
+              <CapsuleCollider args={[TIP_COLLIDER.half, TIP_COLLIDER.r]} position={TIP_COLLIDER.pos} rotation={[0, 0, TIP_COLLIDER.rotZ]} mass={0.008} collisionGroups={PG.finger} friction={1.4} />
               <mesh geometry={fingerGeo} material={base.chrome} castShadow />
               <mesh material={base.steel} position={[-0.008, -0.012, 0]} rotation-z={0.9}><cylinderGeometry args={[0.0022, 0.0022, 0.026, 8]} /></mesh>
               <mesh material={base.rubber} position={[0.02, -0.112, 0]}><sphereGeometry args={[0.0075, 12, 8]} /></mesh>
@@ -639,7 +731,7 @@ export default function Claw() {
       {pile.map((p, i) => (
         <PlushBody key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />
       ))}
-      <Plushies count={N_PLUSH} bodies={bodies} scales={scales} meshesRef={plushMeshes} />
+      <Plushies count={N_PLUSH} bodies={bodies} scales={scales} bends={bends} meshesRef={plushMeshes} />
     </group>
   );
 }
