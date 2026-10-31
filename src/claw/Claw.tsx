@@ -33,7 +33,7 @@ import { claw, pad } from './store';
 import { itemOf, itemPoint } from '../arcade/instances';
 
 const OX = SPOT.claw.x;
-const N_PLUSH = 18;
+const N_PLUSH = 24;
 const VMAX = 0.26, ACCEL = 1.3;          // gantry speed (m/s) and acceleration (m/s^2)
 const STICK_K = 320, STICK_C = 11;       // joystick return spring
 const SPOOL_R = 0.011;

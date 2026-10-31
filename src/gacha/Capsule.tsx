@@ -11,6 +11,8 @@ const topGeo = capsuleTop(CAPSULE_R);
 const bottomGeo = capsuleBottom(CAPSULE_R);
 const rollGeo = new THREE.CylinderGeometry(CAPSULE_R * 0.34, CAPSULE_R * 0.34, CAPSULE_R * 1.15, 24).rotateZ(Math.PI / 2);
 const bandGeo = new THREE.CylinderGeometry(CAPSULE_R * 0.345, CAPSULE_R * 0.345, CAPSULE_R * 0.28, 24).rotateZ(Math.PI / 2);
+// The parting line where the two halves meet.
+const lipGeo = new THREE.TorusGeometry(CAPSULE_R * 1.012, CAPSULE_R * 0.028, 8, 48).rotateX(Math.PI / 2);
 
 type Props = {
   index: number;
@@ -54,9 +56,11 @@ export function Capsules({ count, bodies, scales, meshesRef }: AllProps) {
   const parts = useMemo((): Part[] => {
     const m = capsuleMaterials();
     const tint = (k: 'top' | 'bottom') => Array.from({ length: count }, (_, i) => capsuleColor(i)[k]);
+    const dark = Array.from({ length: count }, (_, i) => new THREE.Color(capsuleColor(i).bottom).multiplyScalar(0.55));
     const slip = (i: number) => place([0, -CAPSULE_R * 0.42, 0], [0, (i * 1.7) % Math.PI, 0]);
     return [
       { geometry: bottomGeo, material: m.bottom, colors: tint('bottom'), castShadow: true, receiveShadow: true },
+      { geometry: lipGeo, material: m.band, at: place([0, -CAPSULE_R * 0.045, 0]), colors: dark },
       { geometry: rollGeo, material: materials().paper, at: slip },
       { geometry: bandGeo, material: m.band, at: slip, colors: tint('bottom') },
       { geometry: topGeo, material: m.top, colors: tint('top'), renderOrder: 2 },

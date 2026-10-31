@@ -9,7 +9,7 @@ import { intro } from './intro';
 import { gacha } from '../gacha/store';
 
 export const SHADOW_FRAMES = 40;
-const SETTLE_CHUNKS = 6;   // x 0.5 s of simulated time
+const SETTLE_CHUNKS = 12;  // x 0.25 s of simulated time: short enough that no frame stalls
 
 export default function Warmup() {
   const { gl, scene, camera, setFrameloop } = useThree();
@@ -33,9 +33,9 @@ export default function Warmup() {
   useFrame(() => {
     const s = w.current;
     if (s.settleSteps < SETTLE_CHUNKS) {
-      // Half a second of simulation per frame (step() clamps to 0.5 s and sub-steps at the
-      // fixed rate), so the pile settles in a few frames without one long freeze.
-      step(0.5);
+      // A quarter second of simulation per frame (step() sub-steps at the fixed rate), so the
+      // pile settles over a dozen frames without one long freeze.
+      step(0.25);
       s.settleSteps++;
       loading.report('settle', s.settleSteps / SETTLE_CHUNKS);
       if (s.settleSteps === SETTLE_CHUNKS) gacha.set({ phase: 'idle' });

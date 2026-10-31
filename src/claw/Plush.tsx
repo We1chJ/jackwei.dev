@@ -75,6 +75,8 @@ export function Plushies({ count, bodies, scales, meshesRef }: AllProps) {
     const fleece = all.filter((i) => i !== SHINY), shiny = all.filter((i) => i === SHINY);
     const bodyColors = all.map(plushColor);
     const seamColors = all.map((i) => new THREE.Color(plushColor(i)).multiplyScalar(0.82));
+    const faceColors = all.map((i) => new THREE.Color(plushColor(i)).lerp(new THREE.Color('#FFFDF6'), 0.55));
+    const blush = all.map(() => '#FF9BB0');
     // Fleece parts come in the fabric for most and gold for the shiny one.
     const fur = (geometry: THREE.BufferGeometry, at: THREE.Matrix4, castShadow = false): Part[] => [
       { geometry, material: m.fabric, at, items: fleece, colors: bodyColors, castShadow, receiveShadow: castShadow },
@@ -85,9 +87,15 @@ export function Plushies({ count, bodies, scales, meshesRef }: AllProps) {
       // side seam where front and back panels are sewn, and the care tag sticking out of it
       { geometry: seamGeo, material: m.seam, at: place([0, 0, 0], [0, Math.PI / 2, 0], [0.045, 0.049, 0.053]), items: fleece, colors: seamColors },
       { geometry: tagGeo, material: m.tag, at: place([0.054, -0.024, -0.004], [0, Math.PI / 2, 0.35]), items: fleece },
-      // stub arms
+      // stub arms, and feet poking out under the front
       ...fur(smallSphere, place([-0.049, -0.014, 0.006], [0, 0, 0], [0.012, 0.016, 0.012])),
       ...fur(smallSphere, place([0.049, -0.014, 0.006], [0, 0, 0], [0.012, 0.016, 0.012])),
+      ...fur(smallSphere, place([-0.021, -0.044, 0.022], [0.3, 0, 0], [0.015, 0.009, 0.02])),
+      ...fur(smallSphere, place([0.021, -0.044, 0.022], [0.3, 0, 0], [0.015, 0.009, 0.02])),
+      // a lighter face panel, and blushed cheeks
+      { geometry: smallSphere, material: m.fabric, at: place([0, -0.003, 0.011], [0, 0, 0], [0.04, 0.037, 0.036]), items: fleece, colors: faceColors },
+      { geometry: smallSphere, material: m.seam, at: place([-0.031, -0.005, 0.036], [0, -0.6, 0], [0.007, 0.0045, 0.002]), items: fleece, colors: blush },
+      { geometry: smallSphere, material: m.seam, at: place([0.032, -0.003, 0.035], [0, 0.6, 0], [0.007, 0.0045, 0.002]), items: fleece, colors: blush },
       // googly eyes: small left, big right, like the mascot
       { geometry: smallSphere, material: m.eyeWhite, at: place([-0.018, 0.012, 0.038], [0, 0, 0], [0.0135, 0.0135, 0.008]) },
       { geometry: smallSphere, material: m.pupil, at: place([-0.016, 0.011, 0.045], [0, 0, 0], [0.0058, 0.0058, 0.003]) },

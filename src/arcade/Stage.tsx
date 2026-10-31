@@ -53,6 +53,9 @@ function ArcadeShot() {
 
 export default function Stage() {
   const [dpr, setDpr] = useState(DPR_HIGH);
+  // The monitor only judges once everything has landed: the drop is the one heavy stretch, and a
+  // verdict taken then would leave the machines soft for the rest of the visit.
+  const landed = useIntro((s) => s.phase === 'done');
   // nothing to draw while the résumé reel covers the screen; while its loading dots dim the
   // arcade it only redraws on demand, so the decoder and the dots get the machine
   const covered = useReel((s) => s.covered);
@@ -67,7 +70,7 @@ export default function Stage() {
       onCreated={(state) => { if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state; }}
     >
       <color attach="background" args={[BACKDROP]} />
-      <PerformanceMonitor flipflops={3} onDecline={() => setDpr((d) => Math.max(1, d - 0.5))} onIncline={() => setDpr((d) => Math.min(DPR_HIGH, d + 0.5))} onFallback={() => setDpr(Math.min(DPR_HIGH, 1.25))} />
+      {landed && <PerformanceMonitor flipflops={3} onDecline={() => setDpr((d) => Math.max(1, d - 0.5))} onIncline={() => setDpr((d) => Math.min(DPR_HIGH, d + 0.5))} onFallback={() => setDpr(Math.min(DPR_HIGH, 1.5))} />}
 
       <Environment resolution={512} frames={1}>
         {/* Studio room: warm grey walls and floor, plus softboxes for highlights. */}
