@@ -1,11 +1,13 @@
 // From React Bits. Local changes: several lines (\n in `text`, spaced by `lineHeight`) on one canvas, so
-// letters can be thrown anywhere without clipping; `colors`, one per letter; and `relief`, which prints
-// each letter as a raised enamel shape with a lit face, a side wall and a soft shadow.
+// letters can be thrown anywhere without clipping; `colors`, one per letter; and `relief`, which gives
+// each letter real depth after React Bits' DepthText: stacked layers placed in true perspective, turning
+// toward the pointer (or orbiting when there is none), growing out of the face as the letter lands, and
+// pressing into the wall under the pointer on a spring. The hover outline, drag and kick still apply.
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 
 type Box = { x1: number; y1: number; x2: number; y2: number };
-type Art = { image: HTMLCanvasElement; left: number; top: number };
+type Art = { image: HTMLCanvasElement; left: number; top: number; scale?: number };
 type Shape = { char: string; x: number; baseline: number; color: string; box: Box };
 type Cell = { x: number; y: number; size: number; dx: number; dy: number; start: number; land: number };
 type Glyph = Shape & {
@@ -18,6 +20,11 @@ type Glyph = Shape & {
   index: number;
   fill: Art;
   dashes: Art;
+  walls: Art[];
+  cast: Art | null;
+  grow: number;
+  push: number;
+  pushV: number;
 };
 type Line = { y: number; label: string };
 type Band = { y0: number; y1: number; up: boolean; order: number };
@@ -41,6 +48,8 @@ export interface TechTextProps {
   letterSpacing?: number;
   lineHeight?: number;
   relief?: number;
+  tilt?: number;
+  paused?: boolean;
   colors?: string[];
   color?: string;
   accentColor?: string;
@@ -75,6 +84,15 @@ const SPRING = 320;
 const INHERIT = /^(currentcolor|inherit)$/i;
 const INTRO_DELAY = 0.15;
 const KICK_DECAY = 0.62;
+const LAYERS = 18;              // stacked copies in each letter's depth
+const PERSPECTIVE = 1100;       // px
+const REST = { x: 5, y: -7 };   // the resting turn, degrees: the depth falls down and to the right
+const WALLS = [0.8, 0.73, 0.66, 0.59, 0.52, 0.45];   // how dark the depth gets, front to back
+const SHARPEN = 1.5;            // letters are printed this much finer, since they are always slightly scaled
+const PUSH_STIFFNESS = 260;
+const PUSH_DAMPING = 17;
+const HOVER_PUSH = 0.42, PRESS_EXTRA = 0.25;
+const ORBIT_SPEED = 0.2;        // cycles per second
 
 const approach = (current: number, target: number, dt: number, seconds: number) =>
   current + (target - current) * (1 - Math.exp(-dt / seconds));
@@ -110,6 +128,8 @@ const TechText = ({
   letterSpacing = -0.05,
   lineHeight = 1,
   relief = 0,
+  tilt = 7,
+  paused = false,
   colors = [],
   color = 'currentColor',
   accentColor = 'currentColor',
@@ -149,6 +169,8 @@ const TechText = ({
       letterSpacing,
       lineHeight,
       relief,
+      tilt,
+      paused,
       colors,
       color,
       accentColor,
@@ -239,48 +261,63 @@ const TechText = ({
       target.textBaseline = 'alphabetic';
     };
 
-    // A raised letter lit from the top left: the shadow it casts, its side wall, then the face.
-    const emboss = (c: CanvasRenderingContext2D, s: Settings, view: Word, glyph: Shape, w: number, h: number, left: number, top: number) => {
-      const depth = s.relief * view.size;
-      c.save();
-      c.shadowColor = 'rgba(92, 63, 0, 0.42)';
-      c.shadowBlur = depth * 2.4 * dpr;
-      c.shadowOffsetX = depth * 1.1 * dpr;
-      c.shadowOffsetY = depth * 1.7 * dpr;
-      c.fillStyle = shade(glyph.color, 0.5);
-      c.fillText(glyph.char, glyph.x + depth * 0.7, glyph.baseline + depth);
-      c.restore();
-      c.fillStyle = shade(glyph.color, 0.62);
-      for (let d = depth; d > 0; d -= 0.5) c.fillText(glyph.char, glyph.x + d * 0.7, glyph.baseline + d);
-
-      const faceCanvas = document.createElement('canvas');
-      faceCanvas.width = c.canvas.width;
-      faceCanvas.height = c.canvas.height;
-      const f = faceCanvas.getContext('2d');
-      if (!f) return;
-      f.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
-      setFont(f, s, view.size);
-      f.fillStyle = glyph.color;
-      f.fillText(glyph.char, glyph.x, glyph.baseline);
-      f.globalCompositeOperation = 'source-atop';
-      const light = f.createLinearGradient(left, glyph.box.y1, left + w * 0.25, glyph.box.y2);
-      light.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
-      light.addColorStop(0.45, 'rgba(255, 255, 255, 0.04)');
-      light.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
-      f.fillStyle = light;
-      f.fillRect(left, top, w, h);
-      f.lineJoin = 'round';
-      f.lineWidth = view.size * 0.012;
-      f.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      f.strokeText(glyph.char, glyph.x + view.size * 0.004, glyph.baseline + view.size * 0.006);
-      c.save();
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      c.drawImage(faceCanvas, 0, 0);
-      c.restore();
+    // The pieces of a letter with depth, printed finer than the screen so they stay sharp under the
+    // small scaling the perspective applies.
+    const print = (s: Settings, view: Word, glyph: Shape, pad: number, sharpen: number, paint: (c: CanvasRenderingContext2D, q: number, left: number, top: number, w: number, h: number) => void): Art => {
+      const left = glyph.box.x1 - pad;
+      const top = glyph.box.y1 - pad;
+      const w = glyph.box.x2 - glyph.box.x1 + pad * 2;
+      const h = glyph.box.y2 - glyph.box.y1 + pad * 2;
+      const q = dpr * sharpen;
+      const image = document.createElement('canvas');
+      image.width = Math.max(1, Math.ceil(w * q));
+      image.height = Math.max(1, Math.ceil(h * q));
+      const c = image.getContext('2d');
+      if (c) {
+        c.setTransform(q, 0, 0, q, -left * q, -top * q);
+        setFont(c, s, view.size);
+        paint(c, q, left, top, w, h);
+      }
+      return { image, left, top, scale: q };
     };
 
+    /** The front: the letter lit from the top left, with a bright edge. */
+    const face = (s: Settings, view: Word, glyph: Shape) =>
+      print(s, view, glyph, 6, SHARPEN, (c, _q, left, top, w, h) => {
+        c.fillStyle = glyph.color;
+        c.fillText(glyph.char, glyph.x, glyph.baseline);
+        c.globalCompositeOperation = 'source-atop';
+        const light = c.createLinearGradient(left, glyph.box.y1, left + w * 0.25, glyph.box.y2);
+        light.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
+        light.addColorStop(0.45, 'rgba(255, 255, 255, 0.04)');
+        light.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        c.fillStyle = light;
+        c.fillRect(left, top, w, h);
+        c.lineJoin = 'round';
+        c.lineWidth = view.size * 0.012;
+        c.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        c.strokeText(glyph.char, glyph.x + view.size * 0.004, glyph.baseline + view.size * 0.006);
+      });
+
+    const wall = (s: Settings, view: Word, glyph: Shape, k: number) =>
+      print(s, view, glyph, 4, 0.75, c => {   // only their edges ever show, and those are moving
+        c.fillStyle = shade(glyph.color, k);
+        c.fillText(glyph.char, glyph.x, glyph.baseline);
+      });
+
+    /** The soft shadow on the wall: the shape itself is drawn off the sprite, only its blur lands on it. */
+    const shadow = (s: Settings, view: Word, glyph: Shape) =>
+      print(s, view, glyph, Math.ceil(view.size * 0.26), 0.5, (c, q) => {
+        const away = 4000;
+        c.shadowColor = 'rgba(92, 63, 0, 0.5)';
+        c.shadowBlur = view.size * 0.1 * q;
+        c.shadowOffsetX = away * q;
+        c.fillStyle = '#000000';
+        c.fillText(glyph.char, glyph.x - away, glyph.baseline);
+      });
+
     const sprite = (s: Settings, view: Word, glyph: Shape, stroke: boolean, ink: string): Art => {
-      const pad = Math.ceil(s.strokeWidth * 2 + 4 + s.relief * view.size * 4);
+      const pad = Math.ceil(s.strokeWidth * 2 + 4);
       const left = glyph.box.x1 - pad;
       const top = glyph.box.y1 - pad;
       const w = glyph.box.x2 - glyph.box.x1 + pad * 2;
@@ -304,8 +341,6 @@ const TechText = ({
         c.fillStyle = '#000000';
         c.fillText(glyph.char, glyph.x, glyph.baseline);
         c.globalCompositeOperation = 'source-over';
-      } else if (s.relief > 0) {
-        emboss(c, s, view, glyph, w, h, left, top);
       } else {
         c.fillStyle = glyph.color;
         c.fillText(glyph.char, glyph.x, glyph.baseline);
@@ -430,8 +465,13 @@ const TechText = ({
             cells: null,
             assembled: 0,
             index,
-            fill: sprite(s, next, base, false, ink),
-            dashes: sprite(s, next, base, true, ink)
+            fill: s.relief > 0 ? face(s, next, base) : sprite(s, next, base, false, ink),
+            dashes: sprite(s, next, base, true, ink),
+            walls: s.relief > 0 ? WALLS.map(k => wall(s, next, base, k)) : [],
+            cast: s.relief > 0 ? shadow(s, next, base) : null,
+            grow: !introKind || introKind === 'none' ? 1 : 0,
+            push: 0,
+            pushV: 0
           });
         });
       });
@@ -495,6 +535,63 @@ const TechText = ({
         Math.round((art.left + dx) * dpr - originX),
         Math.round((art.top + dy) * dpr - originY)
       );
+    };
+
+    // The turn of the whole word, in true perspective about its middle.
+    const lean = { x: REST.x, y: REST.y, tx: REST.x, ty: REST.y, seen: false };
+    const project = (view: Word, x: number, y: number, z: number): [number, number] => {
+      const px = (view.left + view.right) / 2, py = (view.top + view.bottom) / 2;
+      const ax = (lean.x * Math.PI) / 180, ay = (lean.y * Math.PI) / 180;
+      const dx = x - px, dy = y - py;
+      const x1 = dx * Math.cos(ay) + z * Math.sin(ay), z1 = -dx * Math.sin(ay) + z * Math.cos(ay);
+      const y1 = dy * Math.cos(ax) - z1 * Math.sin(ax), z2 = dy * Math.sin(ax) + z1 * Math.cos(ax);
+      const k = PERSPECTIVE / (PERSPECTIVE - z2);
+      return [px + x1 * k, py + y1 * k];
+    };
+
+    /** One piece of a letter at depth z: the plane there, reduced to a flat transform around the letter. */
+    const deep = (view: Word, glyph: Glyph, art: Art, z: number, dx = 0, dy = 0) => {
+      const hx = (glyph.box.x1 + glyph.box.x2) / 2, hy = (glyph.box.y1 + glyph.box.y2) / 2;
+      const cx = hx + glyph.offset.x + dx, cy = hy + glyph.offset.y + dy;
+      const [ox, oy] = project(view, cx, cy, z);
+      const [ax, ay] = project(view, cx + 1, cy, z);
+      const [bx, by] = project(view, cx, cy + 1, z);
+      ctx.setTransform((ax - ox) * dpr, (ay - oy) * dpr, (bx - ox) * dpr, (by - oy) * dpr, ox * dpr, oy * dpr);
+      const q = art.scale || dpr;
+      ctx.drawImage(art.image, art.left - hx, art.top - hy, art.image.width / q, art.image.height / q);
+    };
+
+    const drawDepth = (s: Settings, view: Word) => {
+      const extent = s.relief * view.size;
+      const front = (g: Glyph) => -clamp01(g.push) * extent;
+      const back = (g: Glyph) => -extent * g.grow;
+      const seen = (g: Glyph) => g.shown;
+      ctx.imageSmoothingQuality = 'high';
+      for (const glyph of glyphs) {
+        if (!glyph.cast || seen(glyph) < 0.001) continue;
+        ctx.globalAlpha = seen(glyph) * glyph.grow;
+        deep(view, glyph, glyph.cast, back(glyph), view.size * 0.03, view.size * 0.05);
+      }
+      for (let i = LAYERS; i > 0; i--) {
+        const t = i / LAYERS;
+        for (const glyph of glyphs) {
+          if (seen(glyph) < 0.001 || glyph.grow < 0.01) continue;
+          ctx.globalAlpha = seen(glyph);
+          const wallArt = glyph.walls[Math.min(WALLS.length - 1, Math.floor(t * WALLS.length))];
+          deep(view, glyph, wallArt, front(glyph) + (back(glyph) - front(glyph)) * t);
+        }
+      }
+      for (const glyph of glyphs) {
+        if (seen(glyph) < 0.001) continue;
+        ctx.globalAlpha = seen(glyph);
+        deep(view, glyph, glyph.fill, front(glyph));
+        if (glyph.outline > 0.001) {
+          ctx.globalAlpha = glyph.outline * seen(glyph);
+          deep(view, glyph, glyph.dashes, front(glyph));
+        }
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
     };
 
     const drawReveal = (s: Settings) => {
@@ -899,6 +996,18 @@ const TechText = ({
         moving = true;
       });
 
+      if (s.relief > 0 && !reducedMotion) {
+        if (!lean.seen && !s.paused) {
+          // no pointer: a slow orbit, wider on touch screens
+          const spin = pulse * ORBIT_SPEED * Math.PI * 2;
+          lean.tx = REST.x + Math.sin(spin) * s.tilt * 0.4;
+          lean.ty = REST.y + Math.cos(spin * 0.85) * s.tilt * 0.4;
+        }
+        lean.x = approach(lean.x, lean.tx, dt, 0.09);
+        lean.y = approach(lean.y, lean.ty, dt, 0.09);
+        if (Math.abs(lean.x - lean.tx) + Math.abs(lean.y - lean.ty) > 0.004) moving = true;
+      }
+
       let typing = -1;
       if (introducing && introKind === 'type') {
         const step = 0.86 / glyphs.length;
@@ -916,10 +1025,16 @@ const TechText = ({
       const focus = introducing ? typing : dragging >= 0 ? dragging : active ? glyphAt(lens.x, lens.y) : -1;
       if (focus >= 0 && s.selection) {
         const glyph = glyphs[focus];
-        const bx1 = glyph.box.x1 + glyph.offset.x - 6;
-        const by1 = glyph.box.y1 + glyph.offset.y - 6;
-        const bx2 = glyph.box.x2 + glyph.offset.x + 6;
-        const by2 = glyph.box.y2 + glyph.offset.y + 6;
+        const corners = [glyph.box.x1, glyph.box.x2].flatMap(cx =>
+          [glyph.box.y1, glyph.box.y2].map(cy => {
+            const x = cx + glyph.offset.x, y = cy + glyph.offset.y;
+            return s.relief > 0 ? project(view, x, y, 0) : [x, y];
+          })
+        );
+        const bx1 = Math.min(...corners.map(p => p[0])) - 6;
+        const by1 = Math.min(...corners.map(p => p[1])) - 6;
+        const bx2 = Math.max(...corners.map(p => p[0])) + 6;
+        const by2 = Math.max(...corners.map(p => p[1])) + 6;
         if (frame.index < 0 || frame.alpha < 0.02) {
           frame.x1 = bx1;
           frame.y1 = by1;
@@ -934,6 +1049,29 @@ const TechText = ({
         frame.index = focus;
       }
       frame.alpha = approach(frame.alpha, focus >= 0 && s.selection ? 1 : 0, dt, 0.1);
+
+      glyphs.forEach((glyph, i) => {
+        if (!s.relief) return;
+        // each letter's depth grows out of it once it is in place
+        const grown = glyph.shown > 0.9 && !(introducing && i === typing) ? 1 : 0;
+        glyph.grow = reducedMotion ? 1 : approach(glyph.grow, grown, dt, 0.22);
+        if (Math.abs(glyph.grow - grown) > 0.002) moving = true;
+        else glyph.grow = grown;
+        // pressed into the wall under the pointer, on a spring
+        const under = !introducing && i === focus && pointer.inside && i !== dragging;
+        const goal = reducedMotion || !under ? 0 : HOVER_PUSH + (press.index === i ? PRESS_EXTRA : 0);
+        let left = dt;
+        while (left > 0) {
+          const step = Math.min(left, 1 / 120);
+          glyph.pushV += (PUSH_STIFFNESS * (goal - glyph.push) - PUSH_DAMPING * glyph.pushV) * step;
+          glyph.push += glyph.pushV * step;
+          left -= step;
+        }
+        if (Math.abs(goal - glyph.push) < 0.0005 && Math.abs(glyph.pushV) < 0.002) {
+          glyph.push = goal;
+          glyph.pushV = 0;
+        } else moving = true;
+      });
 
       glyphs.forEach((glyph, i) => {
         const target = introducing
@@ -978,7 +1116,8 @@ const TechText = ({
       } else if (guideAlpha > 0.005) {
         drawLines(s, view, accent, guideAlpha * 0.6, () => 1);
       }
-      glyphs.forEach((glyph, i) => {
+      if (s.relief > 0) drawDepth(s, view);
+      else glyphs.forEach((glyph, i) => {
         if (introducing && introKind === 'assemble') {
           ensureCells(glyph, view);
           if (progress < glyph.assembled) {
@@ -1007,8 +1146,10 @@ const TechText = ({
       if (presence > 0.001) drawReveal(s);
       drawFrame(s, accent);
 
+      const orbiting = s.relief > 0 && !lean.seen && !s.paused && !reducedMotion;
       const settling =
         moving ||
+        orbiting ||
         introducing ||
         kicks.length > 0 ||
         (guideAlpha > 0.005 && guideAlpha < 0.995) ||
@@ -1089,6 +1230,20 @@ const TechText = ({
       wake();
     };
 
+    // the word turns toward the pointer wherever it is on the page
+    const onLook = (e: PointerEvent) => {
+      const s = settingsRef.current;
+      if (!s?.relief || !word || reducedMotion || s.paused || e.pointerType === 'touch') return;
+      const rect = container.getBoundingClientRect();
+      const nx = (e.clientX - rect.left - (word.left + word.right) / 2) / Math.max(1, word.right - word.left);
+      const ny = (e.clientY - rect.top - (word.top + word.bottom) / 2) / Math.max(1, word.bottom - word.top);
+      lean.seen = true;
+      lean.tx = REST.x - Math.max(-1, Math.min(1, ny * 0.9)) * s.tilt;
+      lean.ty = REST.y + Math.max(-1, Math.min(1, nx * 0.7)) * s.tilt;
+      wake();
+    };
+    window.addEventListener('pointermove', onLook, { passive: true });
+
     container.addEventListener('pointermove', onMove, { passive: true });
     container.addEventListener('pointerenter', onMove, { passive: true });
     container.addEventListener('pointerdown', onDown, { passive: true });
@@ -1122,6 +1277,7 @@ const TechText = ({
       themeObserver.disconnect();
       schemeQuery?.removeEventListener?.('change', wake);
       container.style.cursor = '';
+      window.removeEventListener('pointermove', onLook);
       container.removeEventListener('pointermove', onMove);
       container.removeEventListener('pointerenter', onMove);
       container.removeEventListener('pointerdown', onDown);

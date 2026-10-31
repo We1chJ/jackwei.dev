@@ -1,10 +1,12 @@
-// The name on the left of the hero: crisp type printed as raised enamel letters (TechText), typed in
-// where the machines have landed, a thud per letter. Hover a letter for its outline, drag or click it
-// to knock it about. Replaces the 3D letters; the loader's wireframe of them fades as this arrives.
+// The name on the left of the hero: crisp letters with real depth (TechText, with DepthText's extrusion
+// built in), typed in once the machines have landed, a thud per letter. It turns toward the pointer;
+// hover a letter to press it in and see its outline, drag or click it to knock it about. Replaces the
+// 3D letters; the loader's wireframe of them fades as this arrives.
 import { useEffect, useState } from 'react';
 import { thud } from '../gacha/sound';
 import { intro, useIntro } from './intro';
 import { HERO_NAME, HERO_TEXT_BOTTOM } from './layout';
+import { useReel } from '../resume/store';
 import TechText from './TechText';
 
 const COLORS = ['#FF4F8B', '#2B3A8C', '#FFF4DC', '#FF7A2E', '#21B07A', '#FF4F8B', '#2B3A8C'];
@@ -30,6 +32,7 @@ function useWindowSize() {
 export default function NameSign() {
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const { w, h } = useWindowSize();
+  const covered = useReel((s) => s.covered);   // the reel is over it: nothing moves under there
   const [shown, setShown] = useState(played);
   const [typeIn] = useState(!played);
 
@@ -59,7 +62,8 @@ export default function NameSign() {
           fontSize={size}
           letterSpacing={0.015}
           lineHeight={LINE}
-          relief={0.05}
+          relief={0.42}
+          paused={covered}
           colors={COLORS}
           color="#141414"
           accentColor="#141414"
