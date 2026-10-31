@@ -15,6 +15,11 @@ setInterval(() => {
   document.title = '_'.repeat(coinAt) + '🪙' + '_'.repeat(TRACK - 1 - coinAt);
 }, 180);
 
+// The ticket is React, so it follows the first paint in a small download of its own.
+import('./ticket/LoaderTicket')
+  .then((m) => m.mountTicket(document.querySelector<HTMLElement>('.ticket-mount')!, loading.ticket))
+  .catch(() => loading.fail());
+
 async function prefetch() {
   const chunks = window.__CHUNKS;
   if (!chunks?.length) return;

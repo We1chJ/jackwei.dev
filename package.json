@@ -9,11 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "^4.4.0",
+    "@hugeicons/react": "^1.1.10",
     "@react-three/drei": "^9.114.3",
     "@react-three/fiber": "^8.17.10",
     "@react-three/postprocessing": "^2.16.6",
     "@react-three/rapier": "^1.5.0",
     "maath": "^0.10.8",
+    "motion": "^14.9.0",
     "pdfjs-dist": "^4.7.76",
     "postprocessing": "^6.36.4",
     "react": "^18.3.1",
@@ -21,10 +24,12 @@
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }

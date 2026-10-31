@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // Lists every lazily-loaded JS chunk with its (decoded) byte size in the page, so the loading
 // screen can show real download progress (see src/main.ts).
@@ -23,7 +24,7 @@ function chunkList(base: string): Plugin {
 // Custom domain (CNAME = www.jackwei.dev) serves from the root, so base is '/'.
 export default defineConfig({
   base: '/',
-  plugins: [react(), chunkList('/')],
+  plugins: [react(), tailwindcss(), chunkList('/')],
   // pdf.js is imported lazily (the résumé reel); listing it here stops the dev server from
   // discovering it mid-session and force-reloading the page
   optimizeDeps: { include: ['pdfjs-dist'] },

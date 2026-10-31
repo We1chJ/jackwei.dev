@@ -7,8 +7,7 @@
     <title>Jack Gacha</title>
     <meta name="description" content="Jack Wei builds too many things. Crank the machine and get a project.">
     <link rel="icon" href="/mascot.jpg">
-    <link rel="preload" as="image" href="/coin/face-dim.png">
-    <link rel="preload" as="image" href="/coin/face-lit.png">
+    <link rel="preload" as="image" href="/mascot.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:ital,wght@0,500;0,700;0,900;1,700&display=swap">
@@ -16,8 +15,8 @@
 
 <body>
     <!-- Loading screen: static so it paints before any script arrives (src/loader.ts drives it).
-         A coin in the middle of a black screen fills with light as the site loads. Put it in the
-         slot to enter: the hero draws itself in wireframe, then the floor opens onto the arcade. -->
+         A ticket in the middle of a black screen prints its photo as the site loads, over a thin bar.
+         Tear the stub off to enter: the hero draws itself in wireframe, then the floor opens. -->
     <div id="loader" class="loader" role="progressbar" aria-label="Loading jackwei.dev" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="loader-sky"></div>
         <div class="loader-ground"></div>
@@ -25,13 +24,11 @@
         <i class="loader-horizon" aria-hidden="true"></i>
         <svg class="outline" aria-hidden="true"></svg>
         <div class="loader-centre">
-            <i class="coin-home" aria-hidden="true"></i>
-            <i class="loader-slot" aria-hidden="true"></i>
-            <p class="loader-caption" aria-live="polite"><i class="dm"></i><span class="cap-text">Loading</span><i class="dm"></i></p>
+            <div class="ticket-mount"></div>
             <button class="loader-retry" type="button" hidden>Couldn’t load. Reload</button>
         </div>
         <p class="loader-note" aria-hidden="true"><i class="dm"></i><span>For the best experience, turn your sound on</span><i class="dm"></i></p>
-        <div class="coin"></div>
+        <div class="loader-bar" aria-hidden="true"><b></b></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.ts"></script>
