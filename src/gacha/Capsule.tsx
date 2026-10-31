@@ -1,10 +1,11 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { BallCollider, RigidBody, type RapierRigidBody, type CollisionEnterPayload } from '@react-three/rapier';
 import { CAPSULE_R, SCALE } from './dims';
 import { capsuleBottom, capsuleTop } from './geometry';
-import { capsuleMaterials, materials } from './materials';
+import { capsuleColor, capsuleMaterials, materials } from './materials';
 import { G } from './groups';
+import { ItemInstances, place, type Part } from '../arcade/instances';
 
 const topGeo = capsuleTop(CAPSULE_R);
 const bottomGeo = capsuleBottom(CAPSULE_R);
@@ -16,14 +17,10 @@ type Props = {
   position: [number, number, number];
   rotation: [number, number, number];
   onHit?: (index: number, payload: CollisionEnterPayload) => void;
-  visualRef?: (group: THREE.Group | null) => void;
 };
 
-/** One gashapon capsule: tinted clear top, coloured bottom, a rolled paper slip inside. */
-export const Capsule = forwardRef<RapierRigidBody, Props>(function Capsule({ index, position, rotation, onHit, visualRef }, ref) {
-  const m = capsuleMaterials(index);
-  const paper = materials().paper;
-  const visual = useMemo(() => ({ index }), [index]);
+/** One gashapon capsule's body: a ball. Its looks are drawn by Capsules, below. */
+export const CapsuleBody = forwardRef<RapierRigidBody, Props>(function CapsuleBody({ index, position, rotation, onHit }, ref) {
   return (
     <RigidBody
       ref={ref}
@@ -39,17 +36,31 @@ export const Capsule = forwardRef<RapierRigidBody, Props>(function Capsule({ ind
       ccd
       collisionGroups={G.capsuleHopper}
       onCollisionEnter={(p) => onHit?.(index, p)}
-      userData={visual}
     >
       <BallCollider args={[CAPSULE_R]} />
-      <group ref={visualRef} name={`capsule-${index}`} userData={{ capsule: index }}>
-        <mesh geometry={bottomGeo} material={m.bottom} castShadow receiveShadow />
-        <mesh geometry={topGeo} material={m.top} castShadow />
-        <group position={[0, -CAPSULE_R * 0.42, 0]} rotation={[0, (index * 1.7) % Math.PI, 0]}>
-          <mesh geometry={rollGeo} material={paper} castShadow />
-          <mesh geometry={bandGeo} material={m.band} />
-        </group>
-      </group>
     </RigidBody>
   );
 });
+
+type AllProps = {
+  count: number;
+  bodies: MutableRefObject<(RapierRigidBody | null)[]>;
+  scales: MutableRefObject<THREE.Vector3[]>;
+  meshesRef: MutableRefObject<THREE.InstancedMesh[]>;
+};
+
+/** Every capsule, in four draws: tinted clear top, coloured bottom, the rolled paper slip and its band. */
+export function Capsules({ count, bodies, scales, meshesRef }: AllProps) {
+  const parts = useMemo((): Part[] => {
+    const m = capsuleMaterials();
+    const tint = (k: 'top' | 'bottom') => Array.from({ length: count }, (_, i) => capsuleColor(i)[k]);
+    const slip = (i: number) => place([0, -CAPSULE_R * 0.42, 0], [0, (i * 1.7) % Math.PI, 0]);
+    return [
+      { geometry: bottomGeo, material: m.bottom, colors: tint('bottom'), castShadow: true, receiveShadow: true },
+      { geometry: rollGeo, material: materials().paper, at: slip },
+      { geometry: bandGeo, material: m.band, at: slip, colors: tint('bottom') },
+      { geometry: topGeo, material: m.top, colors: tint('top'), renderOrder: 2 },
+    ];
+  }, [count]);
+  return <ItemInstances count={count} bodies={bodies} scales={scales} unit={SCALE} parts={parts} meshesRef={meshesRef} />;
+}

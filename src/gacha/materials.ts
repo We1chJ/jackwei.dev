@@ -59,24 +59,20 @@ export const CAPSULE_PALETTE = [
   { name: 'orange', top: '#FFC08F', bottom: '#FF7A2E' },
 ] as const;
 
-const capsuleCache = new Map<string, { top: THREE.MeshPhysicalMaterial; bottom: THREE.MeshPhysicalMaterial; band: THREE.MeshStandardMaterial }>();
-export function capsuleMaterials(i: number) {
-  const c = CAPSULE_PALETTE[i % CAPSULE_PALETTE.length];
-  let m = capsuleCache.get(c.name);
-  if (!m) {
-    m = {
-      // Thin tinted shell: transmission with a short attenuation gives coloured clear plastic.
-      top: new THREE.MeshPhysicalMaterial({
-        color: '#ffffff', transmission: 1, thickness: 0.004, ior: 1.49, roughness: 0.05,
-        attenuationColor: new THREE.Color(c.top), attenuationDistance: 0.02,
-        specularIntensity: 1, envMapIntensity: 1.2,
-      }),
-      bottom: new THREE.MeshPhysicalMaterial({
-        color: c.bottom, roughness: 0.26, clearcoat: 0.7, clearcoatRoughness: 0.1, side: THREE.DoubleSide,
-      }),
-      band: new THREE.MeshStandardMaterial({ color: c.bottom, roughness: 0.8 }),
-    };
-    capsuleCache.set(c.name, m);
-  }
-  return m;
+export const capsuleColor = (i: number) => CAPSULE_PALETTE[i % CAPSULE_PALETTE.length];
+
+// One set for every capsule (they are instanced, tinted per capsule): white here, the palette goes
+// in as instance colours.
+let capsuleCache: { top: THREE.MeshPhysicalMaterial; bottom: THREE.MeshPhysicalMaterial; band: THREE.MeshStandardMaterial } | null = null;
+export function capsuleMaterials() {
+  return (capsuleCache ??= {
+    // Tinted clear plastic: a glossy translucent shell. Not transmission, which makes three.js draw
+    // the whole opaque scene a second time every frame.
+    top: new THREE.MeshPhysicalMaterial({
+      color: '#ffffff', transparent: true, opacity: 0.5, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.05,
+      specularIntensity: 1, envMapIntensity: 1.2, depthWrite: false,
+    }),
+    bottom: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.26, clearcoat: 0.7, clearcoatRoughness: 0.1, side: THREE.DoubleSide }),
+    band: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 }),
+  });
 }

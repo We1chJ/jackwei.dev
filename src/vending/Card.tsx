@@ -1,6 +1,8 @@
 // A graded collectible card: holographic foil card (iridescent clear coat, so the rainbow
 // shifts with the viewing angle) sealed in an acrylic slab with a red grading label.
-import { forwardRef } from 'react';
+// The bodies are one component each; all the looks are drawn together, a draw per part (and
+// per project for the printed front and label).
+import { forwardRef, useMemo, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three-stdlib';
 import { CuboidCollider, RigidBody, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier';
@@ -8,6 +10,7 @@ import { PROJECTS } from '../data/projects';
 import { cardBack, cardFront, gradeLabel } from './art';
 import { VG } from './Cabinet';
 import { SLAB } from './dims';
+import { ItemInstances, place, type Part } from '../arcade/instances';
 
 const slabGeo = new RoundedBoxGeometry(SLAB.w, SLAB.h, SLAB.t, 2, 0.003);
 const cardGeo = new THREE.PlaneGeometry(0.062, 0.0868);
@@ -41,14 +44,12 @@ export function cardMaterials(project: number) {
 
 type Props = {
   index: number;
-  project: number;
   position: [number, number, number];
-  visualRef: (g: THREE.Group | null) => void;
   onHit?: (index: number, p: CollisionEnterPayload) => void;
 };
 
-export const Card = forwardRef<RapierRigidBody, Props>(function Card({ index, project, position, visualRef, onHit }, ref) {
-  const m = cardMaterials(project);
+/** One card's body: a slab. Its looks are drawn by Cards, below. */
+export const CardBody = forwardRef<RapierRigidBody, Props>(function CardBody({ index, position, onHit }, ref) {
   return (
     <RigidBody
       ref={ref} type="kinematicPosition" colliders={false} position={position}
@@ -56,12 +57,32 @@ export const Card = forwardRef<RapierRigidBody, Props>(function Card({ index, pr
       collisionGroups={VG.item} onCollisionEnter={(p) => onHit?.(index, p)}
     >
       <CuboidCollider args={[SLAB.w / 2, SLAB.h / 2, SLAB.t / 2]} />
-      <group ref={visualRef} userData={{ vitem: index }}>
-        <mesh geometry={cardGeo} material={m.front} position={[0, CARD_Y, 0.0028]} />
-        <mesh geometry={cardGeo} material={m.back!} position={[0, CARD_Y, -0.0028]} rotation-y={Math.PI} />
-        <mesh geometry={labelGeo} material={m.label} position={[0, LABEL_Y, 0.0042]} />
-        <mesh geometry={slabGeo} material={m.slab} renderOrder={2} />
-      </group>
     </RigidBody>
   );
 });
+
+type AllProps = {
+  /** Each card's project. */
+  projects: number[];
+  bodies: MutableRefObject<(RapierRigidBody | null)[]>;
+  scales: MutableRefObject<THREE.Vector3[]>;
+  meshesRef: MutableRefObject<THREE.InstancedMesh[]>;
+};
+
+/** Every card: one draw for the backs, one for the slabs, and a front and label per project. */
+export function Cards({ projects, bodies, scales, meshesRef }: AllProps) {
+  const parts = useMemo((): Part[] => {
+    const front = place([0, CARD_Y, 0.0028]), label = place([0, LABEL_Y, 0.0042]);
+    const byProject = new Map<number, number[]>();
+    projects.forEach((p, i) => byProject.set(p, [...(byProject.get(p) ?? []), i]));
+    return [
+      ...[...byProject].flatMap(([p, items]): Part[] => {
+        const m = cardMaterials(p);
+        return [{ geometry: cardGeo, material: m.front, at: front, items }, { geometry: labelGeo, material: m.label, at: label, items }];
+      }),
+      { geometry: cardGeo, material: cardMaterials(0).back!, at: place([0, CARD_Y, -0.0028], [0, Math.PI, 0]) },
+      { geometry: slabGeo, material: slabMat, renderOrder: 2 },
+    ];
+  }, [projects]);
+  return <ItemInstances count={projects.length} bodies={bodies} scales={scales} parts={parts} meshesRef={meshesRef} />;
+}

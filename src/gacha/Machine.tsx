@@ -13,7 +13,7 @@ import {
 } from '@react-three/rapier';
 import { RigidBodyType } from '@dimforge/rapier3d-compat';
 import { CabinetColliders, CabinetVisual, FlapVisual, Knob } from './Cabinet';
-import { Capsule } from './Capsule';
+import { CapsuleBody, Capsules } from './Capsule';
 import {
   CAPSULE_COUNT, CAPSULE_R, CHUTE_SPAWN, DISC_RATIO, DISPENSE_POINT, EXIT, FLAP, HOPPER, FRONT_Z, INNER, SCALE as S, WINDOW,
 } from './dims';
@@ -26,6 +26,7 @@ import { sparkle } from '../arcade/Sparkles';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
 import { pushFlap } from '../arcade/flap';
 import { onImpact } from '../arcade/intro';
+import { itemOf, itemPoint } from '../arcade/instances';
 
 type Mode = 'hopper' | 'lift' | 'chute' | 'cup' | 'out' | 'held' | 'return';
 
@@ -57,7 +58,8 @@ export default function Machine() {
   const { camera, gl, controls } = useThree();
   const spawn = useMemo(() => spawnPoints(CAPSULE_COUNT), []);
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
-  const visuals = useRef<(THREE.Group | null)[]>([]);
+  const scales = useRef(Array.from({ length: CAPSULE_COUNT }, () => new THREE.Vector3(1, 1, 1)));
+  const capsuleMeshes = useRef<THREE.InstancedMesh[]>([]);
   const mode = useRef<Mode[]>(Array(CAPSULE_COUNT).fill('hopper'));
   const chute = useRef<RapierRigidBody>(null);
   const flap = useRef<RapierRigidBody>(null);
@@ -142,18 +144,23 @@ export default function Machine() {
       const r = gl.domElement.getBoundingClientRect();
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
-      const targets: THREE.Object3D[] = [];
+      const targets: THREE.Object3D[] = [...capsuleMeshes.current];
       if (knob.current) targets.push(knob.current);
       if (flapGroup.current) targets.push(flapGroup.current);
-      mode.current.forEach((m, i) => { const v = visuals.current[i]; if (v && (m === 'cup' || m === 'held')) targets.push(v); });
-      const first = ray.intersectObjects(targets, true)[0];
-      if (!first) return null;
-      let o: THREE.Object3D | null = first.object;
-      while (o) {
-        if (o.userData.knob) return { kind: 'knob' as const };
-        if (o.userData.flap) return { kind: 'flap' as const };
-        if (typeof o.userData.capsule === 'number') return { kind: mode.current[o.userData.capsule] === 'held' ? 'held' as const : 'cup' as const };
-        o = o.parent;
+      // Nearest first; a capsule only counts where it can be taken (in the cup) or put back (held).
+      for (const h of ray.intersectObjects(targets, true)) {
+        const i = itemOf(h);
+        if (i >= 0) {
+          if (mode.current[i] === 'held') return { kind: 'held' as const };
+          if (mode.current[i] === 'cup') return { kind: 'cup' as const };
+          continue;
+        }
+        let o: THREE.Object3D | null = h.object;
+        while (o) {
+          if (o.userData.knob) return { kind: 'knob' as const };
+          if (o.userData.flap) return { kind: 'flap' as const };
+          o = o.parent;
+        }
       }
       return null;
     };
@@ -369,11 +376,10 @@ export default function Machine() {
       } else if (a.kind === 'land') {
         // Settles into the hand: squash-and-stretch wobble, then the idle float takes over.
         a.t += dt;
-        const v = visuals.current[i];
-        if (v) v.scale.copy(landWobble(oTmp, a.t, 0.1));
+        scales.current[i].copy(landWobble(oTmp, a.t, 0.1));
         b.setNextKinematicTranslation(holdPoint(camera, hTmp, ...HOLD));
         if (a.t > 0.6) {
-          if (v) v.scale.setScalar(1);
+          scales.current[i].setScalar(1);
           anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held' });
           clock.current.heldAt = clock.current.t;
         }
@@ -384,8 +390,7 @@ export default function Machine() {
         const top = p2Tmp.set(0, (WINDOW.y0 + WINDOW.y1) / 2, FRONT_Z + 0.05).multiplyScalar(S);
         b.setNextKinematicTranslation(bezier(vTmp, a.from, p1Tmp.copy(a.from).add(oTmp.set(0, 0.16 * S, 0)), oTmp.copy(top).add(hTmp.set(0, 0.12, 0.1).multiplyScalar(S)), top, k));
         b.setNextKinematicRotation(rTmp.copy(a.fromQ).premultiply(spinDown(sTmp, axisTmp.set(1, 0.3, 0).normalize(), 1, k)));
-        const v = visuals.current[i];
-        if (v) v.scale.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.55) / 0.45), 2)));
+        scales.current[i].setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.55) / 0.45), 2)));
         if (a.t >= 1) {
           sparkle.burst(top, 18, 0.22 * S);
           anim.current.delete(i);
@@ -395,7 +400,7 @@ export default function Machine() {
           b.collider(0).setEnabled(true);
           b.setBodyType(RigidBodyType.Dynamic, true);
           b.setLinvel({ x: 0, y: -0.4 * S, z: 0 }, true);
-          if (v) v.scale.setScalar(1);
+          scales.current[i].setScalar(1);
           mode.current[i] = 'hopper';
           const waiting = mode.current.some((m) => m === 'cup' || m === 'chute');
           gacha.set({ phase: waiting ? 'ready' : 'idle' });
@@ -414,10 +419,7 @@ export default function Machine() {
         const since = t - clock.current.heldAt, blend = clamp01(since / 0.8);
         b.setNextKinematicTranslation(vTmp.copy(holdPoint(camera, hTmp, ...HOLD)).add(oTmp.set(0, Math.sin(since * 1.7) * 0.004 * S * blend, 0)));
         b.setNextKinematicRotation(qTmp.setFromEuler(eTmp.set(-0.35 + Math.sin(since * 0.9) * 0.08 * blend, 1.0 + since * 0.35 * blend * blend, 0.15)));
-        if (Math.random() < dt * 1.4) {
-          const v = visuals.current[i];
-          if (v) sparkle.twinkle(v.localToWorld(oTmp.set((Math.random() - 0.5) * 0.04, CAPSULE_R * 0.7, CAPSULE_R * 0.5)));
-        }
+        if (Math.random() < dt * 1.4) sparkle.twinkle(itemPoint(hTmp, b, oTmp.set((Math.random() - 0.5) * 0.04, CAPSULE_R * 0.7, CAPSULE_R * 0.5), S, sTmp));
       } else if (m === 'chute') {
         // Settled in the cup against the flap?
         const p = b.translation(), v = b.linvel();
@@ -466,16 +468,9 @@ export default function Machine() {
       </RigidBody>
 
       {spawn.map((s, i) => (
-        <Capsule
-          key={i}
-          index={i}
-          position={s.p}
-          rotation={s.q}
-          ref={(b) => { bodies.current[i] = b; }}
-          visualRef={(g) => { visuals.current[i] = g; }}
-          onHit={onHit}
-        />
+        <CapsuleBody key={i} index={i} position={s.p} rotation={s.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />
       ))}
+      <Capsules count={CAPSULE_COUNT} bodies={bodies} scales={scales} meshesRef={capsuleMeshes} />
     </group>
   );
 }

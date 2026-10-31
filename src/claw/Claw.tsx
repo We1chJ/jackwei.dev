@@ -28,8 +28,9 @@ import { onImpact } from '../arcade/intro';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
 import { ClawColliders, ClawVisual, DoorGlow, DoorVisual, clawMaterials } from './Cabinet';
 import { BOX_TOP, CABLE, DOOR, FINGER, FLOOR_Y, GANTRY_Y, HOLE, HOME, HUB, IN, STICK, TRAVEL } from './dims';
-import { PG, PLUSH_TOP, Plush } from './Plush';
+import { PG, PLUSH_TOP, PlushBody, Plushies, SHINY } from './Plush';
 import { claw, pad } from './store';
+import { itemOf, itemPoint } from '../arcade/instances';
 
 const OX = SPOT.claw.x;
 const N_PLUSH = 18;
@@ -88,7 +89,8 @@ export default function Claw() {
   const { camera, gl } = useThree();
   const pile = useMemo(() => spawnPile(N_PLUSH), []);
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
-  const visuals = useRef<(THREE.Group | null)[]>([]);
+  const scales = useRef(pile.map(() => new THREE.Vector3(1, 1, 1)));
+  const plushMeshes = useRef<THREE.InstancedMesh[]>([]);
   const mode = useRef<Mode[]>(pile.map(() => 'pit'));
   const bridge = useRef<THREE.Group>(null), carriage = useRef<THREE.Group>(null), cable = useRef<THREE.Mesh>(null);
   const spool = useRef<THREE.Group>(null), plunger = useRef<THREE.Mesh>(null), pulleys = useRef<(THREE.Mesh | null)[]>([]), aim = useRef<THREE.Group>(null);
@@ -214,18 +216,25 @@ export default function Claw() {
     };
     const hit = (e: PointerEvent) => {
       aimRay(e);
-      const targets: THREE.Object3D[] = [];
+      const targets: THREE.Object3D[] = [...plushMeshes.current];
       if (stick.current?.parent) targets.push(stick.current.parent);
       if (button.current?.parent) targets.push(button.current.parent);
       if (doorGroup.current) targets.push(doorGroup.current);
-      mode.current.forEach((md, i) => { const v = visuals.current[i]; if (v && (md === 'prize' || md === 'held')) targets.push(v); });
-      let o: THREE.Object3D | null = ray.intersectObjects(targets, true)[0]?.object ?? null;
-      while (o) {
-        if (o.userData.cstick) return 'stick';
-        if (o.userData.cbutton) return 'button';
-        if (o.userData.cdoor) return 'door';
-        if (typeof o.userData.plush === 'number') return mode.current[o.userData.plush] === 'held' ? 'held' : 'take';
-        o = o.parent;
+      // Nearest first; a plushie only counts where it can be taken (behind the door) or put back (held).
+      for (const h of ray.intersectObjects(targets, true)) {
+        const i = itemOf(h);
+        if (i >= 0) {
+          if (mode.current[i] === 'held') return 'held';
+          if (mode.current[i] === 'prize') return 'take';
+          continue;
+        }
+        let o: THREE.Object3D | null = h.object;
+        while (o) {
+          if (o.userData.cstick) return 'stick';
+          if (o.userData.cbutton) return 'button';
+          if (o.userData.cdoor) return 'door';
+          o = o.parent;
+        }
       }
       return null;
     };
@@ -430,7 +439,7 @@ export default function Claw() {
     }
 
     // A plushie in the claw looks squeezed.
-    if (s.carry >= 0) { const vis = visuals.current[s.carry]; if (vis) vis.scale.lerp(c1.set(1.06, 0.9, 1.06), 1 - Math.exp(-10 * dt)); }
+    if (s.carry >= 0) scales.current[s.carry].lerp(c1.set(1.06, 0.9, 1.06), 1 - Math.exp(-10 * dt));
 
     // Door: a push-flap on its top hinge.
     flap.step(dt, door.current, doorJoint.current);
@@ -441,11 +450,11 @@ export default function Claw() {
 
     // Squash-and-stretch jiggles after a squeeze or a landing.
     for (const [i, wb] of wobble.current) {
-      const v = visuals.current[i], md = mode.current[i];
-      if (!v || md === 'out' || md === 'land' || md === 'held' || md === 'return' || i === s.carry) { wobble.current.delete(i); continue; }
+      const md = mode.current[i];
+      if (md === 'out' || md === 'land' || md === 'held' || md === 'return' || i === s.carry) { wobble.current.delete(i); continue; }
       const since = s.t - wb.at;
-      v.scale.copy(landWobble(c1, since, wb.amount));
-      if (since > 0.7) { v.scale.setScalar(1); wobble.current.delete(i); }
+      scales.current[i].copy(landWobble(c1, since, wb.amount));
+      if (since > 0.7) { scales.current[i].setScalar(1); wobble.current.delete(i); }
     }
 
     // Prizes: falling down the chute, landing behind the door, escaping the pit.
@@ -474,18 +483,15 @@ export default function Claw() {
         const since = s.t - s.heldAt, blend = clamp01(since / 0.8);
         b.setNextKinematicTranslation(vTmp.copy(holdPoint(camera, oTmp, 0.72, 0.07, 0.03)).add(c1.set(0, Math.sin(since * 1.6) * 0.005 * blend, 0)));
         b.setNextKinematicRotation(rTmp.copy(camera.quaternion).multiply(qTmp.setFromEuler(eTmp.set(Math.sin(since * 0.8) * 0.12 * blend, Math.sin(since * 0.7) * 0.6 * blend, Math.sin(since * 1.1) * 0.08 * blend))));
-        if (visuals.current[i]?.userData.shiny && Math.random() < dt * 2) {
-          const vis = visuals.current[i]!;
-          sparkle.twinkle(vis.localToWorld(c2.set((Math.random() - 0.5) * 0.08, Math.random() * 0.06, 0.04)));
-        }
+        if (i === SHINY && Math.random() < dt * 2) sparkle.twinkle(itemPoint(c1, b, c2.set((Math.random() - 0.5) * 0.08, Math.random() * 0.06, 0.04), 1, sTmp));
       }
     });
 
     // Hand-off: reach in past the door, draw the prize out under it, up to the visitor.
     for (const [i, a] of anim.current) {
-      const b = bodies.current[i], v = visuals.current[i];
+      const b = bodies.current[i], sc = scales.current[i];
       if (!b) { anim.current.delete(i); continue; }
-      // Rapier won't move a sleeping kinematic body (nor sync its mesh), so keep it awake while it is choreographed.
+      // Rapier won't move a sleeping kinematic body, so keep it awake while it is choreographed.
       b.wakeUp();
       if (a.kind === 'reach') {
         a.t += dt;
@@ -519,10 +525,10 @@ export default function Claw() {
         if (t >= 1) { a.kind = 'land'; a.t = 0; }
       } else if (a.kind === 'land') {
         a.t += dt;
-        if (v) v.scale.copy(landWobble(c1, a.t, 0.14));    // plush: extra squishy
+        sc.copy(landWobble(c1, a.t, 0.14));    // plush: extra squishy
         b.setNextKinematicTranslation(holdPoint(camera, oTmp, 0.72, 0.07, 0.03));
         b.setNextKinematicRotation(camera.quaternion);
-        if (a.t > 0.7) { if (v) v.scale.setScalar(1); anim.current.delete(i); mode.current[i] = 'held'; s.heldAt = s.t; claw.set({ phase: 'held' }); }
+        if (a.t > 0.7) { sc.setScalar(1); anim.current.delete(i); mode.current[i] = 'held'; s.heldAt = s.t; claw.set({ phase: 'held' }); }
       } else if (a.kind === 'return') {
         // Tossed back over the top into the pit.
         a.t = Math.min(1, a.t + dt / 0.65);
@@ -530,11 +536,11 @@ export default function Claw() {
         const over = c2.set(OX + 0.05, BOX_TOP + 0.1, 0.05);
         b.setNextKinematicTranslation(bezier(vTmp, a.from, c1.copy(a.from).add(axis.set(0, 0.25, 0)), oTmp.copy(over).add(axis.set(0, 0.2, 0.3)), over, kk));
         b.setNextKinematicRotation(rTmp.copy(a.fromQ).multiply(spinDown(sTmp, axis.set(1, 0, 0), 1, kk)));
-        if (v) v.scale.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.55) / 0.45), 2)));
+        sc.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.55) / 0.45), 2)));
         if (a.t >= 1) {
           sparkle.burst(over, 20, 0.24);
           anim.current.delete(i);
-          if (v) v.scale.setScalar(1);
+          sc.setScalar(1);
           b.setTranslation({ x: OX + (Math.random() - 0.2) * 0.3, y: GANTRY_Y - 0.12, z: (Math.random() - 0.6) * 0.3 }, true);
           b.collider(0).setEnabled(true);
           b.setBodyType(RigidBodyType.Dynamic, true);
@@ -628,8 +634,9 @@ export default function Claw() {
         <group ref={doorGroup}><DoorVisual /></group>
       </RigidBody>
       {pile.map((p, i) => (
-        <Plush key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} visualRef={(g) => { visuals.current[i] = g; }} onHit={onHit} />
+        <PlushBody key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />
       ))}
+      <Plushies count={N_PLUSH} bodies={bodies} scales={scales} meshesRef={plushMeshes} />
     </group>
   );
 }

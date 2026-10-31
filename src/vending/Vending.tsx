@@ -17,7 +17,8 @@ import { TAU, bezier, clamp01, easeInOut, easeOut, easeOutBack, holdPoint, landW
 import { pushFlap } from '../arcade/flap';
 import { onImpact } from '../arcade/intro';
 import { ledDisplay } from './art';
-import { Card } from './Card';
+import { CardBody, Cards } from './Card';
+import { itemOf, itemPoint } from '../arcade/instances';
 import { FlapVisual, Highlights, VG, VendingColliders, VendingVisual, vendMaterials } from './Cabinet';
 import { BIN, BIN_FLAP, COIL, COLS, COL_X, PER_COIL, ROWS, SHELF, SHELF_Y, SLAB, WINDOW, slotZ } from './dims';
 import { vending } from './store';
@@ -37,7 +38,9 @@ export default function Vending() {
   const { camera, gl } = useThree();
   const items = useMemo(() => Array.from({ length: COILS * PER_COIL }, (_, i) => ({ coil: Math.floor(i / PER_COIL), project: Math.floor(i / PER_COIL) % PROJECTS.length })), []);
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
-  const visuals = useRef<(THREE.Group | null)[]>([]);
+  const scales = useRef(items.map(() => new THREE.Vector3(1, 1, 1)));
+  const cardMeshes = useRef<THREE.InstancedMesh[]>([]);
+  const projects = useMemo(() => items.map((it) => it.project), [items]);
   const mode = useRef<Mode[]>(items.map(() => 'shelf'));
   const coils = useRef<number[][]>(Array.from({ length: COILS }, (_, c) => Array.from({ length: PER_COIL }, (_, k) => c * PER_COIL + k)));
   const coilGroups = useRef<(THREE.Group | null)[]>([]);
@@ -149,15 +152,22 @@ export default function Vending() {
       const r = gl.domElement.getBoundingClientRect();
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
-      const targets: THREE.Object3D[] = [...keys.current.values()];
+      const targets: THREE.Object3D[] = [...cardMeshes.current, ...keys.current.values()];
       if (flapGroup.current) targets.push(flapGroup.current);
-      mode.current.forEach((m, i) => { const v = visuals.current[i]; if (v && (m === 'bin' || m === 'held')) targets.push(v); });
-      let o: THREE.Object3D | null = ray.intersectObjects(targets, true)[0]?.object ?? null;
-      while (o) {
-        if (o.userData.vkey) return { kind: 'key' as const, key: o.userData.vkey as string };
-        if (o.userData.vflap) return { kind: 'flap' as const };
-        if (typeof o.userData.vitem === 'number') return { kind: mode.current[o.userData.vitem] === 'held' ? 'held' as const : 'take' as const };
-        o = o.parent;
+      // Nearest first; a card only counts where it can be taken (in the bin) or put back (held).
+      for (const h of ray.intersectObjects(targets, true)) {
+        const i = itemOf(h);
+        if (i >= 0) {
+          if (mode.current[i] === 'held') return { kind: 'held' as const };
+          if (mode.current[i] === 'bin') return { kind: 'take' as const };
+          continue;
+        }
+        let o: THREE.Object3D | null = h.object;
+        while (o) {
+          if (o.userData.vkey) return { kind: 'key' as const, key: o.userData.vkey as string };
+          if (o.userData.vflap) return { kind: 'flap' as const };
+          o = o.parent;
+        }
       }
       return null;
     };
@@ -295,9 +305,9 @@ export default function Vending() {
 
     // Choreographed segments.
     for (const [i, a] of anim.current) {
-      const b = bodies.current[i], v = visuals.current[i];
+      const b = bodies.current[i], sc = scales.current[i];
       if (!b) { anim.current.delete(i); continue; }
-      // Rapier won't move a sleeping kinematic body (nor sync its mesh), so keep it awake while it is choreographed.
+      // Rapier won't move a sleeping kinematic body, so keep it awake while it is choreographed.
       b.wakeUp();
       if (a.kind === 'reach') {
         // Wait for the flap to be pushed in far enough to get the card out under it.
@@ -333,11 +343,11 @@ export default function Vending() {
         if (t >= 1) { a.kind = 'land'; a.t = 0; }
       } else if (a.kind === 'land') {
         a.t += dt;
-        if (v) v.scale.copy(landWobble(oTmp, a.t, 0.08));
+        sc.copy(landWobble(oTmp, a.t, 0.08));
         b.setNextKinematicTranslation(holdPoint(camera, hTmp, 0.58, -0.07, 0.02));
         b.setNextKinematicRotation(camera.quaternion);
         if (a.t > 0.6) {
-          if (v) v.scale.setScalar(1);
+          sc.setScalar(1);
           anim.current.delete(i); mode.current[i] = 'held'; st.heldAt = st.t;
           vending.set({ phase: 'held', held: items[i].project });
           jingle(); say('ENJOY!', 1.6);
@@ -350,7 +360,7 @@ export default function Vending() {
         const top = c2.set(OX + (WINDOW.x0 + WINDOW.x1) / 2, WINDOW.y1 - 0.08, 0.3);
         b.setNextKinematicTranslation(bezier(vTmp, a.from, c1.copy(a.from).add(oTmp.set(0, 0.2, 0)), hTmp.copy(top).add(oTmp.set(0, 0.15, 0.25)), top, k));
         b.setNextKinematicRotation(rTmp.copy(a.fromQ).multiply(spinDown(sTmp, axis.set(0, 1, 0), 1, k)));
-        if (v) v.scale.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.5) / 0.5), 2)));
+        sc.setScalar(Math.max(0.001, 1 - Math.pow(Math.max(0, (a.t - 0.5) / 0.5), 2)));
         if (a.t >= 1) {
           sparkle.burst(top, 20, 0.24);
           const home = coils.current[items[i].coil].length < PER_COIL ? items[i].coil : coils.current.findIndex((l) => l.length < PER_COIL);
@@ -365,8 +375,8 @@ export default function Vending() {
         }
       } else if (a.kind === 'refill') {
         a.t = Math.min(1, a.t + dt / 0.35);
-        if (v) v.scale.setScalar(Math.max(0.001, easeOutBack(a.t)));
-        if (a.t >= 1) { if (v) v.scale.setScalar(1); anim.current.delete(i); }
+        sc.setScalar(Math.max(0.001, easeOutBack(a.t)));
+        if (a.t >= 1) { sc.setScalar(1); anim.current.delete(i); }
       }
     }
 
@@ -394,10 +404,7 @@ export default function Vending() {
         const since = st.t - st.heldAt, blend = clamp01(since / 0.8);
         b.setNextKinematicTranslation(vTmp.copy(holdPoint(camera, hTmp, 0.58, -0.07, 0.02)).add(oTmp.set(0, Math.sin(since * 1.6) * 0.004 * blend, 0)));
         b.setNextKinematicRotation(rTmp.copy(camera.quaternion).multiply(qTmp.setFromEuler(eTmp.set(Math.sin(since * 0.7) * 0.08 * blend, Math.sin(since * 0.9) * 0.55 * blend, 0))));
-        if (Math.random() < dt * 1.2) {
-          const vis = visuals.current[i];
-          if (vis) sparkle.twinkle(vis.localToWorld(oTmp.set((Math.random() - 0.5) * SLAB.w, (Math.random() - 0.5) * SLAB.h, SLAB.t)));
-        }
+        if (Math.random() < dt * 1.2) sparkle.twinkle(itemPoint(hTmp, b, oTmp.set((Math.random() - 0.5) * SLAB.w, (Math.random() - 0.5) * SLAB.h, SLAB.t), 1, sTmp));
       }
     });
   });
@@ -422,15 +429,9 @@ export default function Vending() {
       </RigidBody>
       {items.map((it, i) => {
         const p = slotPos(it.coil, i % PER_COIL);
-        return (
-          <Card
-            key={i} index={i} project={it.project} position={[p.x, p.y, p.z]}
-            ref={(b) => { bodies.current[i] = b; }}
-            visualRef={(g) => { visuals.current[i] = g; }}
-            onHit={onHit}
-          />
-        );
+        return <CardBody key={i} index={i} position={[p.x, p.y, p.z]} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />;
       })}
+      <Cards projects={projects} bodies={bodies} scales={scales} meshesRef={cardMeshes} />
     </group>
   );
 }

@@ -38,7 +38,7 @@ function FloorShadows() {
         <planeGeometry args={[30, 30]} />
         <shadowMaterial transparent opacity={0.2} color="#5c3f00" />
       </mesh>
-      <ContactShadows position={[0.2, 0.0008, 0.6]} scale={[6.4, 4.2]} resolution={1536} blur={2.2} far={1.2} opacity={0.85} color="#5e4100" frames={landed ? (hero ? 2 : 100) : Infinity} />
+      <ContactShadows position={[0.2, 0.0008, 0.6]} scale={[6.4, 4.2]} resolution={1024} blur={2.2} far={1.2} opacity={0.85} color="#5e4100" frames={landed ? (hero ? 2 : 100) : Infinity} />
     </>
   );
 }
