@@ -1,12 +1,11 @@
 // The loading screen. Plain DOM (markup in index.html), so it runs before React and three.js
 // arrive. A black screen with one coin hovering in the middle, hollow at first: only its outlines,
 // with the mascot struck into it in thin lines. Gold rises in it like a liquid as the site loads,
-// waves on the surface, until it is a full coin. The coin is a real object the whole time: grab it,
-// throw it, bounce it off the floor and the walls, roll it; the gold inside stays level. The slit is
-// solid until the coin is full. Then it opens between its two end posts: carry or throw the coin
-// through it from either side (or tap it, or press Enter, and it hops in by itself), and it vanishes
-// at the slit's edge. A clink, and the hero draws itself in wireframe, the lines flowing out from
-// the slit; the floor line
+// waves on the surface, until it is a full coin. Only then is it free: press it and it is in your
+// hand; throw it, bounce it off the floor and the walls, roll it, and the gold inside stays level.
+// The slit's two end posts are solid and the opening between them takes the coin from either side,
+// by hand or in flight (a tap, or Enter, hops it in by itself). It vanishes at the slit's edge. A
+// clink, and the hero draws itself in wireframe, the lines flowing out from the slit; the floor line
 // lights up yellow and the black opens along it, the floor sliding down and the wall lifting away,
 // onto the arcade as the machines drop into their outlines.
 //
@@ -239,7 +238,6 @@ function flare(x: number, y: number) {
 const onEnter: (() => void)[] = [], onOpen: (() => void)[] = [];
 function waitForCoin() {
   waiting = true;
-  sealed = performance.now() - lastBar < 400;   // a coin lying on the slit stays there until picked up
   root.classList.add('ready');
   capText.textContent = 'Insert coin';
   coin.tabIndex = 0;
@@ -250,9 +248,9 @@ function waitForCoin() {
 }
 
 // ---------- the coin as an object ----------
-// It hovers over the slit while it fills. Grab it and it is yours: throw it, bounce it off the
-// floor and the walls, roll it. The slit is a rigid body in its way: a solid bar until the coin is
-// full, then two end posts with an opening between them that takes the coin from either side.
+// It hovers over the slit, out of reach, until it is full. Then it is yours: throw it, bounce it off
+// the floor and the walls, roll it. The slit's two end posts are solid; the opening between them
+// takes the coin from either side.
 const G = 2600, BOUNCE = 0.46, WALL = 0.6, ROLL = 1.3, AIR = 0.15, MAX_THROW = 3200;   // px, s
 const SLOW = 130;                      // px/s: slower than this a landing does not bounce
 const LIP = 1.5;                       // px: the coin is cut just outside the slit's lit outline
@@ -261,11 +259,10 @@ const c = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, angv: 0, tx: 0, ty: 0, free: false
 const home = q('.coin-home');
 let anchor = { x: innerWidth / 2, y: innerHeight / 2 };
 let bar = { x: innerWidth / 2, y: innerHeight / 2 + 80, top: innerHeight / 2 + 77, bottom: innerHeight / 2 + 83, half: 70, r: 3 };
-let sealed = false, lastBar = -1e9, touching = false;
+let touching = false;
 const groundY = () => innerHeight - 4 - R;
 const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));
 const ease = (a: number, b: number, k: number) => a + (b - a) * Math.min(1, k);
-const open = () => waiting && !sealed;
 function measure() {
   const h = home.getBoundingClientRect(), sl = slot.getBoundingClientRect();
   anchor = { x: h.left + h.width / 2, y: h.top + h.height / 2 };
@@ -307,17 +304,17 @@ function knock(st: number, ny: number) {
   void once(slot, [{ transform: 'translateY(0)' }, { transform: `translateY(${d.toFixed(1)}px)`, offset: 0.3 }, { transform: 'translateY(0)' }], 220, 'ease-out');
   slot.classList.add('hot'); setTimeout(() => { if (!inserting) slot.classList.remove('hot'); }, 110);
 }
-/** Where the coin overlaps the slit's solid part: the bar, or once open the nearest end post. */
+/** Where the coin overlaps the nearer end post of the slit. */
 function contact() {
   const inner = bar.half - bar.r;
-  const px = open() ? bar.x + (c.x < bar.x ? -inner : inner) : Math.max(bar.x - inner, Math.min(bar.x + inner, c.x));
+  const px = bar.x + (c.x < bar.x ? -inner : inner);
   const dx = c.x - px, dy = c.y - bar.y, d = Math.hypot(dx, dy), gap = R + bar.r - d;
   if (gap <= 0) return null;
   return d < 1e-3 ? { nx: 0, ny: -1, gap } : { nx: dx / d, ny: dy / d, gap };
 }
 /** Clear of both end posts and past the slit's near edge, moving on through: in it goes. */
 function through() {
-  if (!open() || Math.abs(c.x - bar.x) + R > bar.half - bar.r * 2) return;
+  if (Math.abs(c.x - bar.x) + R > bar.half - bar.r * 2) return;
   const down = c.vy > 0 && c.y < bar.y && c.y + R > bar.top - LIP, up = c.vy < 0 && c.y > bar.y && c.y - R < bar.bottom + LIP;
   if (down || up) insert(down ? 1 : -1, Math.abs(c.vy));
 }
@@ -344,7 +341,6 @@ function move(dt: number) {
   if (k) {
     const vn = c.vx * k.nx + c.vy * k.ny;
     c.x += k.nx * k.gap; c.y += k.ny * k.gap;
-    lastBar = performance.now();
     if (vn < 0) {
       const hard = vn < -SLOW, e = 1 + (hard ? BOUNCE : 0);
       c.vx -= e * vn * k.nx; c.vy -= e * vn * k.ny;
@@ -390,30 +386,49 @@ function gesture() {
   ac();
   if (!unlocked && onEnter.length) { unlocked = true; onEnter.forEach((f) => f()); }
 }
-let grab: { dx: number; dy: number; sx: number; sy: number; samples: { t: number; x: number; y: number }[] } | null = null;
+// Only a deliberate press takes it: the main button, on the disc itself, once it is full. The coin
+// then follows only after the pointer really moves, and a press that never moves is a tap only if
+// it was quick. Any sign the button is no longer down lets it go, so it can never stay on the cursor.
+const DRAG_PX = 6, TAP_MS = 350;
+let grab: { id: number; dx: number; dy: number; sx: number; sy: number; at: number; live: boolean; samples: { t: number; x: number; y: number }[] } | null = null;
 coin.addEventListener('pointerdown', (e) => {
-  if (inserting) return;
-  if (reduced) { tossToSlot(); return; }
+  if (!waiting || inserting || grab) return;
+  if (e.button !== 0 || e.ctrlKey || !e.isPrimary) return;         // ctrl-click on a Mac is a right click
+  if (Math.hypot(e.clientX - c.x, e.clientY - c.y) > R) return;    // the box's corners are not the coin
+  if (reduced) { gesture(); tossToSlot(); return; }
   e.preventDefault();
   coin.setPointerCapture(e.pointerId);
   gesture();
-  grab = { dx: e.clientX - c.x, dy: e.clientY - c.y, sx: e.clientX, sy: e.clientY, samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }] };
-  c.dragging = true; c.resting = false; c.vx = c.vy = 0; toss = null; sealed = false;
+  const t = performance.now();
+  grab = { id: e.pointerId, dx: 0, dy: 0, sx: e.clientX, sy: e.clientY, at: t, live: false, samples: [{ t, x: e.clientX, y: e.clientY }] };
+  c.dragging = true; c.resting = false; c.vx = c.vy = 0; toss = null;
   root.classList.add('dragging');
 });
+/** Out of the hand: it falls if it has been moved or caught, and stays hovering if it was only pressed. */
+function drop() {
+  if (!grab) return;
+  if (grab.live) c.free = true;
+  grab = null; c.dragging = false; touching = false;
+  root.classList.remove('dragging'); slot.classList.remove('hot');
+}
 coin.addEventListener('pointermove', (e) => {
-  if (!grab || inserting) return;
+  if (!grab || e.pointerId !== grab.id || inserting) return;
+  if (e.pointerType === 'mouse' && e.buttons === 0) { drop(); return; }   // released where we could not see it
+  if (!grab.live) {
+    if (Math.hypot(e.clientX - grab.sx, e.clientY - grab.sy) < DRAG_PX) return;
+    grab.live = true; grab.dx = e.clientX - c.x; grab.dy = e.clientY - c.y;
+  }
   const px = Math.max(R, Math.min(innerWidth - R, e.clientX - grab.dx)), py = Math.max(R, Math.min(groundY(), e.clientY - grab.dy));
   const mx = px - c.x, my = py - c.y;
   c.vx = mx * 60; c.vy = my * 60;                   // for the banking; the throw itself uses the samples
-  // the hand cannot push it through the slit: walk there in small steps and stop against the bar
+  // the hand cannot push it through a post: walk there in small steps and stop against it
   const n = Math.max(1, Math.ceil(Math.hypot(mx, my) / (R * 0.35)));
   let hitting = false;
   for (let i = 0; i < n && !inserting; i++) {
     c.x += mx / n; c.y += my / n;
     const k = contact();
     if (k) {
-      c.x += k.nx * k.gap; c.y += k.ny * k.gap; hitting = true; lastBar = performance.now();
+      c.x += k.nx * k.gap; c.y += k.ny * k.gap; hitting = true;
       if (!touching) { touching = true; hit(0.4, c.x - k.nx * R, c.y - k.ny * R); knock(0.4, k.ny); }
     }
     through();
@@ -424,32 +439,27 @@ coin.addEventListener('pointermove', (e) => {
   grab.samples.push({ t: performance.now(), x: e.clientX, y: e.clientY });
   if (grab.samples.length > 6) grab.samples.shift();
   const near = Math.abs(c.x - bar.x) < bar.half && Math.min(Math.abs(c.y + R - bar.top), Math.abs(c.y - R - bar.bottom)) < 14;
-  slot.classList.toggle('hot', open() && near);
+  slot.classList.toggle('hot', near);
 });
-const letGo = (e: PointerEvent) => {
-  if (!grab) return;
-  const s = grab.samples, a = s[0], b = s[s.length - 1];
-  const moved = Math.hypot(e.clientX - grab.sx, e.clientY - grab.sy);
-  grab = null; c.dragging = false; touching = false;
-  root.classList.remove('dragging');
+coin.addEventListener('pointerup', (e) => {
+  if (!grab || e.pointerId !== grab.id) return;
+  const { live, at, samples: s } = grab, a = s[0], b = s[s.length - 1], now = performance.now();
+  drop();
   if (inserting) return;
   gesture();
-  slot.classList.remove('hot');
-  c.free = true;
-  if (moved < 6) {
-    if (waiting) { tossToSlot(); return; }
-    c.vy = -480; c.angv = 4;   // a hop
-    return;
-  }
+  if (!live) { if (now - at < TAP_MS) tossToSlot(); return; }
   // thrown: it keeps the hand's speed, unless the hand had stopped
-  const stale = performance.now() - b.t > 90, dt = Math.max(0.016, (b.t - a.t) / 1000);
+  const stale = now - b.t > 90, dt = Math.max(0.016, (b.t - a.t) / 1000);
   c.vx = stale ? 0 : (b.x - a.x) / dt; c.vy = stale ? 0 : (b.y - a.y) / dt;
   const speed = Math.hypot(c.vx, c.vy);
   if (speed > MAX_THROW) { c.vx *= MAX_THROW / speed; c.vy *= MAX_THROW / speed; }
   c.angv = (c.vx / R) * 0.7 + (Math.random() - 0.5) * 3;
-};
-coin.addEventListener('pointerup', letGo);
-coin.addEventListener('pointercancel', letGo);
+});
+coin.addEventListener('pointercancel', drop);
+coin.addEventListener('lostpointercapture', drop);
+addEventListener('blur', drop);
+addEventListener('contextmenu', drop);
+coin.addEventListener('dragstart', (e) => e.preventDefault());
 coin.addEventListener('keydown', (e) => { if (waiting && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); gesture(); tossToSlot(); } });
 
 // A tap, or the keyboard: the coin arcs into the opening by itself, a curve that arrives square
@@ -457,7 +467,6 @@ coin.addEventListener('keydown', (e) => { if (waiting && (e.key === 'Enter' || e
 let toss: { t0: number; T: number; sx: number; sy: number; cx: number; cy: number; px: number; py: number; dir: number; speed: number } | null = null;
 function tossToSlot() {
   if (!waiting || inserting || toss) return;
-  sealed = false;
   const dir = c.y > bar.y && Math.abs(c.x - bar.x) < bar.half + R ? -1 : 1;
   const px = bar.x, py = dir > 0 ? bar.top - LIP - R : bar.bottom + LIP + R;
   if (reduced) { c.x = px; c.y = py; insert(dir); return; }
@@ -481,6 +490,7 @@ function flyToss(now: number, dt: number) {
 function insert(dir = 1, speed = 0) {
   if (!waiting || inserting) return;
   inserting = true; waiting = false; toss = null;
+  drop();
   root.classList.remove('ready');
   root.classList.add('inserting');
   coin.removeAttribute('tabindex');

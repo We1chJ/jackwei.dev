@@ -103,8 +103,9 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .coin-home { display: block; width: var(--coin); height: var(--coin); }   /* where the coin hovers (loader.ts measures it) */
 /* The coin itself is loose on the screen: loader.ts moves it, tilts .coin-flip and turns the faces. */
 .coin { position: absolute; left: 0; top: 0; width: var(--coin); height: var(--coin); color: var(--light); opacity: 0; transition: opacity .6s; perspective: 600px;
-  pointer-events: auto; touch-action: none; cursor: grab; will-change: transform; }
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; }
 .loader.on .coin { opacity: 1; }
+.loader.ready .coin { cursor: grab; }
 .loader.dragging .coin { cursor: grabbing; }
 .coin-flip { position: absolute; inset: 0; will-change: transform; }
 .coin-body { position: absolute; inset: 0; clip-path: circle(49.5% at 50% 50%); }
