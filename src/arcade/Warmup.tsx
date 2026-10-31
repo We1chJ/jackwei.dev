@@ -1,6 +1,6 @@
 // Runs once, hidden behind the loading screen, so the first visible frame is already smooth:
 // compiles every shader up front, settles the capsule pile instantly instead of on screen,
-// then lets the floor shadow finish baking before the doors open.
+// then runs a few frames so nothing is first drawn on screen.
 import { useLayoutEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';

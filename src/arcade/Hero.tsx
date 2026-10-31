@@ -8,17 +8,15 @@ import { slam, unlockAudio } from '../gacha/sound';
 import { loading } from '../loader';
 import { dust } from './Dust';
 import { intro, onImpact } from './intro';
-import { HERO_POSE, SPOT } from './layout';
+import { FOOTPRINT, HERO_POSE, SPOT } from './layout';
 import { rig } from './CameraRig';
 import { pathFor } from './path';
 import { track } from './track';
-import { arcade, type MachineId } from './store';
+import { arcade } from './store';
 
 // The coin going in turns sound on (it has to happen inside that click); the screen opening starts the drop.
 loading.onEnter(unlockAudio);
 loading.onOpen(() => intro.set({ phase: 'dropping', startedAt: performance.now() / 1000 }));
-
-const FOOTPRINT: Record<MachineId, [number, number]> = { claw: [0.84, 0.84], gacha: [0.83, 0.87], vending: [0.92, 0.8] };
 
 /** The camera down the scroll (path.ts), a little parallax with the pointer, a jolt on every landing. */
 export function HeroCamera() {

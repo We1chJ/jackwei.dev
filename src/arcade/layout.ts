@@ -13,6 +13,9 @@ export const HERO_POSE: Record<MachineId, { x: number; z: number; yaw: number }>
   vending: { x: -0.202, z: 0.574, yaw: -0.119 },
 };
 
+/** What each machine covers on the floor, width and depth. */
+export const FOOTPRINT: Record<MachineId, [number, number]> = { claw: [0.84, 0.84], gacha: [0.83, 0.87], vending: [0.92, 0.8] };
+
 export const SPOT: Record<MachineId, { x: number; label: string }> = {
   claw: { x: -1.2, label: 'Claw' },
   gacha: { x: 0, label: 'Gacha' },

@@ -1,10 +1,9 @@
-// The arcade: three machines side by side on a product-photography stage (studio light-forms
-// for reflections, one soft key light, live floor and contact shadows, ambient occlusion,
-// neutral tone mapping). It opens on the hero: the machines drop in across the right of the frame.
+// The arcade: three machines side by side in a photo studio (Room.tsx): studio light-forms for
+// reflections, a hard key light that throws real shadows on the floor and wall, a rim light to lift
+// the machines off the room, ambient occlusion, neutral tone mapping. It opens on the hero: the machines drop in across the right of the frame.
 import { Suspense, useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
+import { Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
@@ -16,47 +15,16 @@ import Drop from './Drop';
 import Dust from './Dust';
 import { HeroCamera, HeroFx } from './Hero';
 import Sparkles from './Sparkles';
+import Room from './Room';
 import Warmup from './Warmup';
 import { arcadeShot, useReel } from '../resume/store';
 import { useIntro } from './intro';
-import { useArcade } from './store';
-import { LAST } from './path';
 import { measure, stepTrack, track } from './track';
 import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
 // Pixel density: properly sharp on retina; steps down a notch at a time if frames slow down.
 const DPR_HIGH = Math.min(window.devicePixelRatio, 2);
-
-// Floor shadows that work while things fall: a transparent floor that only shows the key light's
-// real-time shadows, and soft contact shadows under the machines, rendered live during the drop and
-// frozen once everything has landed (so they cost nothing afterwards; a burst of frames covers the
-// machines easing out of their hero poses). They are only true for the row, so they fade as the scroll
-// takes the machines off it, and bake again when the row is back; away from it the key light's shadows do.
-function FloorShadows() {
-  const landed = useIntro((s) => s.phase === 'done');
-  const hero = useArcade((s) => s.focus === 'hero');
-  const contact = useRef<THREE.Group>(null), [atRow, setAtRow] = useState(true), near = useRef(true);
-  useFrame(() => {
-    const row = 1 - Math.min(1, Math.min(track.t, LAST - track.t) / 0.25);
-    if (hero && (row > 0) !== near.current) { near.current = row > 0; setAtRow(near.current); }
-    contact.current?.traverse((o) => {
-      const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
-      if (m?.isMeshBasicMaterial) m.opacity = 0.85 * (hero ? row : 1);
-    });
-  });
-  return (
-    <>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.0004, 0]} receiveShadow>
-        <planeGeometry args={[30, 30]} />
-        <shadowMaterial transparent opacity={0.2} color="#5c3f00" />
-      </mesh>
-      <group ref={contact}>
-        <ContactShadows position={[0.2, 0.0008, 0.6]} scale={[6.4, 4.2]} resolution={1024} blur={2.2} far={1.2} opacity={0.85} color="#5e4100" frames={landed ? (hero ? (atRow ? 90 : 0) : 100) : Infinity} />
-      </group>
-    </>
-  );
-}
 
 /** Reads the scroll before anything uses it, and keeps the sections' positions measured. */
 function ScrollTrack() {
@@ -119,11 +87,15 @@ export default function Stage() {
         <Lightformer form="ring" intensity={1.6} position={[1.2, 1.6, 2.2]} scale={0.6} />
       </Environment>
 
+      <Room />
+      {/* The key: from high on the left and in front, so shadows fall back and right, across the floor and up the wall. */}
       <directionalLight
-        position={[-1.1, 2.5, 1.7]} intensity={2.2} color="#fffaf2" castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.01}
-        shadow-camera-left={-2.9} shadow-camera-right={2.9} shadow-camera-top={2.9} shadow-camera-bottom={-1.6}
+        position={[-2.6, 4.2, 4.4]} intensity={2.4} color="#fffaf2" castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.012}
+        shadow-camera-left={-5} shadow-camera-right={5} shadow-camera-top={4.2} shadow-camera-bottom={-4.2} shadow-camera-far={16}
       />
+      {/* The rim: from behind, on the far edges of the cabinets, so they stand off the room. */}
+      <directionalLight position={[3.4, 3.2, -3.4]} intensity={1.5} color="#fff1d6" />
 
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 120} lengthUnit={0.1} numSolverIterations={8}>
@@ -133,8 +105,6 @@ export default function Stage() {
           <Warmup />
         </Physics>
       </Suspense>
-
-      <FloorShadows />
 
       <Sparkles />
       <Dust />

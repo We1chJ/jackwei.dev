@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { DROP_DELAY, impact, intro } from './intro';
 import { pathFor, type Pose } from './path';
+import { MachineGround, type Ground } from './Room';
 import { track } from './track';
 import { arcade, type MachineId } from './store';
 
@@ -20,11 +21,12 @@ const T_FALL = Math.sqrt((2 * HEIGHT) / G);
 export default function Drop({ machine, x, children }: { machine: MachineId; x: number; children: ReactNode }) {
   const pose = useRef<THREE.Group>(null), pivot = useRef<THREE.Group>(null), shown = useRef(0), at = useRef<Pose>({ x: 0, z: 0, yaw: 0 });
   const size = useThree((s) => s.size);
+  const ground = useRef<Ground>(null);
   const s = useRef({ landedAt: -1, settled: false, tilt: new THREE.Vector2((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.06) });
 
   // Out of sight above the frame while the loader waits for the coin.
   useEffect(() => intro.subscribe(() => {
-    if (intro.get().phase === 'ready' && pivot.current) pivot.current.position.y = HEIGHT;
+    if (intro.get().phase === 'ready' && pivot.current) { pivot.current.position.y = HEIGHT; pivot.current.visible = false; }   // or its shadow is on the wall
   }), []);
 
   useFrame((_, dt) => {
@@ -39,9 +41,11 @@ export default function Drop({ machine, x, children }: { machine: MachineId; x: 
       pose.current.visible = !(want && k > 0.999 && path.hidden(machine, track.t));
     }
     const g = pivot.current;
+    ground.current?.lift(g?.position.y ?? 0);
     if (!g || st.phase === 'loading' || st.phase === 'ready' || s.current.settled) return;
     const t = performance.now() / 1000 - st.startedAt - DROP_DELAY[machine];
     if (t < 0) { g.position.y = HEIGHT; return; }
+    g.visible = true;
     const s0 = s.current;
     if (t < T_FALL) {
       // Free fall, tipped a little as it was let go, straightening as it comes down.
@@ -67,6 +71,7 @@ export default function Drop({ machine, x, children }: { machine: MachineId; x: 
   // Rotations pivot about the middle of the machine's base, not the world origin.
   return (
     <group ref={pose} position={[x, 0, 0]}>
+      <MachineGround ref={ground} machine={machine} />
       <group ref={pivot}>
         <group position={[-x, 0, 0]}>{children}</group>
       </group>
