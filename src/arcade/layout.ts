@@ -58,7 +58,7 @@ export const VIEW: Record<Focus, Record<Shot, View>> = {
 
 // The hero name: top-left corner in normalised screen coordinates (-1..1), how far out from the
 // camera it stands, each line's height as a share of the screen, and its turn away to the right.
-export const HERO_NAME = { x: -0.86, y: 0.54, distance: 3.0, line: 0.185, turn: 0.52 };
+export const HERO_NAME = { x: -0.86, y: 0.54, distance: 3.0, line: 0.185, turn: 0.38 };
 /** Roughly where the name's second line ends, as a share of the screen height (for the HTML under it). */
 export const HERO_TEXT_BOTTOM = 1 - (HERO_NAME.y + 1) / 2 + HERO_NAME.line * 2.25;
 

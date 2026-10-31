@@ -9,7 +9,7 @@ import { HERO_NAME, HERO_TEXT_BOTTOM } from './layout';
 import ElasticMesh from './ElasticMesh';
 
 const ROWS = ['JACK', 'WEI'];
-export const TURN_DEG = 32;
+export const TURN_DEG = 22;
 const REST = { x: 1, y: TURN_DEG };   // turned away to the right: it shrinks toward the middle of the screen
 const LETTERS = ROWS.join('').length;
 const INK = '#141414', PAPER = '#FFFDF6';
