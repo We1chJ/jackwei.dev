@@ -28,11 +28,11 @@ export const INTERIOR_LIGHT: Record<Focus, { position: [number, number, number];
 // Close framings: `main` frames the part you play with; `pickup` drops down to where the prize
 // comes out, and is used while one is waiting there.
 export const VIEW: Record<Focus, Record<Shot, View>> = {
-  // The hero: from the front-right, so the row of machines starts big at the right edge and
-  // recedes toward the middle of the frame, meeting the name (which turns away to the right).
+  // The hero: nearly head on, slightly from the right, with the machines filling the right 60% of the
+  // frame and facing the visitor. The name on the left turns away, shrinking toward the middle.
   hero: {
-    main: at(0, [-2.2, 0.9, -0.5], [6.2, 1.7, 6.2], 1, 14),
-    pickup: at(0, [-2.2, 0.9, -0.5], [6.2, 1.7, 6.2], 1, 14),
+    main: at(0, [-1.27, 0.92, 0], [2.3, 1.45, 7.4], 1, 14),
+    pickup: at(0, [-1.27, 0.92, 0], [2.3, 1.45, 7.4], 1, 14),
   },
   gacha: {
     main: at(0, [0, 0.95, 0], [0.7, 1.3, 3.6], 1.4, 5),
@@ -50,7 +50,7 @@ export const VIEW: Record<Focus, Record<Shot, View>> = {
 
 // The hero name: top-left corner in normalised screen coordinates (-1..1), how far out from the
 // camera it stands, each line's height as a share of the screen, and its turn away to the right.
-export const HERO_NAME = { x: -0.86, y: 0.54, distance: 3.0, line: 0.158, turn: 0.32 };
+export const HERO_NAME = { x: -0.86, y: 0.54, distance: 3.0, line: 0.185, turn: 0.52 };
 /** Roughly where the name's second line ends, as a share of the screen height (for the HTML under it). */
 export const HERO_TEXT_BOTTOM = 1 - (HERO_NAME.y + 1) / 2 + HERO_NAME.line * 2.25;
 

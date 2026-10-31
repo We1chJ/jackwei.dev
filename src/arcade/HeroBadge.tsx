@@ -1,14 +1,15 @@
 // Jack's badge, hanging in the gap between the name and the claw machine: drag it, throw it, click to flip.
-// It swings in once the name has landed, then hangs still. Windows too narrow for the gap go without.
+// It swings in once the name has landed, then hangs still. Windows without room for it go without.
 import { useEffect, useState } from 'react';
 import { intro, useIntro } from './intro';
 import Lanyard from './Lanyard';
 import { heroNameSize } from './NameSign';
 
 const ARRIVES_S = 3.1;     // after the drop starts, when the last letter is down
-const NAME_LEFT = 0.07, MACHINES_LEFT = 0.455;   // shares of the window
+const NAME_LEFT = 0.07, MACHINES_LEFT = 0.42;   // shares of the window
+const NAME_WIDTH = 1.75;   // ems across, as turned
+const MIN_GAP = 100;       // px between the name and the machines: any less and it goes without
 const CARD_ASPECT = 1.6 / 2.25;
-const MIN_ASPECT = 1.45;
 const BOX_W = 0.34;        // of the window: room to swing, and to throw it about
 
 let played = false;        // only the first arrival swings in
@@ -32,9 +33,9 @@ export default function HeroBadge() {
     return () => clearTimeout(timer);
   }, [opened]);
 
-  if (!show || w / h < MIN_ASPECT) return null;
-  const nameRight = NAME_LEFT * w + 2.4 * heroNameSize(w, h);
+  const nameRight = NAME_LEFT * w + NAME_WIDTH * heroNameSize(w, h);
   const gap = MACHINES_LEFT * w - nameRight;
+  if (!show || gap < MIN_GAP) return null;
   const cardH = Math.min((gap * 0.8) / CARD_ASPECT, 0.34 * h);
   return (
     <div className="hero-badge" aria-hidden="true" style={{ left: (nameRight + gap / 2) - (BOX_W * w) / 2, width: BOX_W * w }}>

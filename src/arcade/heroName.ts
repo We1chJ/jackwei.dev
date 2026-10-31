@@ -10,6 +10,7 @@ export type FontData = { resolution: number; glyphs: Record<string, { ha: number
 export const NAME_LINES = ['JACK', 'WEI'];
 // Letter extrusion, in units of the font size (TextGeometry with size 1).
 export const LETTER = { depth: 0.34, bevelThickness: 0.06, bevelSize: 0.035, spacing: -0.02 };
+const NARROW = 0.76;      // this font is wider than the name that replaces its outline
 const FOV = 26;
 
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -83,7 +84,7 @@ export function nameLayout(font: FontData, aspect: number): NameLayout {
   const k = Math.min((HERO_NAME.line * visH) / cap, (0.38 * visW) / width);
   // Facing the camera, turned about its up axis so the right side recedes.
   const s = Math.sin(HERO_NAME.turn), co = Math.cos(HERO_NAME.turn);
-  const X = add(mul(c.r, co), mul(c.f, s)), Y = c.u, Z = sub(mul(c.r, s), mul(c.f, co));
+  const X = mul(add(mul(c.r, co), mul(c.f, s)), NARROW), Y = c.u, Z = sub(mul(c.r, s), mul(c.f, co));
   return { pos, X, Y, Z, k, cap, letters };
 }
 /** A point in the name block's own frame (size-1 units) to world space. */

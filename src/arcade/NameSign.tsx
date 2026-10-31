@@ -9,7 +9,8 @@ import { HERO_NAME, HERO_TEXT_BOTTOM } from './layout';
 import ElasticMesh from './ElasticMesh';
 
 const ROWS = ['JACK', 'WEI'];
-const REST = { x: 4, y: -6 };   // the depth shows down and to the right, like the buttons' shadow
+export const TURN_DEG = 32;
+const REST = { x: 1, y: TURN_DEG };   // turned away to the right: it shrinks toward the middle of the screen
 const LETTERS = ROWS.join('').length;
 const INK = '#141414', PAPER = '#FFFDF6';
 const FONT = "'Lilita One', 'Arial Black', sans-serif";
@@ -19,7 +20,7 @@ const CAP = 0.72;         // Lilita One's cap height, em
 const LINE = 0.94;        // baseline to baseline, em
 const SPACING = 0.015;    // em
 const OUTLINE = 0.05;     // stroke width, em: half of it shows outside the letter
-const LAYERS = 12, LAYER_GAP = 0.025;   // the depth: copies, and em between them
+const LAYERS = 10, LAYER_GAP = 0.018;   // the depth: copies, and em between them
 const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078];
 const BOX_W = 0.56, BOX_H = 0.7;   // the canvas, as shares of the window
 
@@ -106,9 +107,9 @@ export default function NameSign() {
           gap: LAYER_GAP * size,
           color: INK_RGB,
           rest: REST,
-          tilt: 6,
-          perspective: 1100,
-          pivot: { x: boxW * 0.05 + textW / 2, y: boxH / 2 },
+          tilt: 4,
+          perspective: 800,
+          pivot: { x: boxW * 0.05 + textW * 0.2, y: boxH / 2 },
           reach: { x: textW, y: textH },
         }}
       />

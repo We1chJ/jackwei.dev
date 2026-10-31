@@ -163,8 +163,8 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .hero-name { position: absolute; pointer-events: none; }
 .hero-badge { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.hero-copy { position: absolute; left: 7vw; display: grid; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
-.hero-copy.in { opacity: 1; transform: none; transition-delay: 2.9s; pointer-events: auto; }
+.hero-copy { position: absolute; left: 7vw; display: grid; justify-items: start; gap: 14px; opacity: 0; transform-origin: 0 50%; transform: perspective(800px) rotateY(32deg) translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
+.hero-copy.in { opacity: 1; transform: perspective(800px) rotateY(32deg); transition-delay: 2.9s; pointer-events: auto; }
 .hero-line { margin: 0; display: flex; align-items: center; gap: .3em; white-space: nowrap; font: 800 clamp(18px, 2.1vw, 30px)/1.15 var(--font); letter-spacing: -.2px; }
 .hero-verb { box-sizing: content-box; padding: .1em .5em; border-radius: 999px; }
 .hero-links { display: flex; gap: 10px; flex-wrap: wrap; }

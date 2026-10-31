@@ -787,6 +787,7 @@ const ElasticMesh = ({
       turn: { x: 0, y: 0, vx: 0, vy: 0 },
       tilt: { x: settingsRef.current.view?.rest.x ?? 0, y: settingsRef.current.view?.rest.y ?? 0 },
       moved: false,
+      screen: { x: 0, y: 0 },
       accumulator: 0,
       energy: 1,
       buildToken: 0
@@ -1442,8 +1443,8 @@ const ElasticMesh = ({
       let tilting = false;
       if (s.view) {
         const v = s.view;
-        const across = state.moved && canTilt ? clamp((pointer.x - v.pivot.x) / v.reach.x, -1, 1) : 0;
-        const down = state.moved && canTilt ? clamp((pointer.y - v.pivot.y) / v.reach.y, -1, 1) : 0;
+        const across = state.moved && canTilt ? clamp((state.screen.x - v.pivot.x) / v.reach.x, -1, 1) : 0;
+        const down = state.moved && canTilt ? clamp((state.screen.y - v.pivot.y) / v.reach.y, -1, 1) : 0;
         const aimTiltX = v.rest.x - down * v.tilt;
         const aimTiltY = v.rest.y + across * v.tilt;
         const ease = 1 - Math.exp(-dt / 0.1);
@@ -1487,8 +1488,26 @@ const ElasticMesh = ({
 
     const locatePointer = (event: PointerEvent) => {
       const rect = container.getBoundingClientRect();
-      state.pointer.x = event.clientX - rect.left;
-      state.pointer.y = event.clientY - rect.top;
+      state.screen.x = event.clientX - rect.left;
+      state.screen.y = event.clientY - rect.top;
+      state.pointer.x = state.screen.x;
+      state.pointer.y = state.screen.y;
+      const v = settingsRef.current.view;
+      if (v) {
+        // back through the perspective, onto the turned surface, so what you touch is what moves
+        const dx = state.screen.x - v.pivot.x;
+        const dy = state.screen.y - v.pivot.y;
+        const P = v.perspective;
+        const [ca, sa] = [Math.cos((state.tilt.x * Math.PI) / 180), Math.sin((state.tilt.x * Math.PI) / 180)];
+        const [cb, sb] = [Math.cos((state.tilt.y * Math.PI) / 180), Math.sin((state.tilt.y * Math.PI) / 180)];
+        const a = P * cb - dx * ca * sb;
+        const b = dx * sa;
+        const c = P * sa * sb - dy * ca * sb;
+        const d = P * ca + dy * sa;
+        const det = a * d - b * c;
+        state.pointer.x = v.pivot.x + (dx * P * d - b * dy * P) / det;
+        state.pointer.y = v.pivot.y + (a * dy * P - c * dx * P) / det;
+      }
       state.pointer.inside =
         state.pointer.x >= 0 && state.pointer.y >= 0 && state.pointer.x <= rect.width && state.pointer.y <= rect.height;
       state.moved = true;
