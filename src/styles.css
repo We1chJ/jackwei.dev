@@ -109,16 +109,31 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .loader.ready .ticket-mount::before { opacity: 1; }
 .ticket-art { position: absolute; left: 8px; top: 8px; width: 264px; }
 .ticket-art img { pointer-events: none; }
-.ticket-side { position: absolute; left: 272px; top: 0; bottom: 0; width: 56px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 12px;
-  writing-mode: vertical-rl; transform: rotate(180deg); color: var(--ink); }
+.ticket-side { position: absolute; left: 300px; top: 140px; width: 280px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 14px; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; color: var(--ink); }
 .ticket-side b { font: 400 28px/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .6px; }
-.ticket-side span { font: 900 11px/1 var(--font); letter-spacing: 3px; text-transform: uppercase; }
-.ticket-stub { height: 100%; padding: 26px 16px 24px 26px; display: flex; flex-direction: column; color: var(--ink); }
-.ticket-stub small { font: 900 10px/1.3 var(--font); letter-spacing: 2.2px; text-transform: uppercase; }
-.ticket-stub strong { margin: auto 0; font: 400 46px/.95 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .4px; }
-.ticket-hint { display: flex; align-items: center; gap: 7px; font: 900 11px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; opacity: .55; }
-.ticket-hint.on { opacity: 1; animation: ticket-hint 1.5s ease-in-out infinite; }
-@keyframes ticket-hint { 50% { opacity: .5; } }
+/* The stub: rays behind the words, one token per machine, a barcode down the edge, and a stamp that
+   lands when the site is ready. */
+.ticket-stub { position: relative; height: 100%; padding: 20px 0 18px 22px; display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; color: var(--ink);
+  background: repeating-conic-gradient(from 0deg at 44% 40%, rgba(255, 244, 220, .28) 0 9deg, transparent 9deg 18deg); }
+.ticket-stub small { font: 900 10px/1 var(--font); letter-spacing: 1.5px; text-transform: uppercase; }
+.ticket-stub strong { margin: 12px 0 0; font: 400 42px/.92 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .4px; text-shadow: 2.5px 2.5px 0 #FF4F8B; }
+.stub-tokens { display: flex; margin-top: 14px; }
+.stub-tokens i { display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--ink); border-radius: 50%; box-shadow: 2px 2px 0 var(--ink); }
+.stub-tokens i + i { margin-left: -8px; }
+.stub-tokens svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ticket-hint { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding: 7px 10px; border-radius: 999px; box-shadow: inset 0 0 0 1.5px rgba(20, 20, 20, .4);
+  font: 900 10px/1 var(--font); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; color: rgba(20, 20, 20, .6); }
+.ticket-stub.ready .ticket-hint { background: var(--ink); box-shadow: none; color: var(--gold); }
+.ticket-hint svg { width: 14px; height: 9px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; animation: hint-pull 1.3s ease-in-out infinite; }
+@keyframes hint-pull { 50% { transform: translateX(3px); } }
+.stub-stamp { position: absolute; left: 58px; top: 193px; padding: 4px 8px 3px; border: 2.5px solid #D81E5B; border-radius: 6px; font: 400 19px/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: 1px; text-transform: uppercase;
+  color: #D81E5B; transform: rotate(-13deg); opacity: 0; pointer-events: none; }
+.ticket-stub.ready .stub-stamp { opacity: .92; animation: stamp-in .34s cubic-bezier(.3, 1.5, .5, 1) .15s backwards; }
+@keyframes stamp-in { from { opacity: 0; transform: rotate(-13deg) scale(2.3); } }
+.stub-code { position: absolute; right: 10px; top: 14px; height: 166px; display: flex; gap: 4px; }
+.stub-code em { writing-mode: vertical-rl; font: 800 8px/1 var(--font); letter-spacing: 1.4px; text-align: center; opacity: .7; }
+.stub-code div { width: 13px; overflow: hidden; }
+.stub-code div i { display: block; background: var(--ink); }
 
 /* The loading bar. */
 .loader-bar { position: absolute; left: 50%; bottom: max(7vh, 36px); width: min(320px, 62vw); height: 2px; transform: translateX(-50%); border-radius: 2px; background: var(--dim); overflow: hidden; }
