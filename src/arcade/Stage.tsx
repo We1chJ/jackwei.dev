@@ -2,8 +2,8 @@
 // for reflections, one soft key light, live floor and contact shadows, ambient occlusion,
 // neutral tone mapping). It opens on the hero: the machines drop in across the right of the
 // frame and the name stands on the left.
-import { Suspense, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useEffect, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
@@ -17,7 +17,7 @@ import Dust from './Dust';
 import { HeroCamera, HeroFx, HeroText } from './Hero';
 import Sparkles from './Sparkles';
 import Warmup from './Warmup';
-import { useReel } from '../resume/store';
+import { arcadeShot, useReel } from '../resume/store';
 import { useIntro } from './intro';
 import { SPOT, VIEW } from './layout';
 
@@ -39,6 +39,14 @@ function FloorShadows() {
       <ContactShadows position={[0.05, 0.0008, 0]} scale={[5.6, 2.6]} resolution={1024} blur={2.4} far={1.2} opacity={0.8} color="#6b4a00" frames={landed ? 2 : Infinity} />
     </>
   );
+}
+
+/** After the effects have drawn (they run at priority 1), so the résumé reel can take a still. */
+function ArcadeShot() {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => arcadeShot.attach(invalidate), [invalidate]);
+  useFrame(({ gl }) => arcadeShot.take(gl.domElement), 2);
+  return null;
 }
 
 export default function Stage() {
@@ -94,6 +102,7 @@ export default function Stage() {
       <CameraRig />
       <HeroCamera />
       <HeroFx />
+      <ArcadeShot />
       <OrbitControls
         makeDefault target={VIEW.hero.main.target} enablePan={false} enableDamping enabled={false}
         minDistance={VIEW.hero.main.minDistance} maxDistance={VIEW.hero.main.maxDistance} minPolarAngle={0.95} maxPolarAngle={1.62}

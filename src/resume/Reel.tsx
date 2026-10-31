@@ -1,7 +1,8 @@
 // The résumé reel. The button dims the arcade and shows two dots orbiting each other (after
 // TikTok's loader) while the clip downloads. When it is ready each dot flies to where the clip's
-// first frame has its orb of the same colour, at that orb's size, and the frame spreads out from
-// both like a watercolor wash (bloom.ts). The clip then plays by itself; a small toggle (or just
+// first frame has its orb of the same colour, at that orb's size, dragging ripples through the arcade
+// behind it, and two big ripples fan out from both and carry the frame in (ripple.ts). The clip then
+// plays by itself; a small toggle (or just
 // scrolling) pauses that and hands the clip to the scroll. On its final white frame the résumé
 // rises to the front.
 //
@@ -9,20 +10,20 @@
 // target frame and the shown frame eases toward it every display refresh. That turns notchy
 // wheels and uneven trackpads into a glide.
 import { useEffect, useRef, useState } from 'react';
-import { bloom } from './bloom';
 import { Frames } from './frames';
 import ResumePages, { type ZoomApi } from './ResumePages';
-import { loadReel, reel, useReel } from './store';
+import { createRipple, type Ripple } from './ripple';
+import { arcadeShot, loadReel, reel, useReel } from './store';
 import { FPS, pickSize, smaller } from './stream';
 
-type Phase = 'loading' | 'travel' | 'bloom' | 'play' | 'resume' | 'closing';
+type Phase = 'loading' | 'travel' | 'fan' | 'play' | 'resume' | 'closing';
 
 const MIN_DOTS_MS = 1000;
 const ORBIT = 17;          // px from the centre at full swing
 const DOT = 11;            // dot radius while loading, px
 const ORBIT_S = 0.9;       // seconds per turn
 const TRAVEL_MS = 750;
-const BLOOM_MS = 1800;
+const FAN_MS = 1800;
 // The orbs in the clip's first frame, measured off it: centre as a fraction of the frame's width
 // and height, radius as a fraction of its height, and the colour of the orb's saturated half.
 // Each dot flies to its orb, so the clip appears around the dots.
@@ -58,11 +59,12 @@ function Overlay() {
   const [auto, setAuto] = useState(true);          // the clip plays itself until paused
   const [zoom, setZoom] = useState(1);             // of the résumé page
   const zoomApi = useRef<ZoomApi | null>(null);
-  const [beadDone, setBeadDone] = useState(false); // the bloom has taken over from the dots
+  const [beadDone, setBeadDone] = useState(false); // the ripple has taken over from the dots
   const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
   const layer = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const bloomCanvas = useRef<HTMLCanvasElement>(null);
+  const rippleCanvas = useRef<HTMLCanvasElement>(null);
+  const ripple = useRef<Ripple | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const dotCanvas = useRef<HTMLCanvasElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
@@ -142,6 +144,14 @@ function Overlay() {
     (async () => {
       let ok = !matchMedia('(prefers-reduced-motion: reduce)').matches;
       try { ok &&= !!(await start(pickSize())); } catch { ok = false; }
+      // the ripple layer and its still of the arcade, while the dots are still orbiting: setting it up
+      // takes a moment, and a stall here does not show the way one in mid-flight would
+      const first = ok ? s.current.frames?.get(0) : undefined;
+      if (first && !dead) {
+        const r = createRipple(rippleCanvas.current!, first, drawDpr());
+        ripple.current = r;
+        void arcadeShot.request().then((shot) => { if (shot) r?.arcade(shot); });
+      }
       await new Promise((r) => setTimeout(r, Math.max(0, MIN_DOTS_MS - (performance.now() - t0))));
       if (dead) return;
       s.current.skip = !ok; // no decoder, reduced motion or no download: straight to the résumé
@@ -176,6 +186,7 @@ function Overlay() {
         const x = (innerWidth / 2 + mix(ORBIT * Math.cos(a), to.x, m)) * dpr;
         const y = (innerHeight / 2 + mix(0, to.y, m)) * dpr;
         const r = mix(DOT * (1 + 0.22 * Math.sin(a)), to.r, m) * dpr;
+        if (phase === 'travel') ripple.current?.trail(i, x / dpr, y / dpr, r / dpr);
         g.globalCompositeOperation = 'screen'; // where the dots overlap they add up
         g.fillStyle = css(d.from.map((c, j) => mix(c, d.to[j], m)));
         g.beginPath();
@@ -194,7 +205,7 @@ function Overlay() {
           g.restore();
         }
       });
-      if (phase === 'travel' && m === 1) { setPhase('bloom'); return; }
+      if (phase === 'travel' && m === 1) { setPhase('fan'); return; }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -208,31 +219,31 @@ function Overlay() {
     return Math.min(devicePixelRatio || 1, 2, cap);
   };
 
-  // the orbs bloom into the first frame; without WebGL the frame crossfades in instead
+  useEffect(() => () => { ripple.current?.dispose(); ripple.current = null; }, []);
+
+  // two ripples fan out from the orbs and bring the first frame in; without WebGL it crossfades instead
   useEffect(() => {
-    if (phase !== 'bloom') return;
-    const st = s.current, cv = bloomCanvas.current!;
-    const first = st.frames?.get(0);
-    const dpr = drawDpr();
-    cv.width = Math.round(innerWidth * dpr);
-    cv.height = Math.round(innerHeight * dpr);
+    if (phase !== 'fan') return;
     reel.set({ covered: true }); // the arcade is gone from here on; stop drawing it
-    const finish = () => { setPhase('play'); if (s.current.auto) sound(true); };
-    const wash = (i: number) => {
-      const o = orbOnScreen(DOTS[i].orb);
-      return { x: (innerWidth / 2 + o.x) * dpr, y: (innerHeight / 2 + o.y) * dpr, r: o.r * dpr };
+    const finish = () => {
+      ripple.current?.dispose();
+      ripple.current = null;
+      if (phaseRef.current !== 'fan') return;   // closed partway through
+      setPhase('play');
+      if (s.current.auto) sound(true);
     };
-    const run = first && bloom({
-      canvas: cv, frame: first, washes: [wash(1), wash(0)], ms: BLOOM_MS, onFirstFrame: () => setBeadDone(true),
-    });
-    if (run) { run.then(finish); return; }
+    const orb = (i: number) => {
+      const o = orbOnScreen(DOTS[i].orb);
+      return { x: innerWidth / 2 + o.x, y: innerHeight / 2 + o.y, r: o.r };
+    };
+    if (ripple.current) { void ripple.current.fan([orb(1), orb(0)], FAN_MS, () => setBeadDone(true)).then(finish); return; }
     setFade(true);
     const t = setTimeout(finish, 600); // .reel fades in over this (styles.css)
     return () => clearTimeout(t);
   }, [phase]);
 
   // draw loop: ease the shown frame toward the target and draw it when it changes
-  const drawing = phase === 'bloom' || phase === 'play' || phase === 'resume';
+  const drawing = phase === 'fan' || phase === 'play' || phase === 'resume';
   useEffect(() => {
     if (!drawing) return;
     const cv = canvas.current!, ctx = cv.getContext('2d')!;
@@ -267,7 +278,7 @@ function Overlay() {
         f.want(k, st.dir);
         const bm = f.get(k);
         if (bm && bm !== st.drawn) {
-          // cover the window, cropping whichever sides overflow (bloom.ts samples the same way)
+          // cover the window, cropping whichever sides overflow (ripple.ts samples the same way)
           const sc = Math.max(cv.width / bm.width, cv.height / bm.height);
           const w = bm.width * sc, h = bm.height * sc;
           ctx.drawImage(bm, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
@@ -336,9 +347,9 @@ function Overlay() {
   return (
     <div ref={layer} className={`reel-layer ${phase}${s.current.skip || fade ? ' fade' : ''}`} role="dialog" aria-modal="true" aria-label="Résumé">
       <div className="reel-scrim">
+        {(phase === 'loading' || phase === 'travel' || phase === 'fan') && <canvas ref={rippleCanvas} className="reel-ripple" aria-hidden="true" />}
         <canvas ref={dotCanvas} className={`reel-dots${beadDone ? ' done' : ''}`} role="img" aria-label="Loading" />
       </div>
-      {phase === 'bloom' && <canvas ref={bloomCanvas} className="reel-bloom" aria-hidden="true" />}
       <audio ref={audio} src={AUDIO} preload="auto" />
       <div className="reel">
         <canvas ref={canvas} aria-hidden="true" />

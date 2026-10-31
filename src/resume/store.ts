@@ -6,6 +6,31 @@ import { fetchStream, pickSize, url, type Size, type Stream } from './stream';
 /** open: the reel is up. dimmed: the arcade sits behind the loading dots. covered: it is hidden. */
 export const [reel, useReel] = createStore({ open: false, dimmed: false, covered: false });
 
+// A still of the arcade for the ripples to bend. The 3D canvas only holds its picture during the frame
+// it was drawn in, so the stage copies it from inside that frame (ArcadeShot in Stage.tsx).
+let wanted: ((shot: HTMLCanvasElement | null) => void) | null = null;
+let redraw: (() => void) | null = null;
+export const arcadeShot = {
+  /** The stage says how to ask for a frame. */
+  attach(fn: () => void) { redraw = fn; },
+  request() {
+    return new Promise<HTMLCanvasElement | null>((res) => {
+      wanted = res;
+      redraw?.();
+      setTimeout(() => { if (wanted === res) { wanted = null; res(null); } }, 400);
+    });
+  },
+  /** Called at the end of every frame the stage draws. */
+  take(source: HTMLCanvasElement) {
+    if (!wanted) return;
+    const shot = document.createElement('canvas');
+    shot.width = source.width; shot.height = source.height;
+    shot.getContext('2d')?.drawImage(source, 0, 0);
+    wanted(shot);
+    wanted = null;
+  },
+};
+
 const downloads = new Map<Size, Promise<Stream>>();
 
 /** Starts (once) the reel download; hovering or focusing the button calls this ahead of the click. */

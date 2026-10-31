@@ -197,13 +197,13 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .reel-dots { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .reel-dots.done { visibility: hidden; }
 
-/* The clip shows once the bloom has finished painting its first frame (bloom.ts); without WebGL,
-   or when going straight to the résumé, it fades in. */
-.reel-bloom { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+/* The clip shows once the ripple has fanned out (ripple.ts); without WebGL, or when going straight to
+   the résumé, it fades in. The ripple sits under the dots until they hand over to it. */
+.reel-ripple { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .reel { position: absolute; inset: 0; background: #F6F6F7; opacity: 0; }
 .reel-layer.play .reel, .reel-layer.resume .reel { opacity: 1; }
 .reel-layer.fade .reel { transition: opacity .6s ease; }
-.reel-layer.fade.bloom .reel { opacity: 1; }
+.reel-layer.fade.fan .reel { opacity: 1; }
 .reel > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .reel-hint {
   position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;
