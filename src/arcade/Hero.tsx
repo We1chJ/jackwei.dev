@@ -9,6 +9,7 @@ import { loading } from '../loader';
 import { dust } from './Dust';
 import { intro, onImpact } from './intro';
 import { HERO_POSE, SPOT, VIEW, heroEye } from './layout';
+import { rig } from './CameraRig';
 import { arcade, type MachineId } from './store';
 
 // The coin going in turns sound on (it has to happen inside that click); the screen opening starts the drop.
@@ -32,7 +33,7 @@ export function HeroCamera() {
     return () => window.removeEventListener('pointermove', m);
   }, []);
   useFrame((state, rawDt) => {
-    if (arcade.get().focus !== 'hero' || !controls) return;
+    if (arcade.get().focus !== 'hero' || !controls || rig.gliding) return;   // the rig glides it back first
     const dt = Math.min(rawDt, 1 / 30), st = s.current, t = state.clock.elapsedTime;
     controls.enabled = false;
     // No parallax until everything has landed: the loader's outlines are drawn for the still frame.

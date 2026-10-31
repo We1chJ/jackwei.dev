@@ -164,7 +164,7 @@ export function headerSign(): THREE.CanvasTexture {
     ctx.fillStyle = '#14193A'; ctx.font = TITLE(112); ctx.textBaseline = 'middle';
     ctx.fillText('JACK CARDS', 190, H / 2 + 6);
     // Strapline fitted into whatever space the wordmark leaves.
-    const room = W - 40 - (190 + ctx.measureText('JACK CARDS').width + 50), line = 'COLLECT ALL 10  ★  HOLO GUARANTEED';
+    const room = W - 40 - (190 + ctx.measureText('JACK CARDS').width + 50), line = 'COLLECT THEM ALL  ★  HOLO GUARANTEED';
     let px = 34; ctx.font = BODY(px, 900);
     while (ctx.measureText(line).width > room && px > 14) { px -= 1; ctx.font = BODY(px, 900); }
     ctx.textAlign = 'right';

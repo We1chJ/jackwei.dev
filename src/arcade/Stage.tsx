@@ -60,10 +60,11 @@ export default function Stage() {
   // arcade it only redraws on demand, so the decoder and the dots get the machine
   const covered = useReel((s) => s.covered);
   const dimmed = useReel((s) => s.dimmed);
+  const onScreen = useArcade((s) => s.onScreen);
   return (
     <Canvas
       shadows
-      frameloop={covered ? 'never' : dimmed ? 'demand' : 'always'}
+      frameloop={covered || !onScreen ? 'never' : dimmed ? 'demand' : 'always'}
       dpr={dpr}
       camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 30 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}

@@ -3,8 +3,9 @@ import { useSyncExternalStore } from 'react';
 
 export type Phase = 'settling' | 'idle' | 'turning' | 'dispensing' | 'ready' | 'taking' | 'held';
 
-type State = { phase: Phase; turns: number; sound: boolean };
-let state: State = { phase: 'settling', turns: 0, sound: false };
+// `held` is the index into PROJECTS of the capsule in the visitor's hand.
+type State = { phase: Phase; turns: number; sound: boolean; held: number | null };
+let state: State = { phase: 'settling', turns: 0, sound: false, held: null };
 const listeners = new Set<() => void>();
 
 export const gacha = {

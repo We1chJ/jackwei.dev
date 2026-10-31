@@ -1,4 +1,4 @@
-// A graded collectible card: holographic foil card (iridescent clear coat, so the rainbow
+// A graded collectible card (one of Jack's jobs, see data/experience.ts): holographic foil card (iridescent clear coat, so the rainbow
 // shifts with the viewing angle) sealed in an acrylic slab with a red grading label.
 // The bodies are one component each; all the looks are drawn together, a draw per part (and
 // per project for the printed front and label).
@@ -6,7 +6,7 @@ import { forwardRef, useMemo, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three-stdlib';
 import { CuboidCollider, RigidBody, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier';
-import { PROJECTS } from '../data/projects';
+import { EXPERIENCE } from '../data/experience';
 import { cardBack, cardFront, gradeLabel } from './art';
 import { VG } from './Cabinet';
 import { SLAB } from './dims';
@@ -28,10 +28,10 @@ export function cardMaterials(project: number) {
   back ??= new THREE.MeshPhysicalMaterial({ map: cardBack(), roughness: 0.38, clearcoat: 0.6 });
   let m = fronts.get(project);
   if (!m) {
-    const p = PROJECTS[project], foil = p.rarity === 'LEGENDARY' || p.rarity === 'SHINY';
+    const p = EXPERIENCE[project], foil = p.rarity === 'LEGENDARY' || p.rarity === 'SHINY';
     m = {
       front: new THREE.MeshPhysicalMaterial({
-        map: cardFront(p, project, PROJECTS.length), roughness: foil ? 0.22 : 0.3, metalness: foil ? 0.45 : 0.18,
+        map: cardFront(p, project, EXPERIENCE.length), roughness: foil ? 0.22 : 0.3, metalness: foil ? 0.45 : 0.18,
         iridescence: 1, iridescenceIOR: foil ? 2.0 : 1.6, iridescenceThicknessRange: [180, foil ? 900 : 560],
         clearcoat: 1, clearcoatRoughness: 0.04,
       }),

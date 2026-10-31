@@ -23,7 +23,8 @@ export type MachineId = 'claw' | 'gacha' | 'vending';
 /** What the camera is on: the hero overview (nothing in play), or one machine. */
 export type Focus = 'hero' | MachineId;
 export type Shot = 'main' | 'pickup';
-export const [arcade, useArcade] = createStore({ focus: 'hero' as Focus, shot: 'main' as Shot });
+/** `onScreen`: the arcade is in view (the page scrolls past it; it stops drawing when it is gone). */
+export const [arcade, useArcade] = createStore({ focus: 'hero' as Focus, shot: 'main' as Shot, onScreen: true });
 
 /** A machine asks for the pickup close-up while its prize waits (only while it has focus). */
 export function wantShot(machine: MachineId, shot: Shot) {

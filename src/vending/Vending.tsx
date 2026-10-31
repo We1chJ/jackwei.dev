@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CuboidCollider, RigidBody, useRevoluteJoint, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier';
 import { RigidBodyType } from '@dimforge/rapier3d-compat';
-import { PROJECTS } from '../data/projects';
+import { EXPERIENCE } from '../data/experience';
 import { errorBeep, flapSound, jingle, keyBeep, motor, thud } from '../gacha/sound';
 import { SPOT } from '../arcade/layout';
 import { sparkle } from '../arcade/Sparkles';
@@ -36,7 +36,7 @@ const codeOf = (c: number) => `${ROWS[rowOf(c)]}${(c % COLS) + 1}`;
 
 export default function Vending() {
   const { camera, gl } = useThree();
-  const items = useMemo(() => Array.from({ length: COILS * PER_COIL }, (_, i) => ({ coil: Math.floor(i / PER_COIL), project: Math.floor(i / PER_COIL) % PROJECTS.length })), []);
+  const items = useMemo(() => Array.from({ length: COILS * PER_COIL }, (_, i) => ({ coil: Math.floor(i / PER_COIL), project: Math.floor(i / PER_COIL) % EXPERIENCE.length })), []);
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
   const scales = useRef(items.map(() => new THREE.Vector3(1, 1, 1)));
   const cardMeshes = useRef<THREE.InstancedMesh[]>([]);

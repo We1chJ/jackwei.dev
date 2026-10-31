@@ -27,6 +27,7 @@ import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } 
 import { pushFlap } from '../arcade/flap';
 import { onImpact } from '../arcade/intro';
 import { itemOf, itemPoint } from '../arcade/instances';
+import { PROJECTS } from '../data/projects';
 
 type Mode = 'hopper' | 'lift' | 'chute' | 'cup' | 'out' | 'held' | 'return';
 
@@ -380,7 +381,7 @@ export default function Machine() {
         b.setNextKinematicTranslation(holdPoint(camera, hTmp, ...HOLD));
         if (a.t > 0.6) {
           scales.current[i].setScalar(1);
-          anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held' });
+          anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held', held: i % PROJECTS.length });
           clock.current.heldAt = clock.current.t;
         }
       } else if (a.kind === 'return') {
@@ -403,7 +404,7 @@ export default function Machine() {
           scales.current[i].setScalar(1);
           mode.current[i] = 'hopper';
           const waiting = mode.current.some((m) => m === 'cup' || m === 'chute');
-          gacha.set({ phase: waiting ? 'ready' : 'idle' });
+          gacha.set({ phase: waiting ? 'ready' : 'idle', held: null });
         }
       }
     }
