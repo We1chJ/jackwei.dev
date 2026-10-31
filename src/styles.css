@@ -136,7 +136,8 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .stub-code div i { display: block; background: var(--ink); }
 
 /* The loading bar. */
-.loader-bar { position: absolute; left: 50%; bottom: max(7vh, 36px); width: min(320px, 62vw); height: 2px; transform: translateX(-50%); border-radius: 2px; background: var(--dim); overflow: hidden; }
+.loader-bar { position: absolute; left: 50%; bottom: max(7vh, 36px); width: min(320px, 62vw); height: 2px; transform: translateX(-50%); border-radius: 2px; background: var(--dim); }
+.loader-percent { position: absolute; right: 0; bottom: 10px; font: 800 12px/1 var(--font); letter-spacing: .5px; color: var(--gold); }
 .loader-bar b { display: block; height: 100%; background: var(--gold); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
 
 /* a line along the bottom, for reading only, between hairlines that end in diamonds */
@@ -152,14 +153,15 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
   font: 600 12px/1 var(--font); letter-spacing: 1.4px; text-transform: uppercase; color: var(--light); text-decoration: underline; text-underline-offset: 4px;
 }
 .jammed .loader-bar b { background: #E0695C; }
+.jammed .loader-percent { color: #E0695C; }
 
 @media (prefers-reduced-motion: reduce) {
   .loader *, .loader *::before, .loader *::after { animation: none !important; transition: none !important; }
 }
 
 /* ---------- Hero: the name, the copy under it, sound toggle ---------- */
-.hero-name { position: absolute; pointer-events: none; }
-.hero-name canvas { display: block; width: 100%; height: 100%; }
+.hero-name { position: absolute; pointer-events: none; font-family: 'Lilita One', 'Arial Black', sans-serif; }
+.hero-name canvas { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero-copy { position: absolute; left: 7vw; display: grid; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
 .hero-copy.in { opacity: 1; transform: none; transition-delay: 2.9s; pointer-events: auto; }

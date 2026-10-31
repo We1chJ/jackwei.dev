@@ -1,6 +1,7 @@
-/* Tailwind for the two React Bits components only: no reset, and it scans this folder alone, so
-   nothing here can touch the arcade. */
+/* Tailwind for the React Bits components only: no reset, and it scans these files alone, so nothing
+   here can touch the arcade. */
 @layer theme, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @source './*.tsx';
+@source '../arcade/DepthText.tsx';
