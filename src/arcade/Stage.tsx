@@ -1,6 +1,6 @@
 // The arcade: three machines side by side in a photo studio (Room.tsx): studio light-forms for
-// reflections, a hard key light that throws real shadows on the floor and wall, a rim light to lift
-// the machines off the room, ambient occlusion, neutral tone mapping. It opens on the hero: the machines drop in across the right of the frame.
+// reflections (a strip behind lifts the machines off the room), a hard key light that throws real
+// shadows on the floor and wall, ambient occlusion, neutral tone mapping. It opens on the hero: the machines drop in across the right of the frame.
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
@@ -10,7 +10,7 @@ import { ToneMappingMode } from 'postprocessing';
 import Machine from '../gacha/Machine';
 import Vending from '../vending/Vending';
 import Claw from '../claw/Claw';
-import CameraRig from './CameraRig';
+import CameraRig, { rig } from './CameraRig';
 import Drop from './Drop';
 import Dust from './Dust';
 import { HeroCamera, HeroFx } from './Hero';
@@ -18,11 +18,13 @@ import Sparkles from './Sparkles';
 import Room from './Room';
 import Warmup from './Warmup';
 import { arcadeShot, useReel } from '../resume/store';
-import { useIntro } from './intro';
+import { intro, useIntro } from './intro';
+import { arcade } from './store';
 import { measure, stepTrack, track } from './track';
 import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
+const SHADOW_LINGER = 3;   // seconds the shadows keep updating after the last move: the machines settle, poses ease
 // Pixel density: properly sharp on retina; steps down a notch at a time if frames slow down.
 const DPR_HIGH = Math.min(window.devicePixelRatio, 2);
 
@@ -42,6 +44,18 @@ function ScrollTrack() {
     fade.current ??= document.querySelector<HTMLElement>('.hero-fade');
     if (fade.current) fade.current.style.opacity = String(Math.max(0, 1 - track.y / (innerHeight * 0.3)));
   }, -1);
+  return null;
+}
+
+/** The shadow pass redraws every caster, so it only runs while something that casts one can move. */
+function ShadowGate() {
+  const gl = useThree((s) => s.gl);
+  const until = useRef(0);
+  useFrame(({ clock }) => {
+    const now = clock.elapsedTime;
+    if (intro.get().phase !== 'done' || arcade.get().focus !== 'hero' || rig.gliding || Math.abs(track.y - scrollY) > 0.5) until.current = now + SHADOW_LINGER;
+    gl.shadowMap.autoUpdate = now < until.current;
+  });
   return null;
 }
 
@@ -73,6 +87,7 @@ export default function Stage() {
     >
       <color attach="background" args={[BACKDROP]} />
       <ScrollTrack />
+      <ShadowGate />
       {landed && <PerformanceMonitor flipflops={3} onDecline={() => setDpr((d) => Math.max(1, d - 0.5))} onIncline={() => setDpr((d) => Math.min(DPR_HIGH, d + 0.5))} onFallback={() => setDpr(Math.min(DPR_HIGH, 1.5))} />}
 
       <Environment resolution={512} frames={1}>
@@ -85,6 +100,9 @@ export default function Stage() {
         <Lightformer form="rect" intensity={1.4} color="#fff1cc" position={[0, 0.6, 3]} scale={[4, 1.4, 1]} />
         <Lightformer form="rect" intensity={1} position={[0, 1.2, -3]} scale={[4, 2, 1]} />
         <Lightformer form="ring" intensity={1.6} position={[1.2, 1.6, 2.2]} scale={0.6} />
+        {/* The rim: from behind, on the far edges of the cabinets, so they stand off the room. A strip
+            in the reflections rather than a light, which would cost on every pixel of every frame. */}
+        <Lightformer form="rect" intensity={7} color="#fff1d6" position={[3.2, 1.6, -2.6]} rotation-y={-2.2} scale={[1, 4, 1]} />
       </Environment>
 
       <Room />
@@ -94,8 +112,6 @@ export default function Stage() {
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.012}
         shadow-camera-left={-5} shadow-camera-right={5} shadow-camera-top={4.2} shadow-camera-bottom={-4.2} shadow-camera-far={16}
       />
-      {/* The rim: from behind, on the far edges of the cabinets, so they stand off the room. */}
-      <directionalLight position={[3.4, 3.2, -3.4]} intensity={1.5} color="#fff1d6" />
 
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 120} lengthUnit={0.1} numSolverIterations={8}>
