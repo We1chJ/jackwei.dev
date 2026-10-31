@@ -9,14 +9,14 @@ html { scroll-behavior: smooth; }
 html, body, #root { margin: 0; min-height: 100%; }
 body { background: var(--backdrop); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 
-.app { position: relative; }
+.app { position: relative; overflow-x: clip; }
 html.locked { overflow: hidden; }
 /* The 3D stays behind the whole page; everything else scrolls over it (src/arcade/path.ts, track.ts). */
 .stage { position: fixed; inset: 0; z-index: 0; touch-action: none; cursor: grab; }
 .stage canvas { display: block; }
 /* While the page is being scrolled nothing orbits, so it can be scrolled from the canvas too; a machine under the pointer shows a pointer (CameraRig.tsx). */
 .app.overview .stage { touch-action: pan-y; cursor: default; }
-.hero { position: relative; z-index: 1; height: 100vh; height: 100svh; overflow: hidden; pointer-events: none; transition: opacity .35s, visibility .35s; }
+.hero { position: relative; z-index: 1; height: 100vh; height: 100svh; pointer-events: none; transition: opacity .35s, visibility .35s; }
 .hero-fade { position: absolute; inset: 0; }
 .app.playing .hero, .app.playing .sections { opacity: 0; visibility: hidden; }
 .play-ui { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
@@ -173,7 +173,7 @@ html.locked { overflow: hidden; }
 
 /* ---------- Hero: the name, the copy under it, sound toggle ---------- */
 .hero-name { position: absolute; pointer-events: none; }
-.hero-badge { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.hero-badge { position: absolute; inset: 0; pointer-events: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero-copy { position: absolute; left: 7vw; display: grid; justify-items: start; gap: 14px; opacity: 0; transform-origin: 0 50%; transform: perspective(800px) rotateY(22deg) translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
 .hero-copy.in { opacity: 1; transform: perspective(800px) rotateY(22deg); transition-delay: 2.9s; pointer-events: auto; }
@@ -206,10 +206,9 @@ html.locked { overflow: hidden; }
 .scene.cards-left { justify-content: flex-start; }
 .scene:last-child { margin-bottom: 0; align-items: center; }
 .scene-col { width: min(46vw, 640px); pointer-events: auto; }
-.section-title {
-  margin: 0 0 10px; font: 400 clamp(44px, 7vw, 84px)/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .5px;
-  color: var(--paper); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--ink);
-}
+.section-title { position: relative; z-index: 2; margin: 0 0 4px -.1em; font-size: inherit; font-weight: inherit; }
+/* A word the pointer can squash (src/Squish.tsx). */
+.sq { display: inline-block; transform-origin: 50% 85%; }
 .section-lead { margin: 0 0 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 800; font-size: 17px; }
 .pill {
   display: inline-block; font: 800 14px/1 var(--font); color: var(--ink); text-decoration: none; padding: 10px 16px; border-radius: 999px;

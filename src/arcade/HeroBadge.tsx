@@ -11,7 +11,6 @@ const NAME_LEFT = 0.07, MACHINES_LEFT = 0.42;   // shares of the window
 const NAME_WIDTH = 1.95;   // ems across, as turned (NameSign's TURN_DEG)
 const MIN_GAP = 100;       // px between the name and the machines: any less and it goes without
 const CARD_ASPECT = 1.6 / 2.25;
-const BOX_W = 0.34;        // of the window: room to swing, and to throw it about
 
 let played = false;        // only the first arrival swings in
 
@@ -39,11 +38,13 @@ export default function HeroBadge() {
   if (gap < MIN_GAP) return null;
   const cardH = Math.min((gap * 0.8) / CARD_ASPECT, 0.34 * h);
   return (
-    <div className="hero-badge" aria-hidden="true" style={{ left: (nameRight + gap / 2) - (BOX_W * w) / 2, width: BOX_W * w }}>
+    // The canvas is the whole window, so wherever it is thrown it is never cropped.
+    <div className="hero-badge" aria-hidden="true">
       <Lanyard
         frontImage="/lanyard/card.jpg"
         cardColor="#FFFDF6"
         size={cardH / h}
+        anchorAt={(nameRight + gap / 2) / w}
         strapLength={0.22}
         strapColor="#141414"
         breeze={0}

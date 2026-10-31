@@ -79,12 +79,14 @@ export default function NameSign() {
   const boxW = w * BOX_W, boxH = h * BOX_H;
   const draw = useCallback((g: CanvasRenderingContext2D, outlined: boolean) => letters(g, boxW, boxH, size, outlined), [boxW, boxH, size]);
   const textW = 2.4 * size, textH = (CAP + LINE) * size;
+  // Its layout box is smaller than the window, but the canvas fills it: a pull is never cropped.
+  const left = (HERO_NAME.x + 1) / 2 * w - boxW * 0.05, top = ((nameTop + HERO_TEXT_BOTTOM) / 2 - BOX_H / 2 - 0.016) * h;
 
   return (
     <div
       className="hero-name"
       aria-hidden="true"
-      style={{ left: (HERO_NAME.x + 1) / 2 * w - boxW * 0.05, top: ((nameTop + HERO_TEXT_BOTTOM) / 2 - BOX_H / 2 - 0.016) * h, width: boxW, height: boxH }}
+      style={{ left, top, width: boxW, height: boxH }}
     >
       <ElasticMesh
         draw={draw}
@@ -101,6 +103,7 @@ export default function NameSign() {
         intro={typeIn}
         start={landing}
         introGap={STEP_MS / 1000}
+        bleed={[left, top, Math.max(0, w - left - boxW), Math.max(0, h - top - boxH)]}
         rowHeight={LINE * size}
         view={{
           layers: LAYERS,

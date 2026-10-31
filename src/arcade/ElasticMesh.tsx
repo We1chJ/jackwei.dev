@@ -40,6 +40,10 @@ export interface ElasticMeshProps extends HTMLAttributes<HTMLDivElement> {
   start?: boolean;
   introGap?: number;
   rowHeight?: number;
+  /** Canvas past each side of the box [left, top, right, bottom], px: the mesh keeps the box's detail, and a pull isn't cropped. */
+  bleed?: [number, number, number, number];
+  /** How far a letter pulls, px (default: a share of the box). */
+  pull?: number;
   theme?: 'dark' | 'light';
   dpr?: number;
   className?: string;
@@ -67,6 +71,8 @@ type Settings = {
   start: boolean;
   introGap?: number;
   rowHeight?: number;
+  bleed?: [number, number, number, number];
+  pull?: number;
   light: boolean;
   dpr?: number;
 };
@@ -80,6 +86,7 @@ in vec4 aStrain;
 in vec3 aDent;
 uniform vec2 uViewport;
 uniform vec2 uOffset;
+uniform vec2 uBleed;
 uniform vec3 uView;
 uniform mat3 uTilt;
 uniform float uZ;
@@ -91,7 +98,7 @@ void main() {
   vStrain = aStrain;
   vDent = aDent;
   vec3 q = uTilt * vec3(aPosition + uOffset - uView.xy, uZ);
-  vec2 clip = (uView.xy + q.xy * uView.z / (uView.z - q.z)) / uViewport * 2.0 - 1.0;
+  vec2 clip = (uView.xy + q.xy * uView.z / (uView.z - q.z) + uBleed) / uViewport * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
 }`;
 
@@ -610,6 +617,8 @@ const ElasticMesh = ({
   start = true,
   introGap,
   rowHeight,
+  bleed,
+  pull,
   theme = 'dark',
   dpr,
   className = '',
@@ -641,6 +650,8 @@ const ElasticMesh = ({
     start,
     introGap,
     rowHeight,
+    bleed,
+    pull,
     light: theme === 'light',
     dpr
   };
@@ -668,6 +679,7 @@ const ElasticMesh = ({
     if (!surfaceProgram || !shadowProgram || !depthProgram) return undefined;
     const surface = locate(gl, surfaceProgram, [
       'uViewport',
+      'uBleed',
       'uOffset',
       'uField',
       'uPaint',
@@ -686,6 +698,7 @@ const ElasticMesh = ({
     ]);
     const depthShade = locate(gl, depthProgram, [
       'uViewport',
+      'uBleed',
       'uOffset',
       'uField',
       'uInk',
@@ -697,6 +710,7 @@ const ElasticMesh = ({
     ]);
     const shade = locate(gl, shadowProgram, [
       'uViewport',
+      'uBleed',
       'uOffset',
       'uField',
       'uShadowColor',
@@ -1214,7 +1228,7 @@ const ElasticMesh = ({
       const { pointer } = state;
       const { count, grip, gripX, gripY } = mesh;
       if (!pointer.dragging) return;
-      const limit = Math.max(20, Math.min(state.width, state.height) * (0.08 + s.stretch * 0.32));
+      const limit = s.pull ?? Math.max(20, Math.min(state.width, state.height) * (0.08 + s.stretch * 0.32));
       const dx = pointer.x - pointer.startX;
       const dy = pointer.y - pointer.startY;
       const length = Math.hypot(dx, dy);
@@ -1295,8 +1309,9 @@ const ElasticMesh = ({
       const width = Math.max(1, container.clientWidth);
       const height = Math.max(1, container.clientHeight);
       const ratio = Math.min(s.dpr || window.devicePixelRatio || 1, 2);
-      canvas.width = Math.max(1, Math.round(width * ratio));
-      canvas.height = Math.max(1, Math.round(height * ratio));
+      const [bl, bt, br, bb] = s.bleed ?? [0, 0, 0, 0];
+      canvas.width = Math.max(1, Math.round((width + bl + br) * ratio));
+      canvas.height = Math.max(1, Math.round((height + bt + bb) * ratio));
       if (width !== state.width || height !== state.height) {
         const first = !state.ready && !state.buildToken;
         state.width = width;
@@ -1319,6 +1334,8 @@ const ElasticMesh = ({
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (!state.ready || !mesh.indices) return;
+      const [bleedL, bleedT, bleedR, bleedB] = s.bleed ?? [0, 0, 0, 0];
+      const fullW = mesh.width + bleedL + bleedR, fullH = mesh.height + bleedT + bleedB;
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.bindVertexArray(vao);
@@ -1343,7 +1360,8 @@ const ElasticMesh = ({
       if (s.shadow > 0) {
         gl.useProgram(shadowProgram);
         aim(shade, 0);
-        gl.uniform2f(shade.uViewport, mesh.width, mesh.height);
+        gl.uniform2f(shade.uViewport, fullW, fullH);
+        gl.uniform2f(shade.uBleed, bleedL, bleedT);
         const drop = Math.min(mesh.width, mesh.height) * 0.035 * s.inflate;
         gl.uniform2f(shade.uOffset, drop * 0.25, drop);
         gl.uniform1i(shade.uField, 0);
@@ -1358,7 +1376,8 @@ const ElasticMesh = ({
       if (view) {
         const grow = state.clock >= 10 ? 1 : 1 - (1 - Math.min(state.clock / 1.2, 1)) ** 3;
         gl.useProgram(depthProgram);
-        gl.uniform2f(depthShade.uViewport, mesh.width, mesh.height);
+        gl.uniform2f(depthShade.uViewport, fullW, fullH);
+        gl.uniform2f(depthShade.uBleed, bleedL, bleedT);
         gl.uniform2f(depthShade.uOffset, 0, 0);
         gl.uniform1i(depthShade.uField, 0);
         gl.uniform3f(depthShade.uInk, view.color[0], view.color[1], view.color[2]);
@@ -1372,7 +1391,8 @@ const ElasticMesh = ({
 
       gl.useProgram(surfaceProgram);
       aim(surface, 0);
-      gl.uniform2f(surface.uViewport, mesh.width, mesh.height);
+      gl.uniform2f(surface.uViewport, fullW, fullH);
+      gl.uniform2f(surface.uBleed, bleedL, bleedT);
       gl.uniform2f(surface.uOffset, 0, 0);
       gl.uniform1i(surface.uField, 0);
       gl.uniform1i(surface.uPaint, 1);
@@ -1631,7 +1651,7 @@ const ElasticMesh = ({
   return (
     <div
       ref={containerRef}
-      className={['relative h-full w-full touch-pan-y select-none overflow-hidden', className]
+      className={['relative h-full w-full touch-pan-y select-none', settings.bleed ? '' : 'overflow-hidden', className]
         .filter(Boolean)
         .join(' ')}
       style={style}
@@ -1639,7 +1659,19 @@ const ElasticMesh = ({
       aria-label={settings.src ? 'Elastic logo' : settings.text}
       {...rest}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
+      <canvas
+        ref={canvasRef}
+        className="absolute block"
+        aria-hidden="true"
+        style={{
+          left: -(settings.bleed?.[0] ?? 0),
+          top: -(settings.bleed?.[1] ?? 0),
+          right: -(settings.bleed?.[2] ?? 0),
+          bottom: -(settings.bleed?.[3] ?? 0),
+          width: `calc(100% + ${(settings.bleed?.[0] ?? 0) + (settings.bleed?.[2] ?? 0)}px)`,
+          height: `calc(100% + ${(settings.bleed?.[1] ?? 0) + (settings.bleed?.[3] ?? 0)}px)`,
+        }}
+      />
     </div>
   );
 };
