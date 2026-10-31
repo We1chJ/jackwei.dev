@@ -2,7 +2,7 @@
 // can draw the scene's outline before the 3D engine has arrived and match it exactly: the hero
 // camera's projection, and the placement of the 3D name (each letter's offset, the block's
 // position, scale and turn). The 3D scene places its letters with the same numbers.
-import { HERO_NAME, VIEW } from './layout';
+import { HERO_NAME, VIEW, heroEye } from './layout';
 
 export type V3 = [number, number, number];
 export type FontData = { resolution: number; glyphs: Record<string, { ha: number; o?: string }> };
@@ -24,7 +24,7 @@ export type Cam = { pos: V3; f: V3; r: V3; u: V3; t: number; aspect: number };
 /** The hero camera (position, view direction, right and up), for a screen of this aspect ratio. */
 export function heroCam(aspect: number): Cam {
   const v = VIEW.hero.main;
-  const pos = v.position, f = norm(sub(v.target, pos)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
+  const pos = heroEye(aspect), f = norm(sub(v.target, pos)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
   return { pos, f, r, u, t: Math.tan((FOV * Math.PI) / 360), aspect };
 }
 /** A world point to normalised screen coordinates (-1..1, y up) and its depth along the view. */

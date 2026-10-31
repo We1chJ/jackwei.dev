@@ -267,3 +267,33 @@ export function sideWrap(): THREE.CanvasTexture {
   });
 }
 
+/** The machine's dark inner walls, lit from the top: seams and a falloff, so they read as a lit cabinet. */
+export function interiorWall(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(512, 512);
+  const g = ctx.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, '#5A6170'); g.addColorStop(0.3, '#343945'); g.addColorStop(1, '#14161C');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  for (let x = 96; x < 512; x += 128) ctx.fillRect(x, 0, 2, 512);
+  return finish(c);
+}
+
+/** Tap-to-pay reader's little screen. */
+export function cardReader(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 160);
+  ctx.fillStyle = '#0E2A22'; ctx.fillRect(0, 0, 256, 160);
+  ctx.strokeStyle = '#6FF2B4'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  for (const r of [26, 46, 66]) { ctx.beginPath(); ctx.arc(62, 80, r, -0.75, 0.75); ctx.stroke(); }
+  ctx.fillStyle = '#6FF2B4'; ctx.font = '800 38px Nunito, "Segoe UI", sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('TAP', 140, 74); ctx.fillText('HERE', 140, 116);
+  return finish(c);
+}
+
+/** A strip of generic accepted-payment marks. */
+export function payMarks(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(512, 64);
+  ctx.fillStyle = '#23262C'; ctx.fillRect(0, 0, 512, 64);
+  ['#E9EDF2', '#FFC21A', '#39B7A5', '#F2557A'].forEach((col, i) => { ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(36 + i * 114, 10, 92, 44, 8); ctx.fill(); });
+  return finish(c);
+}
+

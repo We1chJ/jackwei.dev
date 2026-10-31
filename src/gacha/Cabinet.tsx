@@ -7,9 +7,10 @@ import { CuboidCollider, RigidBody, type RapierRigidBody } from '@react-three/ra
 import {
   ACRYLIC_Z, CAB, COIN, EXIT, FLAP, FRONT_Z, HANDLE, HEADER, HOPPER, INNER, LABEL, PLATE, WINDOW,
 } from './dims';
-import { frame, frontLathe, knobProfile, panel, slab, uShell, type Rect } from './geometry';
+import { expand, frame, frontLathe, knobProfile, panel, slab, uShell, type Rect } from './geometry';
 import { materials } from './materials';
-import { flapPrint, headerCard, priceLabel, turnArrow } from './textures';
+import { flapPrint, gachaSide, headerCard, priceLabel, turnArrow } from './textures';
+import { Bolts, GlassSheen, LedBar, Louvres, boltRow, smudgeRoughness } from '../arcade/surfaces';
 import { G } from './groups';
 
 const rectSize = (r: Rect) => [r.x1 - r.x0, r.y1 - r.y0] as const;
@@ -39,6 +40,44 @@ function Shell() {
       <mesh geometry={geo.lid} material={m.paint} castShadow receiveShadow />
       <mesh geometry={geo.plinth} material={m.rubber} castShadow receiveShadow />
       <mesh geometry={geo.front} material={m.paint} position={[0, 0, FRONT_Z - CAB.wall]} castShadow receiveShadow />
+      <Trim />
+    </group>
+  );
+}
+
+let accent: { cap: THREE.MeshPhysicalMaterial; side: THREE.MeshPhysicalMaterial } | null = null;
+const accents = () => {
+  if (accent) return accent;
+  const cap = materials().paint.clone(); cap.color.set('#FFBE12'); cap.roughness = 0.5; cap.roughnessMap = smudgeRoughness();
+  const side = new THREE.MeshPhysicalMaterial({ map: gachaSide(), roughness: 0.38, clearcoat: 0.8, clearcoatRoughness: 0.12 });
+  return (accent = { cap, side });
+};
+
+/** Two-tone cap and base, chrome corners, door seam and hinges, printed and bolted side panels. */
+function Trim() {
+  const m = materials(), a = accents();
+  const W = CAB.w, D = CAB.d, T = CAB.top, sideW = D - 0.05;
+  const seam = useMemo(() => frame({ x0: -W / 2 + 0.008, y0: CAB.base + 0.006, x1: W / 2 - 0.008, y1: T - 0.022 }, 0.006, 0.0012, 0.0006, 0), [W, T]);
+  const corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
+  return (
+    <group>
+      {/* yellow cap with a chrome band under it */}
+      <RoundedBox args={[W + 0.012, 0.03, D + 0.012]} radius={0.01} smoothness={4} position={[0, T + 0.004, 0]} material={a.cap} castShadow />
+      <RoundedBox args={[W + 0.006, 0.006, D + 0.006]} radius={0.002} smoothness={2} position={[0, T - 0.014, 0]} material={m.chrome} />
+      {/* base: yellow band, chrome above it */}
+      <RoundedBox args={[W + 0.01, 0.034, D + 0.01]} radius={0.007} smoothness={3} position={[0, CAB.base + 0.012, 0]} material={a.cap} castShadow />
+      <RoundedBox args={[W + 0.006, 0.005, D + 0.006]} radius={0.002} smoothness={2} position={[0, CAB.base + 0.032, 0]} material={m.chrome} />
+      {corners.map(([sx, sz], i) => <RoundedBox key={i} args={[0.012, T - 0.09, 0.012]} radius={0.0042} smoothness={3} position={[sx * (W / 2 - 0.002), T / 2 + 0.005, sz * (D / 2 - 0.002)]} material={m.chrome} castShadow />)}
+      <mesh geometry={seam} material={m.cavity} position={[0, 0, FRONT_Z + 0.0003]} />
+      {[0.2, 0.62].map((y) => <mesh key={y} material={m.chrome} position={[-W / 2 + 0.001, y, FRONT_Z - 0.001]}><cylinderGeometry args={[0.0042, 0.0042, 0.05, 14]} /></mesh>)}
+      {/* right side: printed panel in a frame, bolts, a vent */}
+      <group position={[W / 2 + 0.0008, 0, 0]} rotation-y={Math.PI / 2}>
+        <mesh material={a.side} position={[0, 0.43, 0]}><planeGeometry args={[sideW, 0.6]} /></mesh>
+        <group position={[0, 0, 0.0012]}>
+          <Bolts points={[...boltRow(-sideW / 2 + 0.006, 0.112, sideW / 2 - 0.006, 0.112, 5), ...boltRow(-sideW / 2 + 0.006, 0.742, sideW / 2 - 0.006, 0.742, 5)]} r={0.0022} />
+        </group>
+        <Louvres w={0.16} h={0.022} rows={4} position={[0, 0.082, 0.0008]} />
+      </group>
     </group>
   );
 }
@@ -47,6 +86,7 @@ function Shell() {
 function Hopper() {
   const m = materials();
   const bezel = useMemo(() => frame(WINDOW, WINDOW.radius, 0.012, 0.006), []);
+  const rim = useMemo(() => frame(expand(WINDOW, 0.012), WINDOW.radius + 0.012, 0.0032, 0.0062, 0.0008), []);
   const [ww, wh] = rectSize(WINDOW);
   const [wx, wy] = rectCenter(WINDOW);
   const H = HOPPER.ceiling - HOPPER.floor, D = INNER.front - INNER.back, zc = (INNER.front + INNER.back) / 2;
@@ -55,6 +95,9 @@ function Hopper() {
       <mesh geometry={bezel} material={m.glossBlack} position={[0, 0, FRONT_Z]} castShadow />
       <mesh material={m.acrylicTint} position={[wx, wy, ACRYLIC_Z]} renderOrder={3}><planeGeometry args={[ww + 0.01, wh + 0.01]} /></mesh>
       <mesh material={m.glassReflect} position={[wx, wy, ACRYLIC_Z + 0.0025]} renderOrder={4}><planeGeometry args={[ww + 0.01, wh + 0.01]} /></mesh>
+      <GlassSheen w={ww + 0.01} h={wh + 0.01} position={[wx, wy, ACRYLIC_Z + 0.003]} opacity={0.14} />
+      <mesh geometry={rim} material={m.chrome} position={[0, 0, FRONT_Z + 0.0012]} />
+      <LedBar size={[ww - 0.02, 0.004, 0.005]} position={[wx, HOPPER.ceiling - 0.006, ACRYLIC_Z - 0.012]} spread={0.018} />
       {/* interior faces */}
       <mesh material={m.interior} position={[0, HOPPER.floor + H / 2, INNER.back + 0.001]} receiveShadow><planeGeometry args={[INNER.x * 2, H]} /></mesh>
       <mesh material={m.interior} position={[-INNER.x + 0.001, HOPPER.floor + H / 2, zc]} rotation={[0, Math.PI / 2, 0]} receiveShadow><planeGeometry args={[D, H]} /></mesh>
@@ -110,6 +153,9 @@ function Plate() {
       {/* coin slot */}
       <RoundedBox args={[0.034, 0.056, 0.008]} radius={0.0035} smoothness={4} material={m.chrome} position={[COIN.x, COIN.y, PLATE_FRONT + 0.004]} castShadow />
       <mesh material={m.cavity} position={[COIN.x, COIN.y, PLATE_FRONT + 0.0081]}><boxGeometry args={[0.0044, 0.034, 0.0004]} /></mesh>
+      {/* key lock, for the door behind the plate */}
+      <mesh material={m.chrome} position={[-0.12, 0.112, PLATE_FRONT + 0.003]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.0085, 0.0085, 0.006, 24]} /></mesh>
+      <mesh material={m.cavity} position={[-0.12, 0.112, PLATE_FRONT + 0.0062]}><boxGeometry args={[0.0018, 0.008, 0.0005]} /></mesh>
       {/* price label */}
       <mesh material={label} position={[LABEL.x, LABEL.y, PLATE_FRONT + 0.0004]}><planeGeometry args={[0.068, 0.034]} /></mesh>
     </group>

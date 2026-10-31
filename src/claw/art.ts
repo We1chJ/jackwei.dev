@@ -162,3 +162,12 @@ export function panelFront(): THREE.CanvasTexture {
     ctx.fillStyle = '#C8102E'; ctx.fillText('▼ DROP', bx, H / 2 + 3);
   });
 }
+
+/** A bulb's glow on the marquee. */
+export function bulbGlow(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(64, 64);
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(0.3, 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+  return finish(c);
+}

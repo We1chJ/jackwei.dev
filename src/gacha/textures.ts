@@ -199,3 +199,35 @@ export function stationSign(): THREE.CanvasTexture {
   Promise.all([fontsReady('120px "Lilita One"'), fontsReady('800 34px Nunito')]).then(draw);
   return tex;
 }
+
+/** The printed side panel: brand yellow, scattered capsules, the name up the side. */
+export function gachaSide(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(760, 1200);
+  const tex = finish(c);
+  const draw = () => {
+    const g = ctx.createLinearGradient(0, 0, 0, 1200);
+    g.addColorStop(0, '#FFD21F'); g.addColorStop(1, '#F7A900');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 760, 1200);
+    const r = rng(9), tones = [['#FF5C8A', '#FFC4D6'], ['#2FA4F0', '#BFE6FF'], ['#22C08A', '#BDF4DF'], ['#8E5CF5', '#E0D1FF'], ['#FF7A2E', '#FFD9BF']];
+    for (let i = 0; i < 26; i++) {
+      const x = r() * 760, y = r() * 1200, s = 40 + r() * 46, a = r() * 6.3, [low, top] = tones[i % tones.length];
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      ctx.fillStyle = top; ctx.beginPath(); ctx.arc(0, 0, s, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = low; ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.moveTo(-s, 0); ctx.lineTo(s, 0); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save(); ctx.translate(380, 620); ctx.rotate(-0.12);
+    ctx.textAlign = 'center';
+    ctx.font = '168px "Lilita One", "Arial Black", sans-serif';
+    ctx.lineJoin = 'round'; ctx.lineWidth = 34; ctx.strokeStyle = '#111';
+    ctx.strokeText('JACK', 0, -30); ctx.strokeText('GACHA', 0, 130);
+    ctx.fillStyle = '#FFF8E6'; ctx.fillText('JACK', 0, -30); ctx.fillText('GACHA', 0, 130);
+    ctx.restore();
+    tex.needsUpdate = true;
+  };
+  draw();
+  fontsReady('168px "Lilita One"').then(draw);
+  return tex;
+}
+

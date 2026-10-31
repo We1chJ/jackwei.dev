@@ -2,19 +2,21 @@
 // (Rapier keeps simulating the contents in place); only the machine's visuals ride this group,
 // because @react-three/rapier records each body's parent transform once, when it is created,
 // and draws the body relative to the parent from then on. So the group must be at rest while
-// the machine mounts, and is lifted only once the scene is ready.
+// the machine mounts, and is lifted only once the scene is ready. The same goes for the hero pose
+// (moved and turned so all three show), which eases away again when the machine is played.
 import { useEffect, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { DROP_DELAY, impact, intro } from './intro';
-import type { MachineId } from './store';
+import { HERO_POSE } from './layout';
+import { arcade, type MachineId } from './store';
 
 const HEIGHT = 3.4;              // starts this far above its spot: out of the top of the frame
 const G = 9.81 * 1.25;           // a touch more than real gravity reads better on screen
 const T_FALL = Math.sqrt((2 * HEIGHT) / G);
 
 export default function Drop({ machine, x, children }: { machine: MachineId; x: number; children: ReactNode }) {
-  const pivot = useRef<THREE.Group>(null);
+  const pose = useRef<THREE.Group>(null), pivot = useRef<THREE.Group>(null), shown = useRef(0);
   const s = useRef({ landedAt: -1, settled: false, tilt: new THREE.Vector2((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.06) });
 
   // Out of sight above the frame while the loader waits for the coin.
@@ -22,8 +24,16 @@ export default function Drop({ machine, x, children }: { machine: MachineId; x: 
     if (intro.get().phase === 'ready' && pivot.current) pivot.current.position.y = HEIGHT;
   }), []);
 
-  useFrame(() => {
-    const g = pivot.current, st = intro.get();
+  useFrame((_, dt) => {
+    const st = intro.get(), p = HERO_POSE[machine];
+    if (pose.current && st.phase !== 'loading') {
+      const want = arcade.get().focus === 'hero' ? 1 : 0;
+      shown.current = st.phase === 'done' ? shown.current + (want - shown.current) * (1 - Math.exp(-5 * Math.min(dt, 1 / 30))) : want;
+      const k = shown.current;
+      pose.current.position.set(x + p.x * k, 0, p.z * k);
+      pose.current.rotation.y = p.yaw * k;
+    }
+    const g = pivot.current;
     if (!g || st.phase === 'loading' || st.phase === 'ready' || s.current.settled) return;
     const t = performance.now() / 1000 - st.startedAt - DROP_DELAY[machine];
     if (t < 0) { g.position.y = HEIGHT; return; }
@@ -51,8 +61,10 @@ export default function Drop({ machine, x, children }: { machine: MachineId; x: 
 
   // Rotations pivot about the middle of the machine's base, not the world origin.
   return (
-    <group ref={pivot} position={[x, 0, 0]}>
-      <group position={[-x, 0, 0]}>{children}</group>
+    <group ref={pose} position={[x, 0, 0]}>
+      <group ref={pivot}>
+        <group position={[-x, 0, 0]}>{children}</group>
+      </group>
     </group>
   );
 }

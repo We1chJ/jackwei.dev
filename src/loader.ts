@@ -301,6 +301,7 @@ export const loading = {
 drawOutline();
 void fetch('/fonts/hero-display.json').then((r) => r.json()).then((f: FontData) => { font = f; if (!entering) drawOutline(); }).catch(() => {});
 window.addEventListener('resize', () => { if (!entering) drawOutline(); });
+if (import.meta.env.DEV) (window as unknown as { __enter: () => void }).__enter = enter;   // test hook: tears the ticket
 scatter();
 showProgress(0);
 root.classList.add('on');

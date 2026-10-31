@@ -8,7 +8,7 @@ import { slam, unlockAudio } from '../gacha/sound';
 import { loading } from '../loader';
 import { dust } from './Dust';
 import { intro, onImpact } from './intro';
-import { SPOT, VIEW } from './layout';
+import { HERO_POSE, SPOT, VIEW, heroEye } from './layout';
 import { arcade, type MachineId } from './store';
 
 // The coin going in turns sound on (it has to happen inside that click); the screen opening starts the drop.
@@ -22,7 +22,9 @@ export function HeroCamera() {
   const { camera } = useThree();
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   const s = useRef({ shake: 0, tx: 0, ty: 0, px: 0, py: 0 });
-  const [target, base] = useMemo(() => [new THREE.Vector3(...VIEW.hero.main.target), new THREE.Vector3(...VIEW.hero.main.position)], []);
+  const size = useThree((s) => s.size);
+  const target = useMemo(() => new THREE.Vector3(...VIEW.hero.main.target), []);
+  const base = useMemo(() => new THREE.Vector3(...heroEye(size.width / size.height)), [size.width, size.height]);
   useEffect(() => onImpact(({ speed }) => { s.current.shake = Math.min(1.2, s.current.shake + speed / 10); }), []);
   useEffect(() => {
     const m = (e: PointerEvent) => { s.current.tx = e.clientX / innerWidth - 0.5; s.current.ty = e.clientY / innerHeight - 0.5; };
@@ -55,7 +57,7 @@ export function HeroFx() {
     slam(machine, speed / 9);
     loading.landed(machine);
     const [w, d] = FOOTPRINT[machine];
-    dust.puff(SPOT[machine].x, 0, w, d, 1);
+    dust.puff(SPOT[machine].x + HERO_POSE[machine].x, HERO_POSE[machine].z, w, d, 1);
   }), []);
   return null;
 }

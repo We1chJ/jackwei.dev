@@ -5,6 +5,14 @@ import type { Focus, MachineId, Shot } from './store';
 
 export const ORDER: MachineId[] = ['claw', 'gacha', 'vending'];
 
+// In the hero each machine is shown somewhere else: moved and turned so all three fronts are clear of
+// each other, in a diagonal that meets the name. Only its visuals move (Drop.tsx); it plays from its SPOT.
+export const HERO_POSE: Record<MachineId, { x: number; z: number; yaw: number }> = {
+  claw: { x: 0.362, z: 0.367, yaw: 0.12 },
+  gacha: { x: 0.14, z: 0.492, yaw: 0.003 },
+  vending: { x: -0.202, z: 0.574, yaw: -0.119 },
+};
+
 export const SPOT: Record<MachineId, { x: number; label: string }> = {
   claw: { x: -1.2, label: 'Claw' },
   gacha: { x: 0, label: 'Gacha' },
@@ -19,7 +27,7 @@ const at = (x: number, target: [number, number, number], offset: [number, number
 // One shared interior light (a light costs on every surface, so there is only one): it sits in
 // whichever machine has focus, under its strip light.
 export const INTERIOR_LIGHT: Record<Focus, { position: [number, number, number]; intensity: number; distance: number }> = {
-  hero: { position: [0, 1.43, 0.14], intensity: 0.5, distance: 1.4 },
+  hero: { position: [0.14, 1.43, 0.63], intensity: 0.5, distance: 1.4 },
   gacha: { position: [0, 1.43, 0.14], intensity: 0.7, distance: 1.4 },
   claw: { position: [SPOT.claw.x, 1.6, 0.12], intensity: 0.8, distance: 1.1 },
   vending: { position: [SPOT.vending.x - 0.12, 1.59, 0.18], intensity: 0.9, distance: 1.4 },
@@ -54,3 +62,8 @@ export const HERO_NAME = { x: -0.86, y: 0.54, distance: 3.0, line: 0.185, turn: 
 /** Roughly where the name's second line ends, as a share of the screen height (for the HTML under it). */
 export const HERO_TEXT_BOTTOM = 1 - (HERO_NAME.y + 1) / 2 + HERO_NAME.line * 2.25;
 
+/** The hero camera's position for a screen shape: it backs off on narrow screens so the row still fits. */
+export function heroEye(aspect: number): [number, number, number] {
+  const { position: p, target: t } = VIEW.hero.main, k = Math.max(1, 1.6 / aspect);
+  return [t[0] + (p[0] - t[0]) * k, t[1] + (p[1] - t[1]) * k, t[2] + (p[2] - t[2]) * k];
+}

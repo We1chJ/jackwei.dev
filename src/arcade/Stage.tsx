@@ -18,24 +18,27 @@ import Sparkles from './Sparkles';
 import Warmup from './Warmup';
 import { arcadeShot, useReel } from '../resume/store';
 import { useIntro } from './intro';
+import { useArcade } from './store';
 import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
-// Pixel density: sharp on retina without paying for full 2x; drops to 1x if frames slow down.
-const DPR_HIGH = Math.min(window.devicePixelRatio, 1.5);
+// Pixel density: properly sharp on retina; steps down a notch at a time if frames slow down.
+const DPR_HIGH = Math.min(window.devicePixelRatio, 2);
 
 // Floor shadows that work while things fall: a transparent floor that only shows the key light's
 // real-time shadows, and soft contact shadows under the machines, rendered live during the drop and
-// frozen once everything has landed (so they cost nothing afterwards).
+// frozen once everything has landed (so they cost nothing afterwards; a burst of frames covers the
+// machines easing out of their hero poses).
 function FloorShadows() {
   const landed = useIntro((s) => s.phase === 'done');
+  const hero = useArcade((s) => s.focus === 'hero');
   return (
     <>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.0004, 0]} receiveShadow>
         <planeGeometry args={[30, 30]} />
         <shadowMaterial transparent opacity={0.2} color="#5c3f00" />
       </mesh>
-      <ContactShadows position={[0.05, 0.0008, 0]} scale={[5.6, 2.6]} resolution={1024} blur={2.4} far={1.2} opacity={0.8} color="#6b4a00" frames={landed ? 2 : Infinity} />
+      <ContactShadows position={[0.2, 0.0008, 0.6]} scale={[6.4, 4.2]} resolution={1536} blur={2.2} far={1.2} opacity={0.85} color="#5e4100" frames={landed ? (hero ? 2 : 100) : Infinity} />
     </>
   );
 }
@@ -64,7 +67,7 @@ export default function Stage() {
       onCreated={(state) => { if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state; }}
     >
       <color attach="background" args={[BACKDROP]} />
-      <PerformanceMonitor flipflops={3} onDecline={() => setDpr(1)} onIncline={() => setDpr(DPR_HIGH)} onFallback={() => setDpr(1)} />
+      <PerformanceMonitor flipflops={3} onDecline={() => setDpr((d) => Math.max(1, d - 0.5))} onIncline={() => setDpr((d) => Math.min(DPR_HIGH, d + 0.5))} onFallback={() => setDpr(Math.min(DPR_HIGH, 1.25))} />
 
       <Environment resolution={512} frames={1}>
         {/* Studio room: warm grey walls and floor, plus softboxes for highlights. */}
@@ -81,7 +84,7 @@ export default function Stage() {
       <directionalLight
         position={[-1.1, 2.5, 1.7]} intensity={2.2} color="#fffaf2" castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.01}
-        shadow-camera-left={-1.9} shadow-camera-right={2} shadow-camera-top={2.3} shadow-camera-bottom={-0.4}
+        shadow-camera-left={-2.9} shadow-camera-right={2.9} shadow-camera-top={2.9} shadow-camera-bottom={-1.6}
       />
 
       <Suspense fallback={null}>

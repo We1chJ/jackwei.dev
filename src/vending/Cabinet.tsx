@@ -6,7 +6,8 @@ import { RoundedBox } from '@react-three/drei';
 import { CuboidCollider, RigidBody, interactionGroups } from '@react-three/rapier';
 import { frame, panel, slab, uShell } from '../gacha/geometry';
 import { materials } from '../gacha/materials';
-import { headerSign, instructionCard, keyCap, pushPrint, shelfStrip, sideWrap } from './art';
+import { Bolts, GlassSheen, LedBar, Louvres, boltRow, smudgeRoughness } from '../arcade/surfaces';
+import { cardReader, headerSign, instructionCard, interiorWall, keyCap, payMarks, pushPrint, shelfStrip, sideWrap } from './art';
 import { BIN, BIN_FLAP, COIL, COLS, COL_X, FRONT_Z, GLASS_Z, HEADER, HOWTO, INSIDE, KEYPAD, LED, PANEL, ROWS, SHELF, SHELF_Y, SLAB, VM, WINDOW, slotZ } from './dims';
 import { expand } from '../gacha/geometry';
 
@@ -17,13 +18,17 @@ let cache: ReturnType<typeof build> | null = null;
 export const vendMaterials = () => (cache ??= build());
 function build() {
   const m = materials();
-  const body = m.paint.clone(); body.color.set('#1E2652');
+  const body = m.paint.clone(); body.color.set('#1B2350'); body.roughness = 0.5; body.roughnessMap = smudgeRoughness();
   const trim = m.paint.clone(); trim.color.set('#FFC21A');
+  const wallMap = interiorWall();
   return {
     body, trim,
-    wall: new THREE.MeshStandardMaterial({ color: '#E6E9EE', roughness: 0.75, emissive: '#ffffff', emissiveIntensity: 0.04 }),
+    wall: new THREE.MeshStandardMaterial({ map: wallMap, emissiveMap: wallMap, emissive: '#ffffff', emissiveIntensity: 0.55, roughness: 0.6 }),
+    brushed: new THREE.MeshPhysicalMaterial({ color: '#23262C', metalness: 0.9, roughness: 0.42, roughnessMap: m.steel.roughnessMap, anisotropy: 0.7 }),
+    reader: new THREE.MeshBasicMaterial({ map: cardReader(), toneMapped: false }),
+    pay: new THREE.MeshStandardMaterial({ map: payMarks(), roughness: 0.5 }),
     shelf: new THREE.MeshStandardMaterial({ color: '#CFD3D8', metalness: 0.7, roughness: 0.32 }),
-    coil: new THREE.MeshStandardMaterial({ color: '#DCE0E4', metalness: 1, roughness: 0.2 }),
+    coil: new THREE.MeshStandardMaterial({ color: '#E4E7EA', metalness: 1, roughness: 0.16 }),
     strip: new THREE.MeshBasicMaterial({ color: '#ffffff' }),
     sign: new THREE.MeshBasicMaterial({ map: headerSign(), toneMapped: false }),
     push: new THREE.MeshBasicMaterial({ map: pushPrint(), transparent: true, depthWrite: false }),
@@ -47,7 +52,7 @@ class Helix extends THREE.Curve<THREE.Vector3> {
     return out.set(Math.cos(a) * COIL.radius, Math.sin(a) * COIL.radius, COIL.back + t * (COIL.front - COIL.back));
   }
 }
-const helixGeo = new THREE.TubeGeometry(new Helix(), 360, COIL.wire, 8, false);
+const helixGeo = new THREE.TubeGeometry(new Helix(), 320, COIL.wire * 1.45, 8, false);
 
 function Shell() {
   const m = vendMaterials(), base = materials();
@@ -60,6 +65,7 @@ function Shell() {
       { rect: BIN, radius: BIN.radius },
     ], 0.02, 0.003),
     bezel: frame(WINDOW, WINDOW.radius, 0.014, 0.012),
+    rim: frame(expand(WINDOW, 0.014), WINDOW.radius + 0.014, 0.007, 0.012, 0.002),
     signFrame: frame({ x0: -0.43, y0: HEADER.y0, x1: 0.43, y1: HEADER.y1 }, 0.01, 0.008, 0.008),
     binBezel: frame(BIN, BIN.radius, 0.01, 0.01),
   }), []);
@@ -70,14 +76,16 @@ function Shell() {
       <mesh geometry={geo.plinth} material={base.rubber} castShadow receiveShadow />
       <mesh geometry={geo.front} material={m.body} position={[0, 0, FRONT_Z - 0.02]} castShadow receiveShadow />
       <mesh geometry={geo.bezel} material={base.glossBlack} position={[0, 0, FRONT_Z]} castShadow />
+      <mesh geometry={geo.rim} material={base.chrome} position={[0, 0, FRONT_Z + 0.002]} />
       <mesh geometry={geo.signFrame} material={base.chrome} position={[0, 0, FRONT_Z]} />
-      <mesh geometry={geo.binBezel} material={base.glossBlack} position={[0, 0, FRONT_Z]} />
+      <mesh geometry={geo.binBezel} material={base.steel} position={[0, 0, FRONT_Z]} castShadow />
       <mesh material={m.sign} position={[0, (HEADER.y0 + HEADER.y1) / 2, FRONT_Z + 0.002]}><planeGeometry args={[0.86, HEADER.y1 - HEADER.y0]} /></mesh>
       <mesh material={base.glassReflect} position={[0, (HEADER.y0 + HEADER.y1) / 2, FRONT_Z + 0.004]} renderOrder={4}><planeGeometry args={[0.86, HEADER.y1 - HEADER.y0]} /></mesh>
-      {/* yellow trim above a stainless kick plate with vent slots */}
-      <mesh material={m.trim} position={[0, 0.132, FRONT_Z + 0.002]}><boxGeometry args={[VM.w - 0.06, 0.014, 0.004]} /></mesh>
-      <mesh material={base.steel} position={[0, 0.08, FRONT_Z + 0.003]} castShadow><boxGeometry args={[VM.w - 0.06, 0.075, 0.006]} /></mesh>
-      {Array.from({ length: 10 }, (_, i) => <mesh key={i} material={base.cavity} position={[-0.36 + i * 0.08, 0.08, FRONT_Z + 0.0062]}><boxGeometry args={[0.05, 0.007, 0.001]} /></mesh>)}
+      {/* yellow trim above a stainless kick plate with a louvred grille */}
+      <mesh material={m.trim} position={[0, 0.132, FRONT_Z + 0.002]}><boxGeometry args={[VM.w - 0.05, 0.014, 0.004]} /></mesh>
+      <mesh material={base.steel} position={[0, 0.08, FRONT_Z + 0.003]} castShadow><boxGeometry args={[VM.w - 0.05, 0.085, 0.006]} /></mesh>
+      <Louvres w={VM.w - 0.16} h={0.058} rows={5} position={[0, 0.08, FRONT_Z + 0.0065]} />
+      <group position={[0, 0.08, FRONT_Z + 0.0064]}><Bolts points={[[-0.42, 0.03], [0.42, 0.03], [-0.42, -0.03], [0.42, -0.03]]} r={0.0045} /></group>
       <Hardware />
     </group>
   );
@@ -92,7 +100,16 @@ function Hardware() {
   return (
     <group>
       <mesh geometry={seam} material={base.cavity} position={[0, 0, z + 0.0006]} />
-      {[0.35, 1.5].map((y) => <mesh key={y} material={base.chrome} position={[-VM.w / 2 + 0.006, y, z - 0.004]}><cylinderGeometry args={[0.007, 0.007, 0.07, 16]} /></mesh>)}
+      {[0.35, 1.0, 1.55].map((y) => <mesh key={y} material={base.chrome} position={[-VM.w / 2 + 0.002, y, z - 0.002]}><cylinderGeometry args={[0.009, 0.009, 0.09, 16]} /></mesh>)}
+      {/* chrome corners, a rubber bumper at the foot and a steel cap on top */}
+      {[[-1, 1], [1, 1], [1, -1], [-1, -1]].map(([sx, sz], i) => <RoundedBox key={i} args={[0.026, VM.h - 0.04, 0.026]} radius={0.009} smoothness={3} position={[sx * (VM.w / 2 - 0.005), VM.h / 2 + 0.01, sz * (VM.d / 2 - 0.005)]} material={base.chrome} castShadow />)}
+      <RoundedBox args={[VM.w + 0.014, 0.028, VM.d + 0.014]} radius={0.008} smoothness={3} position={[0, 0.036, 0]} material={base.rubber} castShadow />
+      <RoundedBox args={[VM.w + 0.016, 0.016, VM.d + 0.016]} radius={0.006} smoothness={3} position={[0, VM.h, 0]} material={base.steel} castShadow />
+      {/* right side: rows of panel bolts and a vent */}
+      <group position={[VM.w / 2 + 0.002, 0, 0]} rotation-y={Math.PI / 2}>
+        <Bolts points={[...boltRow(-VM.d / 2 + 0.05, 0.13, VM.d / 2 - 0.05, 0.13, 7), ...boltRow(-VM.d / 2 + 0.05, 1.77, VM.d / 2 - 0.05, 1.77, 7)]} r={0.0048} />
+        <Louvres w={0.4} h={0.05} rows={4} position={[0, 0.08, 0.001]} />
+      </group>
       {/* T-handle lock */}
       <mesh material={base.chrome} position={[0.395, 0.68, z + 0.008]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.016, 0.016, 0.014, 28]} /></mesh>
       <mesh material={base.cavity} position={[0.395, 0.68, z + 0.0155]}><boxGeometry args={[0.003, 0.013, 0.001]} /></mesh>
@@ -107,7 +124,7 @@ function Hardware() {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <mesh key={i} material={base.chrome} position={[sx * (VM.w / 2 - 0.035), 0.006, sz * (VM.d / 2 - 0.035)]}><cylinderGeometry args={[0.018, 0.02, 0.012, 20]} /></mesh>
       ))}
-      <mesh material={m.side} position={[VM.w / 2 + 0.0012, 0.95, 0]} rotation-y={Math.PI / 2}><planeGeometry args={[VM.d - 0.08, 1.6]} /></mesh>
+      <mesh material={m.side} position={[VM.w / 2 + 0.0012, 0.95, 0]} rotation-y={Math.PI / 2}><planeGeometry args={[VM.d - 0.1, 1.58]} /></mesh>
     </group>
   );
 }
@@ -138,7 +155,9 @@ function Interior() {
       <mesh material={m.wall} position={[INSIDE.x1 + 0.005, (WINDOW.y0 + WINDOW.y1) / 2, 0]} rotation-y={-Math.PI / 2}><planeGeometry args={[VM.d - 0.06, WINDOW.y1 - WINDOW.y0 + 0.04]} /></mesh>
       <mesh material={m.wall} position={[cx, WINDOW.y1 + 0.01, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[w + 0.03, VM.d - 0.06]} /></mesh>
       {/* LED strip behind the top bezel (its light is the arcade's shared interior light) */}
-      <mesh material={m.strip} position={[cx, WINDOW.y1 - 0.004, GLASS_Z - 0.03]}><boxGeometry args={[w - 0.02, 0.006, 0.01]} /></mesh>
+      <LedBar size={[w - 0.02, 0.01, 0.012]} position={[cx, WINDOW.y1 - 0.006, GLASS_Z - 0.03]} spread={0.05} />
+      <LedBar size={[0.008, WINDOW.y1 - WINDOW.y0 - 0.06, 0.008]} position={[INSIDE.x0 + 0.006, (WINDOW.y0 + WINDOW.y1) / 2, GLASS_Z - 0.03]} spread={0.012} />
+      <LedBar size={[0.008, WINDOW.y1 - WINDOW.y0 - 0.06, 0.008]} position={[INSIDE.x1 - 0.006, (WINDOW.y0 + WINDOW.y1) / 2, GLASS_Z - 0.03]} spread={0.012} />
       {SHELF_Y.map((y, r) => (
         <group key={r}>
           <mesh material={m.shelf} position={[cx, y - SHELF.thickness / 2, (SHELF.front + SHELF.back) / 2]} receiveShadow><boxGeometry args={[w, SHELF.thickness, depth]} /></mesh>
@@ -146,6 +165,10 @@ function Interior() {
           {/* shelf side rails, and motor housings (with their labels) at the back of each coil */}
           <mesh material={base.chrome} position={[INSIDE.x0 + 0.004, y + 0.006, (SHELF.front + SHELF.back) / 2]}><boxGeometry args={[0.006, 0.012, depth]} /></mesh>
           <mesh material={base.chrome} position={[INSIDE.x1 - 0.004, y + 0.006, (SHELF.front + SHELF.back) / 2]}><boxGeometry args={[0.006, 0.012, depth]} /></mesh>
+          {/* the tray's front lip, a light under it, fins between the coils */}
+          <mesh material={base.chrome} position={[cx, y + 0.003, SHELF.front + 0.003]}><boxGeometry args={[w, 0.012, 0.006]} /></mesh>
+          <LedBar size={[w - 0.05, 0.004, 0.006]} position={[cx, y - 0.036, SHELF.front - 0.012]} spread={0.03} />
+          {COL_X.slice(1).map((x, c) => <mesh key={c} material={m.shelf} position={[x - (COL_X[1] - COL_X[0]) / 2, y + 0.03, (SHELF.front + SHELF.back) / 2]}><boxGeometry args={[0.0025, 0.06, depth]} /></mesh>)}
           {COL_X.map((x, c) => (
             <group key={c} position={[x, y + COIL.radius, SHELF.back + 0.02]}>
               <mesh material={base.cavity}><boxGeometry args={[0.07, 0.07, 0.04]} /></mesh>
@@ -197,6 +220,7 @@ function Glass() {
     <group>
       <mesh material={base.acrylicTint} position={[cx, cy, GLASS_Z]} renderOrder={3}><planeGeometry args={[w, h]} /></mesh>
       <mesh material={base.glassReflect} position={[cx, cy, GLASS_Z + 0.003]} renderOrder={4}><planeGeometry args={[w, h]} /></mesh>
+      <GlassSheen w={w} h={h} position={[cx, cy, GLASS_Z + 0.004]} opacity={0.15} />
       <mesh geometry={useMemo(() => frame(expand(WINDOW, -0.007), WINDOW.radius * 0.6, 0.007, 0.008, 0.002), [])} material={base.rubber} position={[0, 0, GLASS_Z - 0.002]} />
     </group>
   );
@@ -217,7 +241,13 @@ export function KeypadPanel({ onKey, ledTexture }: KeyProps) {
   const rowW = 4 * kw + 3 * g;
   return (
     <group position={[0, 0, FRONT_Z]}>
-      <mesh geometry={plate} material={base.glossBlack} />
+      <mesh geometry={plate} material={vendMaterials().brushed} />
+      <group position={[0, 0, 0.0065]}><Bolts points={[[PANEL.x0 + 0.012, 1.488], [PANEL.x1 - 0.012, 1.488], [PANEL.x0 + 0.012, 0.872], [PANEL.x1 - 0.012, 0.872]]} r={0.0042} /></group>
+      {/* the display's hood, card reader and accepted-payment marks */}
+      <RoundedBox args={[LED.w + 0.02, 0.006, 0.02]} radius={0.002} smoothness={2} position={[LED.x, LED.y + LED.h / 2 + 0.008, 0.016]} material={base.chrome} />
+      <RoundedBox args={[0.1, 0.066, 0.012]} radius={0.007} smoothness={3} position={[KEYPAD.x + 0.045, 0.95, 0.011]} material={base.glossBlack} />
+      <mesh material={vendMaterials().reader} position={[KEYPAD.x + 0.045, 0.95, 0.0174]}><planeGeometry args={[0.09, 0.056]} /></mesh>
+      <mesh material={vendMaterials().pay} position={[KEYPAD.x, 0.895, 0.0068]}><planeGeometry args={[0.17, 0.021]} /></mesh>
       <mesh material={ledMat} position={[LED.x, LED.y, 0.0075]}><planeGeometry args={[LED.w, LED.h]} /></mesh>
       <mesh geometry={useMemo(() => frame({ x0: LED.x - LED.w / 2, y0: LED.y - LED.h / 2, x1: LED.x + LED.w / 2, y1: LED.y + LED.h / 2 }, 0.004, 0.005, 0.009), [])} material={base.chrome} />
       <mesh material={base.glassReflect} position={[LED.x, LED.y, 0.009]} renderOrder={4}><planeGeometry args={[LED.w, LED.h]} /></mesh>
@@ -235,9 +265,9 @@ export function KeypadPanel({ onKey, ledTexture }: KeyProps) {
       })}
       <mesh material={vendMaterials().howto} position={[HOWTO.x, HOWTO.y, 0.0072]}><planeGeometry args={[HOWTO.w, HOWTO.h]} /></mesh>
       {/* coin slot and return button, for looks */}
-      <RoundedBox args={[0.05, 0.07, 0.012]} radius={0.006} smoothness={3} position={[KEYPAD.x - 0.04, 0.95, 0.012]} material={base.chrome} />
-      <mesh material={base.cavity} position={[KEYPAD.x - 0.04, 0.95, 0.0185]}><boxGeometry args={[0.006, 0.042, 0.002]} /></mesh>
-      <mesh material={base.chrome} position={[KEYPAD.x + 0.045, 0.95, 0.012]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.018, 0.018, 0.012, 32]} /></mesh>
+      <RoundedBox args={[0.05, 0.07, 0.012]} radius={0.006} smoothness={3} position={[KEYPAD.x - 0.058, 0.95, 0.012]} material={base.chrome} />
+      <mesh material={base.cavity} position={[KEYPAD.x - 0.058, 0.955, 0.0185]}><boxGeometry args={[0.006, 0.036, 0.002]} /></mesh>
+      <mesh material={base.glossBlack} position={[KEYPAD.x - 0.058, 0.925, 0.018]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.008, 0.008, 0.004, 20]} /></mesh>
     </group>
   );
 }
@@ -247,6 +277,7 @@ export function FlapVisual() {
   return (
     <group userData={{ vflap: true }}>
       <RoundedBox args={[BIN_FLAP.width, BIN_FLAP.height, BIN_FLAP.thickness]} radius={0.0015} smoothness={2} position={[0, -BIN_FLAP.height / 2, 0]} material={base.smoke} renderOrder={2} />
+      <RoundedBox args={[BIN_FLAP.width * 0.72, 0.014, 0.012]} radius={0.005} smoothness={3} position={[0, -BIN_FLAP.height + 0.022, BIN_FLAP.thickness / 2 + 0.006]} material={base.chrome} castShadow />
       <mesh material={m.push} position={[0, -BIN_FLAP.height / 2, BIN_FLAP.thickness / 2 + 0.0005]} renderOrder={3}><planeGeometry args={[0.12, 0.03]} /></mesh>
     </group>
   );
