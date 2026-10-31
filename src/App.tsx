@@ -1,3 +1,4 @@
+import HeroBadge from './arcade/HeroBadge';
 import NameSign from './arcade/NameSign';
 import RotatingText from './arcade/RotatingText';
 import Stage from './arcade/Stage';
@@ -69,6 +70,7 @@ export default function App() {
       <main className="app">
         <div className="stage"><Stage /></div>
         <NameSign />
+        <HeroBadge />
         {/* The name itself is hidden from screen readers; this heading is its text for them and search. */}
         <section className={`hero-copy${opened ? ' in' : ''}`} style={{ top: `${(HERO_TEXT_BOTTOM * 100 + 2.5).toFixed(1)}vh` }}>
           <h1 className="sr-only">Jack Wei</h1>

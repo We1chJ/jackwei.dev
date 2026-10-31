@@ -27,12 +27,11 @@ export const arcadeShot = {
     shot.width = source.width; shot.height = source.height;
     const g = shot.getContext('2d');
     g?.drawImage(source, 0, 0);
-    // the name is a canvas of its own over the 3D one: it belongs in the picture
-    const name = document.querySelector<HTMLCanvasElement>('.hero-name canvas');
-    if (g && name) {
-      const r = name.getBoundingClientRect(), k = source.width / innerWidth;
-      g.drawImage(name, r.left * k, r.top * k, r.width * k, r.height * k);
-    }
+    // the name and the badge are canvases of their own over the 3D one: they belong in the picture
+    document.querySelectorAll<HTMLCanvasElement>('.hero-name canvas, .hero-badge canvas').forEach((over) => {
+      const r = over.getBoundingClientRect(), k = source.width / innerWidth;
+      g?.drawImage(over, r.left * k, r.top * k, r.width * k, r.height * k);
+    });
     wanted(shot);
     wanted = null;
   },

@@ -5,4 +5,5 @@
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @source './*.tsx';
 @source '../arcade/ElasticMesh.tsx';
+@source '../arcade/Lanyard.tsx';
 @source '../arcade/RotatingText.tsx';

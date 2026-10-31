@@ -25,6 +25,8 @@ const BOX_W = 0.56, BOX_H = 0.7;   // the canvas, as shares of the window
 
 let played = false;       // only the first arrival stamps in; coming back from a machine it is just there
 
+export const heroNameSize = (w: number, h: number) => Math.min((HERO_NAME.line * h) / CAP, (0.38 * w) / 2.4);
+
 function useWindowSize() {
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   useEffect(() => {
@@ -71,7 +73,7 @@ export default function NameSign() {
     return () => timers.forEach(clearTimeout);
   }, [opened]);
 
-  const size = Math.min((HERO_NAME.line * h) / CAP, (0.38 * w) / 2.4);
+  const size = heroNameSize(w, h);
   const nameTop = 1 - (HERO_NAME.y + 1) / 2;
   const boxW = w * BOX_W, boxH = h * BOX_H;
   const draw = useCallback((g: CanvasRenderingContext2D, outlined: boolean) => letters(g, boxW, boxH, size, outlined), [boxW, boxH, size]);
