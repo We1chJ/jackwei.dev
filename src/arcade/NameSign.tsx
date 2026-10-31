@@ -1,13 +1,12 @@
 // The name on the left of the hero, in the buttons' recipe: warm white letters and a black outline, with
-// real black depth (DepthText) that turns gently toward the pointer. It stamps in a letter at a time once
-// the machines have landed, a thud per letter. Replaces the 3D letters; the loader's wireframe of them
-// fades as this arrives. A hidden flat copy on a canvas is what the reel's snapshot of the arcade picks
-// up (arcadeShot in resume/store.ts), since the live letters are DOM.
-import { useEffect, useRef, useState } from 'react';
+// real black depth that turns gently toward the pointer. One soft surface (ElasticMesh): press a letter and
+// it dents, pull it and it stretches, depth and all. It lands a letter at a time once the machines are down,
+// a thud per letter. Replaces the 3D letters; the loader's wireframe of them fades as this arrives.
+import { useCallback, useEffect, useState } from 'react';
 import { thud } from '../gacha/sound';
 import { intro, useIntro } from './intro';
 import { HERO_NAME, HERO_TEXT_BOTTOM } from './layout';
-import DepthText from './DepthText';
+import ElasticMesh from './ElasticMesh';
 
 const ROWS = ['JACK', 'WEI'];
 const REST = { x: 4, y: -6 };   // the depth shows down and to the right, like the buttons' shadow
@@ -20,8 +19,8 @@ const CAP = 0.72;         // Lilita One's cap height, em
 const LINE = 0.94;        // baseline to baseline, em
 const SPACING = 0.015;    // em
 const OUTLINE = 0.05;     // stroke width, em: half of it shows outside the letter
-const SHADOW = 0.05;      // em, down and right: how far the depth reaches at rest, for the flat copy
-const LAYERS = 10, LAYER_GAP = 0.019;   // the depth: copies, and em between them; the outline hides the steps
+const LAYERS = 12, LAYER_GAP = 0.025;   // the depth: copies, and em between them
+const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078];
 const BOX_W = 0.56, BOX_H = 0.7;   // the canvas, as shares of the window
 
 let played = false;       // only the first arrival stamps in; coming back from a machine it is just there
@@ -36,14 +35,8 @@ function useWindowSize() {
   return size;
 }
 
-/** The flat copy. Shadows, then outlines, then faces, so no letter's black lands on a neighbour's white. */
-function paint(canvas: HTMLCanvasElement, width: number, height: number, size: number) {
-  const dpr = Math.min(devicePixelRatio, 2);
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
-  const g = canvas.getContext('2d');
-  if (!g) return;
-  g.scale(dpr, dpr);
+/** Everything in window px, relative to the name's box. With `outlined` off, just the faces. */
+function letters(g: CanvasRenderingContext2D, width: number, height: number, size: number, outlined: boolean) {
   g.font = `400 ${size}px ${FONT}`;
   g.lineJoin = 'round';
   g.lineWidth = size * OUTLINE;
@@ -54,12 +47,10 @@ function paint(canvas: HTMLCanvasElement, width: number, height: number, size: n
     x: left + g.measureText(row.slice(0, i)).width + i * SPACING * size,
     y: baseline + r * LINE * size,
   })));
-  g.fillStyle = g.strokeStyle = INK;
-  for (let i = 3; i > 0; i--) {
-    const shadow = (size * SHADOW * i) / 3;
-    glyphs.forEach(({ ch, x, y }) => { g.strokeText(ch, x + shadow, y + shadow); g.fillText(ch, x + shadow, y + shadow); });
+  if (outlined) {
+    g.strokeStyle = INK;
+    glyphs.forEach(({ ch, x, y }) => g.strokeText(ch, x, y));
   }
-  glyphs.forEach(({ ch, x, y }) => g.strokeText(ch, x, y));
   g.fillStyle = PAPER;
   glyphs.forEach(({ ch, x, y }) => g.fillText(ch, x, y));
 }
@@ -67,36 +58,24 @@ function paint(canvas: HTMLCanvasElement, width: number, height: number, size: n
 export default function NameSign() {
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const { w, h } = useWindowSize();
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [count, setCount] = useState(played ? LETTERS : 0);
+  const [landing, setLanding] = useState(played);
   const [typeIn] = useState(!played);
 
   useEffect(() => {
     if (!opened || played) return;
     const wait = Math.max(0, intro.get().startedAt + LANDED_S - performance.now() / 1000) * 1000;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      const timer = setTimeout(() => { played = true; setCount(LETTERS); }, wait);
-      return () => clearTimeout(timer);
+    const timers = [setTimeout(() => { played = true; setLanding(true); }, wait)];
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      for (let i = 0; i < LETTERS; i++) timers.push(setTimeout(() => thud(0.35), wait + i * STEP_MS));
     }
-    const timers = Array.from({ length: LETTERS }, (_, i) => setTimeout(() => {
-      thud(0.35);
-      setCount(i + 1);
-      played = i === LETTERS - 1;
-    }, wait + i * STEP_MS));
     return () => timers.forEach(clearTimeout);
   }, [opened]);
 
   const size = Math.min((HERO_NAME.line * h) / CAP, (0.38 * w) / 2.4);
   const nameTop = 1 - (HERO_NAME.y + 1) / 2;
   const boxW = w * BOX_W, boxH = h * BOX_H;
-
-  useEffect(() => {
-    let live = true;
-    void document.fonts.load(`400 ${size}px 'Lilita One'`).then(() => {
-      if (live && canvas.current) paint(canvas.current, boxW, boxH, size);
-    });
-    return () => { live = false; };
-  }, [boxW, boxH, size]);
+  const draw = useCallback((g: CanvasRenderingContext2D, outlined: boolean) => letters(g, boxW, boxH, size, outlined), [boxW, boxH, size]);
+  const textW = 2.4 * size, textH = (CAP + LINE) * size;
 
   return (
     <div
@@ -104,29 +83,33 @@ export default function NameSign() {
       aria-hidden="true"
       style={{ left: (HERO_NAME.x + 1) / 2 * w - boxW * 0.05, top: ((nameTop + HERO_TEXT_BOTTOM) / 2 - BOX_H / 2 - 0.016) * h, width: boxW, height: boxH }}
     >
-      <canvas ref={canvas} />
-      {count > 0 && (
-        <DepthText
-          text={ROWS.join('\n')}
-          shown={count}
-          rest={REST}
-          fontSize={`${size}px`}
-          fontWeight={400}
-          lineHeight={LINE}
-          letterSpacing={`${SPACING}em`}
-          faceColor={PAPER}
-          stroke={INK}
-          strokeWidth={`${OUTLINE}em`}
-          layers={LAYERS}
-          depth={size * LAYER_GAP}
-          tilt={6}
-          perspective={1100}
-          autoOrbit={false}
-          shadow={false}
-          intro={typeIn}
-          style={{ position: 'absolute', left: boxW * 0.05, top: '50%', transform: 'translateY(-50%)' }}
-        />
-      )}
+      <ElasticMesh
+        draw={draw}
+        fontFamily="'Lilita One'"
+        fontWeight={400}
+        material="sticker"
+        theme="light"
+        inflate={0.6}
+        stiffness={0.5}
+        wobble={0.6}
+        press={0.35}
+        grabRadius={size * 0.45}
+        shadow={0}
+        intro={typeIn}
+        start={landing}
+        introGap={STEP_MS / 1000}
+        rowHeight={LINE * size}
+        view={{
+          layers: LAYERS,
+          gap: LAYER_GAP * size,
+          color: INK_RGB,
+          rest: REST,
+          tilt: 6,
+          perspective: 1100,
+          pivot: { x: boxW * 0.05 + textW / 2, y: boxH / 2 },
+          reach: { x: textW, y: textH },
+        }}
+      />
     </div>
   );
 }
