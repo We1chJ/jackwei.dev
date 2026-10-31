@@ -21,7 +21,7 @@ import { CardBody, Cards } from './Card';
 import { itemOf, itemPoint } from '../arcade/instances';
 import { FlapVisual, Highlights, VG, VendingColliders, VendingVisual, vendMaterials } from './Cabinet';
 import { BIN, BIN_FLAP, COIL, COLS, COL_X, PER_COIL, ROWS, SHELF, SHELF_Y, SLAB, WINDOW, slotZ } from './dims';
-import { vending } from './store';
+import { vendActions, vending } from './store';
 
 const OX = SPOT.vending.x;
 const COILS = ROWS.length * COLS;
@@ -128,6 +128,10 @@ export default function Vending() {
     vending.set({ phase: mode.current.includes('bin') ? 'ready' : 'idle', held: null });
     say(idleText());
   };
+
+  useEffect(() => { vendActions.putBack = putBack; });
+  // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
+  useEffect(() => arcade.subscribe(() => { if (arcade.get().focus !== 'vending' && mode.current.includes('held')) putBack(); }), []);
 
   const onHit = (i: number, p: CollisionEnterPayload) => {
     if (mode.current[i] !== 'falling') return;
@@ -347,7 +351,7 @@ export default function Vending() {
         b.setNextKinematicTranslation(holdPoint(camera, hTmp, 0.58, -0.07, 0.02));
         b.setNextKinematicRotation(camera.quaternion);
         if (a.t > 0.6) {
-          sc.setScalar(1);
+          sc.setScalar(0.001);   // the page takes over from here: HeldCard.tsx
           anim.current.delete(i); mode.current[i] = 'held'; st.heldAt = st.t;
           vending.set({ phase: 'held', held: items[i].project });
           jingle(); say('ENJOY!', 1.6);

@@ -8,8 +8,10 @@ import { slam, unlockAudio } from '../gacha/sound';
 import { loading } from '../loader';
 import { dust } from './Dust';
 import { intro, onImpact } from './intro';
-import { HERO_POSE, SPOT, VIEW, heroEye } from './layout';
+import { HERO_POSE, SPOT } from './layout';
 import { rig } from './CameraRig';
+import { pathFor } from './path';
+import { track } from './track';
 import { arcade, type MachineId } from './store';
 
 // The coin going in turns sound on (it has to happen inside that click); the screen opening starts the drop.
@@ -18,14 +20,13 @@ loading.onOpen(() => intro.set({ phase: 'dropping', startedAt: performance.now()
 
 const FOOTPRINT: Record<MachineId, [number, number]> = { claw: [0.84, 0.84], gacha: [0.83, 0.87], vending: [0.92, 0.8] };
 
-/** Hero framing, a little parallax with the pointer, and a jolt on every landing. */
+/** The camera down the scroll (path.ts), a little parallax with the pointer, a jolt on every landing. */
 export function HeroCamera() {
   const { camera } = useThree();
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   const s = useRef({ shake: 0, tx: 0, ty: 0, px: 0, py: 0 });
   const size = useThree((s) => s.size);
-  const target = useMemo(() => new THREE.Vector3(...VIEW.hero.main.target), []);
-  const base = useMemo(() => new THREE.Vector3(...heroEye(size.width / size.height)), [size.width, size.height]);
+  const [base, target] = useMemo(() => [new THREE.Vector3(), new THREE.Vector3()], []);
   useEffect(() => onImpact(({ speed }) => { s.current.shake = Math.min(1.2, s.current.shake + speed / 10); }), []);
   useEffect(() => {
     const m = (e: PointerEvent) => { s.current.tx = e.clientX / innerWidth - 0.5; s.current.ty = e.clientY / innerHeight - 0.5; };
@@ -40,6 +41,7 @@ export function HeroCamera() {
     const k = intro.get().phase === 'done' ? 1 - Math.exp(-2.5 * dt) : 0;
     st.px += (st.tx - st.px) * k; st.py += (st.ty - st.py) * k;
     st.shake *= Math.exp(-7 * dt);
+    pathFor(size.width / size.height).camera(track.t, track.dolly, base, target);
     const a = 0.035 * st.shake * st.shake;
     camera.position.set(
       base.x + st.px * 0.35 + a * Math.sin(t * 71),

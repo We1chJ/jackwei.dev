@@ -12,11 +12,11 @@ let mascot: HTMLImageElement | undefined;
 const ready = Promise.all([fontsReady(TITLE(60)), fontsReady(BODY(26)), loadImage('/mascot.jpg').then((i) => { mascot = i; }).catch(() => undefined)]);
 
 /** Draw now with fallbacks, and again once fonts and the mascot have loaded. */
-function live(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
-  const [c, ctx] = canvas(w, h);
+function live(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void, res = 1): THREE.CanvasTexture {
+  const [c, ctx] = canvas(w * res, h * res);
   const tex = finish(c);
   // save/restore: each redraw starts from default canvas state (no leaked textAlign etc.)
-  const paint = () => { ctx.save(); ctx.clearRect(0, 0, w, h); draw(ctx); ctx.restore(); tex.needsUpdate = true; };
+  const paint = () => { ctx.save(); ctx.scale(res, res); ctx.clearRect(0, 0, w, h); draw(ctx); ctx.restore(); tex.needsUpdate = true; };
   paint();
   void ready.then(paint);
   return tex;
@@ -47,7 +47,7 @@ export const RARITY: Record<Rarity, { a: string; b: string; ink: string; stars: 
 };
 
 /** Card front: rarity foil frame, title, mascot art on a sunburst, blurb and tags. */
-export function cardFront(p: Project, index: number, total: number): THREE.CanvasTexture {
+export function cardFront(p: Project, index: number, total: number, res = 1): THREE.CanvasTexture {
   const W = 512, H = 716, r = RARITY[p.rarity];
   return live(W, H, (ctx) => {
     const g = ctx.createLinearGradient(0, 0, W, H);
@@ -104,11 +104,11 @@ export function cardFront(p: Project, index: number, total: number): THREE.Canva
     }
     ctx.fillStyle = r.ink; ctx.font = BODY(17, 900);
     ctx.fillText(`JACK CARDS  •  #${String(index + 1).padStart(3, '0')}/${String(total).padStart(3, '0')}`, 44, H - 46);
-  });
+  }, res);
 }
 
 /** Shared card back: navy with the brand mark. */
-export function cardBack(): THREE.CanvasTexture {
+export function cardBack(res = 1): THREE.CanvasTexture {
   const W = 512, H = 716;
   return live(W, H, (ctx) => {
     ctx.fillStyle = '#14193A'; rounded(ctx, 0, 0, W, H, 34); ctx.fill();
@@ -120,7 +120,14 @@ export function cardBack(): THREE.CanvasTexture {
     ctx.restore();
     ctx.fillStyle = '#FFC800'; ctx.font = TITLE(66); ctx.textAlign = 'center';
     ctx.fillText('JACK CARDS', W / 2, H / 2 + 160);
-  });
+  }, res);
+}
+
+/** A card's two faces as pictures for the page (HeldCard.tsx), twice the texture's resolution. */
+export async function cardPictures(p: Project, index: number, total: number) {
+  await ready;
+  const picture = (t: THREE.CanvasTexture) => { const url = (t.image as HTMLCanvasElement).toDataURL('image/png'); t.dispose(); return url; };
+  return { front: picture(cardFront(p, index, total, 2)), back: picture(cardBack(2)) };
 }
 
 /** Red grading label clipped into the top of each slab. */

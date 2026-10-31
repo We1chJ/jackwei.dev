@@ -3,12 +3,14 @@
 // because @react-three/rapier records each body's parent transform once, when it is created,
 // and draws the body relative to the parent from then on. So the group must be at rest while
 // the machine mounts, and is lifted only once the scene is ready. The same goes for the hero pose
-// (moved and turned so all three show), which eases away again when the machine is played.
+// (moved and turned so all three show) and the poses down the scroll (path.ts), which ease away again
+// when the machine is played.
 import { useEffect, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { DROP_DELAY, impact, intro } from './intro';
-import { HERO_POSE } from './layout';
+import { pathFor, type Pose } from './path';
+import { track } from './track';
 import { arcade, type MachineId } from './store';
 
 const HEIGHT = 3.4;              // starts this far above its spot: out of the top of the frame
@@ -16,7 +18,8 @@ const G = 9.81 * 1.25;           // a touch more than real gravity reads better 
 const T_FALL = Math.sqrt((2 * HEIGHT) / G);
 
 export default function Drop({ machine, x, children }: { machine: MachineId; x: number; children: ReactNode }) {
-  const pose = useRef<THREE.Group>(null), pivot = useRef<THREE.Group>(null), shown = useRef(0);
+  const pose = useRef<THREE.Group>(null), pivot = useRef<THREE.Group>(null), shown = useRef(0), at = useRef<Pose>({ x: 0, z: 0, yaw: 0 });
+  const size = useThree((s) => s.size);
   const s = useRef({ landedAt: -1, settled: false, tilt: new THREE.Vector2((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.06) });
 
   // Out of sight above the frame while the loader waits for the coin.
@@ -25,13 +28,15 @@ export default function Drop({ machine, x, children }: { machine: MachineId; x: 
   }), []);
 
   useFrame((_, dt) => {
-    const st = intro.get(), p = HERO_POSE[machine];
+    const st = intro.get();
     if (pose.current && st.phase !== 'loading') {
       const want = arcade.get().focus === 'hero' ? 1 : 0;
       shown.current = st.phase === 'done' ? shown.current + (want - shown.current) * (1 - Math.exp(-5 * Math.min(dt, 1 / 30))) : want;
-      const k = shown.current;
-      pose.current.position.set(x + p.x * k, 0, p.z * k);
+      const k = shown.current, path = pathFor(size.width / size.height);
+      const p = path.pose(machine, track.t, track.dolly, at.current);
+      pose.current.position.set(x + (p.x - x) * k, 0, p.z * k);
       pose.current.rotation.y = p.yaw * k;
+      pose.current.visible = !(want && k > 0.999 && path.hidden(machine, track.t));
     }
     const g = pivot.current;
     if (!g || st.phase === 'loading' || st.phase === 'ready' || s.current.settled) return;

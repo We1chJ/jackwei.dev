@@ -7,6 +7,8 @@ export interface Experience extends Project {
   role: string;
   dates: string;
   bullets: string[];
+  /** Listed under About instead of Experience. */
+  about?: boolean;
 }
 
 export const EXPERIENCE: Experience[] = [
@@ -46,7 +48,7 @@ export const EXPERIENCE: Experience[] = [
     ],
   },
   {
-    id: 'olin', title: 'Olin College', role: 'B.S. Computer Science, class of 2028', dates: '2024 – 2028',
+    id: 'olin', title: 'Olin College', role: 'Computer Science', dates: 'Class of 2028', about: true,
     blurb: 'Computer Science · GPA 3.92', rarity: 'COMMON', tags: ['GPA 3.92', 'Merit scholarship'],
     bullets: [
       'Four-year merit-based 50% tuition scholarship.',
@@ -54,7 +56,7 @@ export const EXPERIENCE: Experience[] = [
     ],
   },
   {
-    id: 'contests', title: 'Competitions', role: 'Competitive programming', dates: '2022 – 2025',
+    id: 'contests', title: 'Competitions', role: 'Competitive programming', dates: '2022 – 2025', about: true,
     blurb: 'ICPC, USACO Gold, ACSL finalist, Kickstart top 2%', rarity: 'SHINY', tags: ['ICPC', 'USACO Gold', 'ACSL'],
     bullets: [
       'ICPC 2025: top 5 in the district.',
@@ -63,4 +65,12 @@ export const EXPERIENCE: Experience[] = [
       'Google Kickstart 2022 Round C: top 2% globally.',
     ],
   },
+];
+
+export const SKILLS: { group: string; items: string[] }[] = [
+  { group: 'Frontend', items: ['JavaScript', 'TypeScript', 'React', 'Next.js', 'Jotai', 'Kotlin Multiplatform', 'Jetpack Compose', 'three.js'] },
+  { group: 'Backend', items: ['C/C++', 'Python', 'Java', 'Kotlin', 'Flask', 'Firebase', 'Supabase', 'Spring Boot', 'PostgreSQL', 'MongoDB'] },
+  { group: 'Deployment', items: ['Git', 'GitHub CI/CD', 'Vercel', 'Cloudflare', 'Trigger', 'Maven', 'Gradle', 'Jenkins'] },
+  { group: 'ML / AI', items: ['Multimodal AI', 'RAG', 'LangChain', 'CV', 'OCR', 'RL', 'LiveKit', 'Vapi', 'Cursor', 'Claude Code', 'Codex'] },
+  { group: 'Other', items: ['AWS', 'Docker', 'Kubernetes', 'Airflow', 'MATLAB', 'Swift', 'Grafana', 'Bash', 'OpenAPI', 'Linux', 'Unity', 'ROS2'] },
 ];

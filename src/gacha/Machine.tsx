@@ -125,6 +125,9 @@ export default function Machine() {
     anim.current.set(i, { kind: 'return', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
   };
 
+  // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
+  useEffect(() => arcade.subscribe(() => { if (arcade.get().focus !== 'gacha' && mode.current.includes('held')) putBack(); }), []);
+
   const turnOnce = () => {
     const s = h.current;
     if (s.dragging || s.auto) return;

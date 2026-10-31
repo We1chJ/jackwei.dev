@@ -10,12 +10,18 @@ html, body, #root { margin: 0; min-height: 100%; }
 body { background: var(--backdrop); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 
 .app { position: relative; }
-/* The arcade fills the first screen; the readable sections follow (Sections.tsx). */
-.hero { position: relative; height: 100vh; height: 100svh; overflow: hidden; }
-.stage { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+html.locked { overflow: hidden; }
+/* The 3D stays behind the whole page; everything else scrolls over it (src/arcade/path.ts, track.ts). */
+.stage { position: fixed; inset: 0; z-index: 0; touch-action: none; cursor: grab; }
 .stage canvas { display: block; }
-/* In the overview nothing orbits, so the page can be scrolled from the canvas; a machine under the pointer shows a pointer (CameraRig.tsx). */
-.hero.overview .stage { touch-action: pan-y; cursor: default; }
+/* While the page is being scrolled nothing orbits, so it can be scrolled from the canvas too; a machine under the pointer shows a pointer (CameraRig.tsx). */
+.app.overview .stage { touch-action: pan-y; cursor: default; }
+.hero { position: relative; z-index: 1; height: 100vh; height: 100svh; overflow: hidden; pointer-events: none; transition: opacity .35s, visibility .35s; }
+.hero-fade { position: absolute; inset: 0; }
+.app.playing .hero, .app.playing .sections { opacity: 0; visibility: hidden; }
+.play-ui { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+.play-ui > * { pointer-events: auto; }
+.play-ui .brand { pointer-events: none; }
 
 .brand {
   position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); left: 20px;
@@ -181,8 +187,8 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .hero-links a:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
 .hero-links a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .sound-toggle {
-  position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); right: 20px; font: 800 13px/1 var(--font); padding: 8px 14px; border-radius: 999px;
-  border: 2px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .5s 3.2s;
+  position: fixed; z-index: 3; top: max(16px, env(safe-area-inset-top, 0px)); right: 20px; font: 800 13px/1 var(--font); padding: 8px 14px; border-radius: 999px;
+  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .5s 3.2s;
 }
 .sound-toggle.in { opacity: 1; }
 .hero-cta {
@@ -193,8 +199,13 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .hero-cta.in { opacity: 1; }
 
 /* ---------- The readable sections under the arcade (Sections.tsx) ---------- */
-.sections { position: relative; padding: 0 24px 72px; }
-.section { max-width: 1040px; margin: 0 auto; padding-top: 96px; scroll-margin-top: 16px; }
+.sections { position: relative; z-index: 1; pointer-events: none; transition: opacity .35s, visibility .35s; }
+/* A machine takes one half of the window, these the other. The gap is the scroll the move between two sections takes. */
+.scene { display: flex; min-height: 100vh; padding: 14vh 5vw; margin-bottom: 36vh; scroll-margin-top: 0; }
+.scene.cards-right { justify-content: flex-end; }
+.scene.cards-left { justify-content: flex-start; }
+.scene:last-child { margin-bottom: 0; align-items: center; }
+.scene-col { width: min(46vw, 640px); pointer-events: auto; }
 .section-title {
   margin: 0 0 10px; font: 400 clamp(44px, 7vw, 84px)/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .5px;
   color: var(--paper); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--ink);
@@ -207,7 +218,9 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .pill:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
 .pill:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
-.projects-grid { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.projects-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.skill-group + .skill-group { margin-top: 12px; }
+.skill-group h4 { margin: 0 0 6px; font: 900 12px/1 var(--font); letter-spacing: 1px; text-transform: uppercase; opacity: .65; }
 .card { position: relative; padding: 20px 22px 18px; border-radius: 18px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); }
 .card h3 { margin: 0; font: 400 28px/1.05 'Lilita One', 'Arial Black', sans-serif; }
 .card .card-rarity + h3 { margin-top: 10px; }
@@ -221,7 +234,19 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .card-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .contact-row { display: flex; flex-wrap: wrap; gap: 12px; }
 .site-footer { margin-top: 72px; font-weight: 700; font-size: 13px; opacity: .65; }
-@media (max-width: 560px) { .sections { padding: 0 16px 56px; } .section { padding-top: 64px; } .card { padding: 16px 16px 14px; box-shadow: 4px 4px 0 var(--ink); } }
+/* Too narrow for two halves: the machine takes the top of the window, the cards scroll over it (STACKED in path.ts). */
+@media (max-aspect-ratio: 11/10) {
+  .scene { padding: 58vh 20px 8vh; }
+  .scene.cards-right, .scene.cards-left { justify-content: stretch; }
+  .scene-col { width: 100%; }
+}
+@media (max-width: 560px) { .scene { padding-left: 16px; padding-right: 16px; } .card { padding: 16px 16px 14px; box-shadow: 4px 4px 0 var(--ink); } }
+
+/* The card in the visitor's hand (src/vending/HeldCard.tsx): where the 3D card has just landed. */
+.held-card { position: fixed; z-index: 3; left: 36vw; top: 50%; transform: translate(-50%, -50%); animation: held-in .4s cubic-bezier(.2, 1.3, .4, 1); }
+@keyframes held-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.55); } }
+@media (max-width: 700px) { .held-card { left: 50%; top: 38%; } }
+.card-info-links button { font: 900 15px/1.4 var(--font); color: var(--ink); text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
 
 /* ---------- Résumé reel (src/resume/) ---------- */
 .resume-btn {

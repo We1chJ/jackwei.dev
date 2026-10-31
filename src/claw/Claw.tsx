@@ -187,6 +187,9 @@ export default function Claw() {
     claw.set({ phase: mode.current.includes('prize') ? 'prize' : 'idle' });
   };
 
+  // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
+  useEffect(() => arcade.subscribe(() => { if (arcade.get().focus !== 'claw' && mode.current.includes('held')) putBack(); }), []);
+
   const onHit = (i: number, p: CollisionEnterPayload) => {
     const md = mode.current[i];
     if (md !== 'pit' && md !== 'chute') return;

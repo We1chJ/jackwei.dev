@@ -1,11 +1,13 @@
 // Glides the camera to whichever machine has focus (and between that machine's close-ups), and
 // lets a click on an unfocused machine focus it (that click does nothing else, so a stray click
 // never presses a button).
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { INTERIOR_LIGHT, VIEW, heroEye } from './layout';
+import { INTERIOR_LIGHT, VIEW } from './layout';
+import { lightAt, pathFor } from './path';
+import { track } from './track';
 import { intro } from './intro';
 import { arcade, type Focus, type Shot } from './store';
 
@@ -32,10 +34,11 @@ export default function CameraRig() {
     controls.enabled = false;
   }), [camera, controls]);
   const size = useThree((s) => s.size);
+  const [backEye, backLook] = useMemo(() => [new THREE.Vector3(), new THREE.Vector3()], []);
 
   useFrame((_, dt) => {
     // Interior light: fades out, hops to the newly focused machine, fades back in.
-    const L = light.current, want = INTERIOR_LIGHT[arcade.get().focus];
+    const focus = arcade.get().focus, L = light.current, want = focus === 'hero' ? lightAt(track.t, size.width / size.height) : INTERIOR_LIGHT[focus];
     if (L) {
       const there = L.position.distanceToSquared(new THREE.Vector3(...want.position)) < 1e-6;
       const target = there ? want.intensity : 0;
@@ -45,13 +48,13 @@ export default function CameraRig() {
     const g = glide.current;
     if (!g || !controls) return;
     const v = VIEW[g.to][g.shot];
-    // Back to the hero: its eye depends on the screen shape (Hero.tsx takes over from there).
-    const eye = g.to === 'hero' ? heroEye(size.width / size.height) : v.position;
+    // Back to the page: to wherever the scroll left it (Hero.tsx takes over from there).
+    if (g.to === 'hero') pathFor(size.width / size.height).camera(track.t, track.dolly, backEye, backLook);
     g.t = Math.min(1, g.t + dt / g.dur);
     const k = ease(g.t);
-    controls.target.lerpVectors(g.fromTarget, new THREE.Vector3(...v.target), k);
+    controls.target.lerpVectors(g.fromTarget, g.to === 'hero' ? backLook : backEye.set(...v.target), k);
     // Arc slightly backwards mid-glide, like a person stepping back to look at the next machine.
-    camera.position.lerpVectors(g.fromPos, new THREE.Vector3(...eye), k);
+    camera.position.lerpVectors(g.fromPos, g.to === 'hero' ? backEye : backEye.set(...v.position), k);
     camera.position.z += Math.sin(Math.PI * k) * g.arc;
     camera.lookAt(controls.target);
     if (g.t >= 1) {
@@ -69,7 +72,7 @@ export default function CameraRig() {
   useEffect(() => {
     const el = gl.domElement.parentElement ?? gl.domElement;
     const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-    const roots = () => { const out: THREE.Object3D[] = []; scene.traverse((o) => { if (o.userData.machine) out.push(o); }); return out; };
+    const roots = () => { const out: THREE.Object3D[] = []; scene.traverseVisible((o) => { if (o.userData.machine) out.push(o); }); return out; };
     const under = (e: PointerEvent) => {
       const r = gl.domElement.getBoundingClientRect();
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
