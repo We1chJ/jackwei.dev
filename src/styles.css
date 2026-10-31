@@ -137,7 +137,7 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 
 /* The loading bar. */
 .loader-bar { position: absolute; left: 50%; bottom: max(7vh, 36px); width: min(320px, 62vw); height: 2px; transform: translateX(-50%); border-radius: 2px; background: var(--dim); }
-.loader-percent { position: absolute; right: 0; bottom: 10px; font: 800 12px/1 var(--font); letter-spacing: .5px; color: var(--gold); }
+.loader-percent { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font: 800 12px/1 var(--font); letter-spacing: .5px; color: var(--gold); }
 .loader-bar b { display: block; height: 100%; background: var(--gold); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
 
 /* a line along the bottom, for reading only, between hairlines that end in diamonds */
