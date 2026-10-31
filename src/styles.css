@@ -157,7 +157,8 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
   .loader *, .loader *::before, .loader *::after { animation: none !important; transition: none !important; }
 }
 
-/* ---------- Hero: copy under the 3D name, sound toggle ---------- */
+/* ---------- Hero: the name, the copy under it, sound toggle ---------- */
+.hero-name { position: absolute; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero-copy { position: absolute; left: 7vw; display: grid; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
 .hero-copy.in { opacity: 1; transform: none; transition-delay: 2.9s; pointer-events: auto; }

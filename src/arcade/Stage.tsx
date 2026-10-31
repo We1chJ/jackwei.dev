@@ -1,7 +1,6 @@
 // The arcade: three machines side by side on a product-photography stage (studio light-forms
 // for reflections, one soft key light, live floor and contact shadows, ambient occlusion,
-// neutral tone mapping). It opens on the hero: the machines drop in across the right of the
-// frame and the name stands on the left.
+// neutral tone mapping). It opens on the hero: the machines drop in across the right of the frame.
 import { Suspense, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
@@ -14,7 +13,7 @@ import Claw from '../claw/Claw';
 import CameraRig from './CameraRig';
 import Drop from './Drop';
 import Dust from './Dust';
-import { HeroCamera, HeroFx, HeroText } from './Hero';
+import { HeroCamera, HeroFx } from './Hero';
 import Sparkles from './Sparkles';
 import Warmup from './Warmup';
 import { arcadeShot, useReel } from '../resume/store';
@@ -95,7 +94,6 @@ export default function Stage() {
       </Suspense>
 
       <FloorShadows />
-      <Suspense fallback={null}><HeroText /></Suspense>
 
       <Sparkles />
       <Dust />

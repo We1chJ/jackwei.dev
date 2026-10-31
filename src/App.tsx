@@ -1,3 +1,4 @@
+import NameSign from './arcade/NameSign';
 import Stage from './arcade/Stage';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
@@ -64,7 +65,8 @@ export default function App() {
     return (
       <main className="app">
         <div className="stage"><Stage /></div>
-        {/* The name itself is 3D on the canvas; this heading is its text for screen readers and search. */}
+        <NameSign />
+        {/* The name itself is drawn on a canvas; this heading is its text for screen readers and search. */}
         <section className={`hero-copy${opened ? ' in' : ''}`} style={{ top: `${(HERO_TEXT_BOTTOM * 100 + 2.5).toFixed(1)}vh` }}>
           <h1 className="sr-only">Jack Wei</h1>
           <p className="hero-line">builds too many things.</p>

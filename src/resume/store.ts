@@ -25,7 +25,14 @@ export const arcadeShot = {
     if (!wanted) return;
     const shot = document.createElement('canvas');
     shot.width = source.width; shot.height = source.height;
-    shot.getContext('2d')?.drawImage(source, 0, 0);
+    const g = shot.getContext('2d');
+    g?.drawImage(source, 0, 0);
+    // the name is a canvas of its own over the 3D one: it belongs in the picture
+    const name = document.querySelector<HTMLCanvasElement>('.hero-name canvas');
+    if (g && name) {
+      const r = name.getBoundingClientRect(), k = source.width / innerWidth;
+      g.drawImage(name, r.left * k, r.top * k, r.width * k, r.height * k);
+    }
     wanted(shot);
     wanted = null;
   },
