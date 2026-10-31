@@ -1,6 +1,7 @@
 // From React Bits. Local changes, for hanging beside the hero name: the pointer is read from the window so
 // the wide canvas never blocks the page, preserveDrawingBuffer lets the reel snapshot it, and the context
-// is handed back on unmount since the arcade remounts this on every trip to a machine.
+// is handed back on unmount since the arcade remounts this on every trip to a machine. `hold` builds
+// everything out of sight and keeps it still, so the slow first render happens during the loading screen.
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import * as THREE from 'three';
@@ -40,6 +41,7 @@ export interface LanyardProps {
   breeze?: number;
   interactive?: boolean;
   intro?: boolean;
+  hold?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -65,6 +67,7 @@ interface Settings {
   breeze: number;
   interactive: boolean;
   intro: boolean;
+  hold: boolean;
 }
 
 interface Images {
@@ -889,6 +892,7 @@ const Lanyard = ({
   breeze = 0.5,
   interactive = true,
   intro = true,
+  hold = false,
   className = '',
   style
 }: LanyardProps) => {
@@ -916,7 +920,8 @@ const Lanyard = ({
     elasticity,
     breeze,
     interactive,
-    intro
+    intro,
+    hold
   };
 
   useEffect(() => {
@@ -1182,6 +1187,7 @@ const Lanyard = ({
         clampMesh.geometry = buildClampGeometry(strapScale);
       }
       canvas.style.touchAction = s.interactive ? 'pan-y' : 'auto';
+      canvas.style.visibility = s.hold ? 'hidden' : '';
 
       applied = { layoutKey, framingKey, imageKey, faceKey, strapColor: s.strapColor, strapScale };
       start();
@@ -1320,6 +1326,10 @@ const Lanyard = ({
 
     const start = () => {
       if (raf || !visible || !alive) return;
+      if (settingsRef.current!.hold) {
+        render();
+        return;
+      }
       sim.calm = 0;
       last = performance.now();
       raf = requestAnimationFrame(tick);
@@ -1360,7 +1370,7 @@ const Lanyard = ({
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (!settingsRef.current!.interactive || event.button > 0) return;
+      if (!settingsRef.current!.interactive || settingsRef.current!.hold || event.button > 0) return;
       toPointer(event);
       const hit = pickCard();
       if (!hit) return;

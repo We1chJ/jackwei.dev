@@ -1,5 +1,6 @@
 // Jack's badge, hanging in the gap between the name and the claw machine: drag it, throw it, click to flip.
-// It swings in once the name has landed, then hangs still. Windows without room for it go without.
+// Built during the loading screen, where its slow first render can't be seen; it swings in once the name
+// has landed, then hangs still. Windows without room for it go without.
 import { useEffect, useState } from 'react';
 import { intro, useIntro } from './intro';
 import Lanyard from './Lanyard';
@@ -35,7 +36,7 @@ export default function HeroBadge() {
 
   const nameRight = NAME_LEFT * w + NAME_WIDTH * heroNameSize(w, h);
   const gap = MACHINES_LEFT * w - nameRight;
-  if (!show || gap < MIN_GAP) return null;
+  if (gap < MIN_GAP) return null;
   const cardH = Math.min((gap * 0.8) / CARD_ASPECT, 0.34 * h);
   return (
     <div className="hero-badge" aria-hidden="true" style={{ left: (nameRight + gap / 2) - (BOX_W * w) / 2, width: BOX_W * w }}>
@@ -47,6 +48,7 @@ export default function HeroBadge() {
         strapColor="#141414"
         breeze={0}
         intro={swingIn}
+        hold={!show}
       />
     </div>
   );

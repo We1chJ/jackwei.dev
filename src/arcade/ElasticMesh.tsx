@@ -351,6 +351,7 @@ const MATERIALS: Record<string, number> = { balloon: 0, chrome: 1, jelly: 2, cla
 const MAX_FIELD = 720;
 const MAX_NODES = 5200;
 const STEP = 1 / 480;
+const MAX_STEPS = 16;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -1255,6 +1256,7 @@ const ElasticMesh = ({
       const radius = s.grabRadius;
       const inv = 1 / (2 * radius * radius);
       const strength = 0.4 + s.press;
+      state.energy = Infinity;
       for (let k = 0; k < count; k++) {
         if (!active[k]) continue;
         const dx = x[k] - px;
@@ -1453,17 +1455,21 @@ const ElasticMesh = ({
         tilting = Math.abs(aimTiltX - state.tilt.x) > 0.002 || Math.abs(aimTiltY - state.tilt.y) > 0.002;
       }
 
+      // Nobody touching it and nothing still moving: the mesh sleeps. Otherwise a slow frame asks for more
+      // steps, which makes the next frame slower, all through the landing.
       let energy = 0;
-      if (state.ready) {
+      const stirring =
+        pointer.dragging || hover.power > 0.002 || state.energy > 0.05 * Math.max(1, mesh.activeCount);
+      if (state.ready && stirring) {
         updateGrip(s);
         state.accumulator += dt;
         let steps = 0;
-        while (state.accumulator >= STEP && steps < 40) {
+        while (state.accumulator >= STEP && steps < MAX_STEPS) {
           energy = solve(STEP, s);
           state.accumulator -= STEP;
           steps++;
         }
-        if (steps === 40) state.accumulator = 0;
+        if (steps === MAX_STEPS) state.accumulator = 0;
         writeDynamic();
       }
       state.energy = energy;
