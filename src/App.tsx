@@ -1,4 +1,5 @@
 import NameSign from './arcade/NameSign';
+import RotatingText from './arcade/RotatingText';
 import Stage from './arcade/Stage';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
@@ -9,6 +10,8 @@ import { gacha, useGacha, type Phase } from './gacha/store';
 import { useVending, type VendPhase } from './vending/store';
 import Reel from './resume/Reel';
 import { loadReel, reel } from './resume/store';
+
+const VERBS = ['builds', 'trolls', 'creates content', 'ships', 'tinkers'];
 
 const GACHA_HINT: Record<Phase, string> = {
   settling: 'Filling the machine…',
@@ -66,10 +69,13 @@ export default function App() {
       <main className="app">
         <div className="stage"><Stage /></div>
         <NameSign />
-        {/* The name itself is drawn on a canvas; this heading is its text for screen readers and search. */}
+        {/* The name itself is hidden from screen readers; this heading is its text for them and search. */}
         <section className={`hero-copy${opened ? ' in' : ''}`} style={{ top: `${(HERO_TEXT_BOTTOM * 100 + 2.5).toFixed(1)}vh` }}>
           <h1 className="sr-only">Jack Wei</h1>
-          <p className="hero-line">builds too many things.</p>
+          <p className="hero-line">
+            <RotatingText texts={VERBS} mainClassName="hero-verb" highlight highlightColor="#141414" auto={opened} rotationInterval={2400} staggerFrom="last" staggerDuration={0.02} />
+            <span>too much.</span>
+          </p>
           <nav className="hero-links" aria-label="Links">
             <a href="https://github.com/We1chJ" target="_blank" rel="noreferrer">GitHub ↗</a>
             <a href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a>
