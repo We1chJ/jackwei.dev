@@ -219,6 +219,13 @@ function Overlay() {
     return Math.min(devicePixelRatio || 1, 2, cap);
   };
 
+  // Only once the clip is showing: disposing blanks the ripple's canvas at once, and React shows the
+  // clip a moment later, so doing it first would flash the arcade through the gap between them.
+  useEffect(() => {
+    if (phase === 'loading' || phase === 'travel' || phase === 'fan') return;
+    ripple.current?.dispose();
+    ripple.current = null;
+  }, [phase]);
   useEffect(() => () => { ripple.current?.dispose(); ripple.current = null; }, []);
 
   // two ripples fan out from the orbs and bring the first frame in; without WebGL it crossfades instead
@@ -226,8 +233,6 @@ function Overlay() {
     if (phase !== 'fan') return;
     reel.set({ covered: true }); // the arcade is gone from here on; stop drawing it
     const finish = () => {
-      ripple.current?.dispose();
-      ripple.current = null;
       if (phaseRef.current !== 'fan') return;   // closed partway through
       setPhase('play');
       if (s.current.auto) sound(true);
