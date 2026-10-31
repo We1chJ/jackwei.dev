@@ -72,7 +72,7 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 /* ---------- Loading screen (index.html + src/loader.ts) ---------- */
 /* Warm light on black. Only transforms, opacity and clip-paths animate, so it stays smooth while
    the 3D engine warms up. */
-.loader { --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .22); --gold: #F2C744; --coin: 112px; --floor: 85%;
+.loader { --diamond: polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%); --night: #0B0A0B; --light: #FFE3AE; --dim: rgba(255, 227, 174, .22); --gold: #F2C744; --coin: 112px; --floor: 85%;
   position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
 /* The black is two panels meeting at the floor line (loader.ts places it); they slide apart to open. */
 .loader-sky, .loader-ground { position: absolute; left: 0; width: 100%; background: var(--night); will-change: transform; }
@@ -80,6 +80,12 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .loader-ground { top: var(--floor); bottom: 0; }
 .loader-horizon { position: absolute; left: 0; width: 100%; top: var(--floor); height: 2px; margin-top: -1px; background: var(--gold);
   box-shadow: 0 0 12px rgba(242, 199, 68, .85), 0 0 40px rgba(242, 199, 68, .35); transform: scaleX(0); opacity: 0; will-change: transform, opacity; }
+
+/* The diamonds: the coin's four-pointed star, loose on the black (loader.ts scatters them). */
+.loader-stars { position: absolute; inset: 0; }
+.loader-stars i { position: absolute; margin: -8px 0 0 -8px; background: var(--light); clip-path: var(--diamond); opacity: var(--o); animation: star-twinkle 7s ease-in-out infinite; }
+@keyframes star-twinkle { 0%, 100% { opacity: var(--o); transform: scale(.72); } 50% { opacity: calc(var(--o) * 2.3); transform: scale(1.08); } }
+.dm { display: inline-block; flex: none; width: 8px; height: 8px; background: currentColor; clip-path: var(--diamond); }
 
 /* The hero in wireframe: every line hidden until the coin is in, then each draws itself (loader.ts). */
 .outline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
@@ -103,7 +109,7 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .coin-flip { position: absolute; inset: 0; will-change: transform; }
 .coin-body { position: absolute; inset: 0; clip-path: circle(49.5% at 50% 50%); }
 .coin-spin { position: absolute; inset: 0; will-change: transform; }
-.coin-spark { position: absolute; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; background: var(--light); box-shadow: 0 0 4px rgba(255, 196, 110, .9); pointer-events: none; }
+.coin-spark { position: absolute; width: 8px; height: 8px; margin: -4px; background: var(--light); clip-path: var(--diamond); pointer-events: none; }
 .coin-face { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
 .c-text { font: 900 6.6px var(--font); letter-spacing: 1.1px; }
 /* unlit: the same coin, faint */
@@ -140,12 +146,19 @@ body { background: var(--backdrop); color: var(--ink); font-family: var(--font);
 .loader.ready .loader-slot { box-shadow: 0 0 0 1.4px var(--light), 0 0 14px rgba(255, 196, 110, .35); }
 .loader .loader-slot.hot { box-shadow: 0 0 0 2px #fff, 0 0 28px rgba(255, 225, 170, .95); }
 
-/* a line along the bottom, for reading only */
-.loader-note { position: absolute; left: 50%; bottom: max(15vh, 84px); transform: translateX(-50%); margin: 0; text-align: center; white-space: nowrap;
+/* a line along the bottom, for reading only, between hairlines that end in diamonds */
+.loader-note { position: absolute; left: 50%; bottom: max(15vh, 84px); transform: translateX(-50%); margin: 0; display: flex; align-items: center; gap: 14px; white-space: nowrap;
   font: italic 500 clamp(13px, 1.25vw, 16px)/1.4 var(--font); letter-spacing: .5px; color: var(--light); opacity: .55; animation: note-breathe 6s ease-in-out infinite; }
-.loader-note::before { content: '✦'; display: block; margin-bottom: 8px; font-style: normal; font-size: 9px; letter-spacing: 0; opacity: .8; }
-@keyframes note-breathe { 50% { opacity: .8; } }
-.loader-caption { margin: 24px 0 0; font: 700 12px/1 var(--font); letter-spacing: 2.4px; text-transform: uppercase; color: var(--light); opacity: .55; transition: opacity .4s; }
+.loader-note::before, .loader-note::after { content: ''; width: clamp(24px, 7vw, 96px); height: 1px; }
+.loader-note::before { background: linear-gradient(90deg, transparent, var(--light)); }
+.loader-note::after { background: linear-gradient(90deg, var(--light), transparent); }
+@keyframes note-breathe { 50% { opacity: .85; } }
+@media (max-width: 560px) { .loader-note { font-size: 12px; gap: 9px; } .loader-note::before, .loader-note::after { display: none; } }
+.loader-slot::before, .loader-slot::after { content: ''; position: absolute; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; background: var(--light); clip-path: var(--diamond); opacity: .4; transition: opacity .3s; }
+.loader-slot::before { left: -22px; }
+.loader-slot::after { right: -22px; }
+.loader.ready .loader-slot::before, .loader.ready .loader-slot::after { opacity: 1; }
+.loader-caption { display: flex; align-items: center; gap: 12px; margin: 24px 0 0; font: 700 12px/1 var(--font); letter-spacing: 2.4px; text-transform: uppercase; color: var(--light); opacity: .55; transition: opacity .4s; }
 .loader.ready .loader-caption { opacity: 1; }
 .loader-retry {
   margin-top: 16px; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto;

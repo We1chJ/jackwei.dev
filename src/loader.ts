@@ -2,9 +2,11 @@
 // arrive. A black screen with one coin hovering in the middle, hollow at first: only its outlines,
 // with the mascot struck into it in thin lines. Gold rises in it like a liquid as the site loads,
 // waves on the surface, until it is a full coin. The coin is a real object the whole time: grab it,
-// throw it, bounce it off the floor and the walls, roll it; the gold inside stays level. Once it is
-// full, carry or throw it into the slot (or tap it, or press Enter, and it hops in by itself): a
-// clink, and the hero draws itself in wireframe, the lines flowing out from the slot; the floor line
+// throw it, bounce it off the floor and the walls, roll it; the gold inside stays level. The slit is
+// solid until the coin is full. Then it opens between its two end posts: carry or throw the coin
+// through it from either side (or tap it, or press Enter, and it hops in by itself), and it vanishes
+// at the slit's edge. A clink, and the hero draws itself in wireframe, the lines flowing out from
+// the slit; the floor line
 // lights up yellow and the black opens along it, the floor sliding down and the wall lifting away,
 // onto the arcade as the machines drop into their outlines.
 //
@@ -26,6 +28,7 @@ const root = document.getElementById('loader')!;
 const q = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
 const sky = q('.loader-sky'), ground = q('.loader-ground'), horizon = q('.loader-horizon');
 const outline = root.querySelector<SVGSVGElement>('.outline')!;
+const starsBox = q('.loader-stars');
 const coin = q('.coin'), slot = q('.loader-slot'), caption = q('.loader-caption'), capText = q('.cap-text'), note = q('.loader-note'), retry = q<HTMLButtonElement>('.loader-retry');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -201,10 +204,42 @@ const once = (el: Element, frames: Keyframe[], ms: number, easing = 'cubic-bezie
   el.animate(frames, { duration: reduced ? 1 : ms, easing }).finished;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
 
+// ---------- the diamonds: a sparse field of the coin's own star, twinkling on the black ----------
+// Scattered from a fixed seed so the page always looks the same, clear of the coin and the text,
+// with one larger diamond resting in each corner. Hard knocks make the ones nearby flare.
+type Star = { el: HTMLElement; x: number; y: number };
+const stars: Star[] = [];
+function addStar(x: number, y: number, px: number, o: number, delay: number) {
+  const el = document.createElement('i');
+  el.style.cssText = `left:${x}%;top:${y}%;width:${px}px;height:${px}px;--o:${o};animation-delay:${delay.toFixed(2)}s`;
+  starsBox.append(el);
+  stars.push({ el, x, y });
+}
+function scatter() {
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const want = innerWidth < 560 ? 14 : 30;
+  for (let i = 0, made = 0; i < 400 && made < want; i++) {
+    const x = 3 + rnd() * 94, y = 4 + rnd() * 92, big = rnd(), delay = rnd() * 7;
+    if ((Math.abs(x - 50) < 22 && Math.abs(y - 46) < 30) || (Math.abs(x - 50) < 30 && y > 72 && y < 92)) continue;
+    if (stars.some((t) => Math.hypot(t.x - x, (t.y - y) * 0.6) < 7)) continue;
+    addStar(x, y, big > 0.85 ? 13 : big > 0.5 ? 9 : 6, big > 0.85 ? 0.3 : 0.18, delay);
+    made++;
+  }
+  [[3.5, 6], [96.5, 6], [3.5, 94], [96.5, 94]].forEach(([x, y], i) => addStar(x, y, 16, 0.42, i * 1.7));
+}
+function flare(x: number, y: number) {
+  for (const t of stars) {
+    const d = Math.hypot((t.x / 100) * innerWidth - x, (t.y / 100) * innerHeight - y);
+    if (d < 320) void t.el.animate([{ opacity: 1, transform: 'scale(1.5) rotate(45deg)' }, { opacity: 0, transform: 'scale(.75)' }], { duration: 500 + d * 2, delay: d * 0.6, easing: 'ease-out' });
+  }
+}
+
 // ---------- the coin is full: put it in ----------
 const onEnter: (() => void)[] = [], onOpen: (() => void)[] = [];
 function waitForCoin() {
-  waiting = true; readyAt = performance.now();
+  waiting = true;
+  sealed = performance.now() - lastBar < 400;   // a coin lying on the slit stays there until picked up
   root.classList.add('ready');
   capText.textContent = 'Insert coin';
   coin.tabIndex = 0;
@@ -215,24 +250,26 @@ function waitForCoin() {
 }
 
 // ---------- the coin as an object ----------
-// It hovers over the slot while it fills. Grab it and it is yours: throw it, bounce it off the
-// floor and the walls, roll it. Tap it (or press Enter) once it is full and it hops into the slot
-// by itself; carry or throw it down onto the slit and it goes in. Before it is full the slit only
-// clinks it away.
+// It hovers over the slit while it fills. Grab it and it is yours: throw it, bounce it off the
+// floor and the walls, roll it. The slit is a rigid body in its way: a solid bar until the coin is
+// full, then two end posts with an opening between them that takes the coin from either side.
 const G = 2600, BOUNCE = 0.46, WALL = 0.6, ROLL = 1.3, AIR = 0.15, MAX_THROW = 3200;   // px, s
+const SLOW = 130;                      // px/s: slower than this a landing does not bounce
+const LIP = 1.5;                       // px: the coin is cut just outside the slit's lit outline
 let R = 56;
 const c = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, angv: 0, tx: 0, ty: 0, free: false, resting: false, dragging: false };
 const home = q('.coin-home');
-let launched = 0, readyAt = 0;        // the slit only takes a coin let go after it was full
 let anchor = { x: innerWidth / 2, y: innerHeight / 2 };
-let slotBox = { x: innerWidth / 2, top: innerHeight / 2 + 80, half: 70 };
+let bar = { x: innerWidth / 2, y: innerHeight / 2 + 80, top: innerHeight / 2 + 77, bottom: innerHeight / 2 + 83, half: 70, r: 3 };
+let sealed = false, lastBar = -1e9, touching = false;
 const groundY = () => innerHeight - 4 - R;
 const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));
 const ease = (a: number, b: number, k: number) => a + (b - a) * Math.min(1, k);
+const open = () => waiting && !sealed;
 function measure() {
   const h = home.getBoundingClientRect(), sl = slot.getBoundingClientRect();
   anchor = { x: h.left + h.width / 2, y: h.top + h.height / 2 };
-  slotBox = { x: sl.left + sl.width / 2, top: sl.top, half: sl.width / 2 };
+  bar = { x: sl.left + sl.width / 2, y: (sl.top + sl.bottom) / 2, top: sl.top, bottom: sl.bottom, half: sl.width / 2, r: sl.height / 2 };
   if (!c.free && !c.dragging) { c.x = anchor.x; c.y = anchor.y; }
 }
 function place() {
@@ -247,16 +284,16 @@ function sparks(x: number, y: number, n: number) {
     el.className = 'coin-spark'; el.style.left = `${x}px`; el.style.top = `${y}px`;
     root.append(el);
     const a = Math.PI * (0.15 + 0.7 * (i / Math.max(1, n - 1))) + (Math.random() - 0.5) * 0.5, d = R * (0.4 + Math.random() * 0.8);
-    el.animate([{ transform: 'translate(0, 0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${-Math.sin(a) * d}px) scale(.3)`, opacity: 0 }],
+    el.animate([{ transform: 'translate(0, 0) scale(1) rotate(0deg)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${-Math.sin(a) * d}px) scale(.3) rotate(90deg)`, opacity: 0 }],
       { duration: 360 + Math.random() * 240, easing: 'cubic-bezier(.1, .7, .3, 1)', fill: 'forwards' }).finished.then(() => el.remove());
   }
 }
 let lastHit = 0;
-/** A landing or a knock: sparks when hard, and the sound of it. */
+/** A landing or a knock: sparks when hard, the diamonds around it flare, and the sound of it. */
 function hit(strength: number, x: number, y: number) {
   const now = performance.now(); if (now - lastHit < 60) return; lastHit = now;
   const st = Math.min(1, strength);
-  if (st > 0.3) sparks(x, y, st > 0.65 ? 7 : 3);
+  if (st > 0.3) { sparks(x, y, st > 0.65 ? 7 : 3); flare(x, y); }
   sfx.bounce(st);
 }
 function squash(sy: number) {
@@ -264,8 +301,68 @@ function squash(sy: number) {
   void once(body, [{ transform: `scale(${2 - sy}, ${sy})` }, { transform: 'scale(1, 1)' }], 240, 'cubic-bezier(.2, .8, .3, 1)');
   setTimeout(() => { body.style.transformOrigin = ''; }, 260);
 }
+/** The slit takes the knock: it gives a little and its outline flashes. */
+function knock(st: number, ny: number) {
+  const d = -ny * Math.min(4, 1 + st * 4);
+  void once(slot, [{ transform: 'translateY(0)' }, { transform: `translateY(${d.toFixed(1)}px)`, offset: 0.3 }, { transform: 'translateY(0)' }], 220, 'ease-out');
+  slot.classList.add('hot'); setTimeout(() => { if (!inserting) slot.classList.remove('hot'); }, 110);
+}
+/** Where the coin overlaps the slit's solid part: the bar, or once open the nearest end post. */
+function contact() {
+  const inner = bar.half - bar.r;
+  const px = open() ? bar.x + (c.x < bar.x ? -inner : inner) : Math.max(bar.x - inner, Math.min(bar.x + inner, c.x));
+  const dx = c.x - px, dy = c.y - bar.y, d = Math.hypot(dx, dy), gap = R + bar.r - d;
+  if (gap <= 0) return null;
+  return d < 1e-3 ? { nx: 0, ny: -1, gap } : { nx: dx / d, ny: dy / d, gap };
+}
+/** Clear of both end posts and past the slit's near edge, moving on through: in it goes. */
+function through() {
+  if (!open() || Math.abs(c.x - bar.x) + R > bar.half - bar.r * 2) return;
+  const down = c.vy > 0 && c.y < bar.y && c.y + R > bar.top - LIP, up = c.vy < 0 && c.y > bar.y && c.y - R < bar.bottom + LIP;
+  if (down || up) insert(down ? 1 : -1, Math.abs(c.vy));
+}
+/** One small step of flight. Fast throws are cut into several, so the coin cannot jump the bar. */
+function move(dt: number) {
+  c.vy += G * dt;
+  c.vx *= Math.exp(-AIR * dt);
+  c.x += c.vx * dt; c.y += c.vy * dt;
+  c.ang += (c.resting ? c.vx / R : c.angv) * dt;   // rolling when it rests on something, free spin in the air
+  const floor = groundY();
+  if (c.y >= floor) {
+    c.y = floor;
+    if (c.vy > SLOW) {
+      hit(c.vy / 1800, c.x, c.y + R);
+      squash(Math.max(0.8, 1 - c.vy / 5000));
+      c.vy = -c.vy * BOUNCE; c.angv = c.vx / R;
+    } else { c.vy = 0; c.resting = true; }
+  } else c.resting = false;
+  if (c.y < R) { c.y = R; c.vy = -c.vy * WALL; hit(Math.abs(c.vy) / 1800, c.x, 0); }
+  if (c.x < R) { c.x = R; c.vx = -c.vx * WALL; c.angv *= -0.5; hit(Math.abs(c.vx) / 1800, 0, c.y); }
+  else if (c.x > innerWidth - R) { c.x = innerWidth - R; c.vx = -c.vx * WALL; c.angv *= -0.5; hit(Math.abs(c.vx) / 1800, innerWidth, c.y); }
+
+  const k = contact();
+  if (k) {
+    const vn = c.vx * k.nx + c.vy * k.ny;
+    c.x += k.nx * k.gap; c.y += k.ny * k.gap;
+    lastBar = performance.now();
+    if (vn < 0) {
+      const hard = vn < -SLOW, e = 1 + (hard ? BOUNCE : 0);
+      c.vx -= e * vn * k.nx; c.vy -= e * vn * k.ny;
+      if (hard) {
+        const st = -vn / 1800;
+        hit(st, c.x - k.nx * R, c.y - k.ny * R);
+        knock(st, k.ny);
+        c.angv = c.vx / R;
+      } else if (k.ny < -0.7) c.resting = true;
+    }
+  }
+  through();
+  if (c.resting) { c.vx *= Math.exp(-dt * ROLL); if (Math.abs(c.vx) < 3) c.vx = 0; c.angv = c.vx / R; }
+  else c.angv *= Math.exp(-dt * 0.3);
+}
 function step(dt: number, now: number) {
   if (reduced) return;
+  if (toss) { flyToss(now, dt); return; }
   if (c.dragging) {
     // in the hand it banks into the movement
     c.ty = ease(c.ty, clamp1(c.vx / 1100) * 16, dt * 8); c.tx = ease(c.tx, clamp1(-c.vy / 1400) * 12, dt * 8);
@@ -273,76 +370,72 @@ function step(dt: number, now: number) {
     return;
   }
   if (!c.free) {
-    // hovering over the slot, breathing, turning a little in the light
+    // hovering over the slit, breathing, turning a little in the light
     const t = now / 1000;
     c.x = ease(c.x, anchor.x, dt * 6); c.y = ease(c.y, anchor.y + Math.sin(t * 1.7) * 4, dt * 6);
     c.ty = Math.sin(t * 0.75) * 9; c.tx = ease(c.tx, 0, dt * 4);
     return;
   }
-  c.vy += G * dt;
-  c.vx *= Math.exp(-AIR * dt);
-  c.x += c.vx * dt; c.y += c.vy * dt;
-  c.ang += (c.resting ? c.vx / R : c.angv) * dt;   // rolling on the floor, free spin in the air
-  const floor = groundY();
-  if (c.y >= floor) {
-    c.y = floor;
-    if (c.vy > 130) {
-      hit(c.vy / 1800, c.x, c.y + R);
-      squash(Math.max(0.8, 1 - c.vy / 5000));
-      c.vy = -c.vy * BOUNCE; c.angv = c.vx / R;
-    } else { c.vy = 0; c.resting = true; }
-  } else c.resting = false;
-  if (c.resting) { c.vx *= Math.exp(-dt * ROLL); if (Math.abs(c.vx) < 3) c.vx = 0; c.angv = c.vx / R; }
-  else c.angv *= Math.exp(-dt * 0.3);
-  if (c.y < R) { c.y = R; c.vy = -c.vy * WALL; hit(Math.abs(c.vy) / 1800, c.x, 0); }
-  if (c.x < R) { c.x = R; c.vx = -c.vx * WALL; c.angv *= -0.5; hit(Math.abs(c.vx) / 1800, 0, c.y); }
-  else if (c.x > innerWidth - R) { c.x = innerWidth - R; c.vx = -c.vx * WALL; c.angv *= -0.5; hit(Math.abs(c.vx) / 1800, innerWidth, c.y); }
-  // it banks into its flight and lies flat on the floor
+  const n = Math.min(14, Math.max(1, Math.ceil((Math.hypot(c.vx, c.vy) * dt) / (R * 0.35))));
+  for (let i = 0; i < n && !inserting; i++) move(dt / n);
+  // it banks into its flight and lies flat when it comes to rest
   c.ty = ease(c.ty, c.resting ? 0 : clamp1(c.vx / 1100) * 14, dt * 5);
   c.tx = ease(c.tx, c.resting ? 0 : clamp1(-c.vy / 1600) * 10, dt * 5);
-  atSlot(c.vy);
-}
-/** The slit takes the coin coming down onto it, once it is full and the visitor has meant it (in
- *  the hand, or let go after it filled); otherwise it only clinks it away. */
-function atSlot(vy: number) {
-  if (inserting || vy < 0) return;
-  if (Math.abs(c.x - slotBox.x) > slotBox.half * 0.85 || c.y + R < slotBox.top || c.y > slotBox.top) return;
-  if (waiting && (c.dragging || launched > readyAt)) { insert(); return; }
-  c.free = true; c.resting = false;
-  c.y = slotBox.top - R; c.vy = -Math.max(220, vy) * 0.5; c.vx += (c.x < slotBox.x ? -1 : 1) * 60;
-  slot.classList.add('hot'); setTimeout(() => slot.classList.remove('hot'), 120);
-  hit(0.5, c.x, slotBox.top);
 }
 
 // ---------- in the hand ----------
+/** Inside a visitor's gesture: audio may start, and the arcade's sound with it. */
+let unlocked = false;
+function gesture() {
+  ac();
+  if (!unlocked && onEnter.length) { unlocked = true; onEnter.forEach((f) => f()); }
+}
 let grab: { dx: number; dy: number; sx: number; sy: number; samples: { t: number; x: number; y: number }[] } | null = null;
 coin.addEventListener('pointerdown', (e) => {
-  if (inserting || reduced) return;
+  if (inserting) return;
+  if (reduced) { tossToSlot(); return; }
   e.preventDefault();
   coin.setPointerCapture(e.pointerId);
+  gesture();
   grab = { dx: e.clientX - c.x, dy: e.clientY - c.y, sx: e.clientX, sy: e.clientY, samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }] };
-  c.dragging = true; c.resting = false; c.vx = c.vy = 0;
+  c.dragging = true; c.resting = false; c.vx = c.vy = 0; toss = null; sealed = false;
   root.classList.add('dragging');
 });
 coin.addEventListener('pointermove', (e) => {
   if (!grab || inserting) return;
   const px = Math.max(R, Math.min(innerWidth - R, e.clientX - grab.dx)), py = Math.max(R, Math.min(groundY(), e.clientY - grab.dy));
-  c.vx = (px - c.x) * 60; c.vy = (py - c.y) * 60;   // for the banking; the throw itself uses the samples
-  c.x = px; c.y = py;
+  const mx = px - c.x, my = py - c.y;
+  c.vx = mx * 60; c.vy = my * 60;                   // for the banking; the throw itself uses the samples
+  // the hand cannot push it through the slit: walk there in small steps and stop against the bar
+  const n = Math.max(1, Math.ceil(Math.hypot(mx, my) / (R * 0.35)));
+  let hitting = false;
+  for (let i = 0; i < n && !inserting; i++) {
+    c.x += mx / n; c.y += my / n;
+    const k = contact();
+    if (k) {
+      c.x += k.nx * k.gap; c.y += k.ny * k.gap; hitting = true; lastBar = performance.now();
+      if (!touching) { touching = true; hit(0.4, c.x - k.nx * R, c.y - k.ny * R); knock(0.4, k.ny); }
+    }
+    through();
+  }
+  touching = hitting;
+  if (inserting) return;
   c.ang += ((e.movementX || 0) / R) * 0.35;         // it turns a little in the hand
   grab.samples.push({ t: performance.now(), x: e.clientX, y: e.clientY });
   if (grab.samples.length > 6) grab.samples.shift();
-  slot.classList.toggle('hot', waiting && Math.abs(c.x - slotBox.x) < slotBox.half * 0.85 && c.y + R >= slotBox.top - 12);
-  atSlot(1);
+  const near = Math.abs(c.x - bar.x) < bar.half && Math.min(Math.abs(c.y + R - bar.top), Math.abs(c.y - R - bar.bottom)) < 14;
+  slot.classList.toggle('hot', open() && near);
 });
 const letGo = (e: PointerEvent) => {
   if (!grab) return;
   const s = grab.samples, a = s[0], b = s[s.length - 1];
   const moved = Math.hypot(e.clientX - grab.sx, e.clientY - grab.sy);
-  grab = null; c.dragging = false;
-  root.classList.remove('dragging'); slot.classList.remove('hot');
+  grab = null; c.dragging = false; touching = false;
+  root.classList.remove('dragging');
   if (inserting) return;
-  c.free = true; launched = performance.now();
+  gesture();
+  slot.classList.remove('hot');
+  c.free = true;
   if (moved < 6) {
     if (waiting) { tossToSlot(); return; }
     c.vy = -480; c.angv = 4;   // a hop
@@ -357,50 +450,67 @@ const letGo = (e: PointerEvent) => {
 };
 coin.addEventListener('pointerup', letGo);
 coin.addEventListener('pointercancel', letGo);
-coin.addEventListener('keydown', (e) => { if (waiting && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tossToSlot(); } });
+coin.addEventListener('keydown', (e) => { if (waiting && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); gesture(); tossToSlot(); } });
 
-/** The coin hops from where it is into the slot by itself (a tap, or the keyboard). */
+// A tap, or the keyboard: the coin arcs into the opening by itself, a curve that arrives square
+// to the slit, from below if it is lying under the bar and from above otherwise.
+let toss: { t0: number; T: number; sx: number; sy: number; cx: number; cy: number; px: number; py: number; dir: number; speed: number } | null = null;
 function tossToSlot() {
-  if (!waiting || inserting) return;
-  if (reduced) { c.x = slotBox.x; c.y = slotBox.top - R; insert(); return; }
-  c.free = true; c.resting = false; launched = performance.now();
-  const t = 0.5, dx = slotBox.x - c.x, dy = slotBox.top - R - c.y;
-  c.vx = dx / t; c.vy = dy / t - (G * t) / 2; c.angv = (c.vx / R) * 0.6;
-  // whatever the arc does, it lands in the slot
-  setTimeout(() => { if (waiting && !inserting) { c.x = slotBox.x; c.y = slotBox.top - R; insert(); } }, t * 1000 + 40);
+  if (!waiting || inserting || toss) return;
+  sealed = false;
+  const dir = c.y > bar.y && Math.abs(c.x - bar.x) < bar.half + R ? -1 : 1;
+  const px = bar.x, py = dir > 0 ? bar.top - LIP - R : bar.bottom + LIP + R;
+  if (reduced) { c.x = px; c.y = py; insert(dir); return; }
+  const dist = Math.hypot(px - c.x, py - c.y), L = Math.max(60, Math.min(240, dist * 0.6)), T = Math.max(0.3, Math.min(0.65, 0.3 + dist / 2400));
+  c.free = true; c.resting = false; c.angv = ((px - c.x) / T / R) * 0.6;
+  toss = { t0: performance.now(), T, sx: c.x, sy: c.y, cx: px, cy: py - dir * L, px, py, dir, speed: Math.min(1400, (3 * L) / T) };
+}
+function flyToss(now: number, dt: number) {
+  const f = toss!, u = Math.min(1, (now - f.t0) / 1000 / f.T), e = Math.pow(u, 1.5), v = 1 - e;
+  c.x = v * v * f.sx + 2 * v * e * f.cx + e * e * f.px;
+  c.y = v * v * f.sy + 2 * v * e * f.cy + e * e * f.py;
+  c.ang += c.angv * dt;
+  if (u < 1) return;
+  toss = null;
+  insert(f.dir, f.speed);
 }
 
-/** The coin drops into the slit and we enter: the slot flashes, the hero draws itself in
- *  wireframe, the floor line lights up, and the black opens along it onto the arcade. */
-function insert() {
+/** The coin goes through the slit and we enter: it vanishes at the slit's near edge whichever
+ *  side it came from, and the moment it is gone the hero draws itself in wireframe, the floor line
+ *  lights up, and the black opens along it onto the arcade. dir: 1 going down, -1 going up. */
+function insert(dir = 1, speed = 0) {
   if (!waiting || inserting) return;
-  inserting = true; waiting = false;
+  inserting = true; waiting = false; toss = null;
   root.classList.remove('ready');
   root.classList.add('inserting');
   coin.removeAttribute('tabindex');
-  ac();                                 // still inside the visitor's gesture: audio may start now
-  onEnter.forEach((f) => f());
+  gesture();
   void (async () => {
-    // down into the slit: it moves behind the slot's edge as it goes
-    c.tx = c.ty = 0; place();
-    const gap = Math.max(0, slotBox.top + 1 - (c.y + R)), D = gap + 2 * R;
-    const N = 18, frames: Keyframe[] = [];
+    const lip = dir > 0 ? bar.top - LIP : bar.bottom + LIP;
+    const gap = Math.max(0, (lip - (c.y + dir * R)) * dir), D = gap + 2 * R;
+    const ms = Math.max(170, Math.min(460, (D / Math.max(speed, 420)) * 1000)), N = 18, frames: Keyframe[] = [];
     for (let i = 0; i <= N; i++) {
-      const t = i / N, u = t * t * (1.6 - 0.6 * t);   // gathering speed as it falls
-      const y = D * u, hidden = Math.min(1, Math.max(0, (y - gap) / (2 * R)));
-      frames.push({ transform: `translate(${(c.x - R + (slotBox.x - c.x) * u).toFixed(1)}px, ${(c.y - R + y).toFixed(1)}px)`, clipPath: `inset(0 0 ${(hidden * 100).toFixed(2)}% 0)` });
+      const u = i / N, gone = Math.max(0, Math.min(1, (D * u - gap) / (2 * R))) * 100;
+      frames.push({
+        transform: `translate(${(c.x - R + (bar.x - c.x) * u).toFixed(1)}px, ${(c.y - R + dir * D * u).toFixed(1)}px)`,
+        clipPath: dir > 0 ? `inset(-40% -40% ${gone.toFixed(2)}% -40%)` : `inset(${gone.toFixed(2)}% -40% -40% -40%)`,
+      });
     }
-    const ms = 300 + gap * 0.6;
     void play(coin, frames, ms, 'linear');
-    await wait(ms * Math.sqrt(gap / D) * 0.9);
+    const turn = (el: Element) => void play(el, [{ transform: `rotate(${c.ang}rad)` }, { transform: `rotate(${c.ang + c.angv * (ms / 1000)}rad)` }], ms, 'linear');
+    turn(spinD); turn(spinL);
+    await wait((ms * gap) / D);
     slot.classList.add('hot');
+    sparks(bar.x, dir > 0 ? bar.top : bar.bottom, 5);
+    flare(bar.x, bar.y);
     sfx.clink();
     void once(slot, [{ transform: 'scaleX(1)' }, { transform: 'scaleX(1.06)', offset: 0.4 }, { transform: 'scaleX(1)' }], 320, 'ease-out');
     void play(caption, [{ opacity: 1 }, { opacity: 0 }], 320, 'ease-out');
     void play(note, [{ opacity: 1 }, { opacity: 0 }], 320, 'ease-out');
-    await wait(ms - ms * Math.sqrt(gap / D) * 0.9);
+    await wait((ms * (D - gap)) / D);
     setTimeout(() => slot.classList.remove('hot'), 200);
     void play(slot, [{ opacity: 1 }, { opacity: 0 }], 500, 'ease-out', 500);
+    void play(starsBox, [{ opacity: 1 }, { opacity: 0 }], 700, 'ease-out', 200);
 
     // the hero draws itself
     const drawn = drawIn();
@@ -474,6 +584,7 @@ drawOutline();
 void fetch('/fonts/hero-display.json').then((r) => r.json()).then((f: FontData) => { font = f; if (!inserting) drawOutline(); }).catch(() => {});
 window.addEventListener('resize', () => { if (!inserting) drawOutline(); });
 if (document.fonts) void document.fonts.ready.then(measure);
+scatter();
 showLevel(0);
 place();
 root.classList.add('on');
