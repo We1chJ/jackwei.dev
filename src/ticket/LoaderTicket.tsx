@@ -2,8 +2,10 @@
 // stub that stays on until everything is ready. Tearing it off is the way in. src/loader.ts owns the
 // progress and everything that happens after the tear.
 import { useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import type { loading } from '../loader';
+import CountUp from './CountUp';
 import RefineFrame from './RefineFrame';
 import TearTicket from './TearTicket';
 import './ticket.css';
@@ -25,8 +27,10 @@ const Tokens = () => (
 function Ticket({ link }: { link: Link }) {
   const { progress, ready, failed } = useSyncExternalStore(link.watch, link.get);
   const [serial] = useState(() => String(Math.floor(Math.random() * 1e6)).padStart(6, '0'));
+  const [percent] = useState(() => document.querySelector('.loader-percent') as HTMLElement);
   return (
     <div onPointerDownCapture={link.touched} onPointerUpCapture={link.touched} onKeyDownCapture={link.touched}>
+      {createPortal(<CountUp to={Math.round(progress * 100)} trigger="load" duration={0.35} suffix="%" />, percent)}
       <TearTicket
         locked={!ready}
         onBreak={link.ripped}
