@@ -1,7 +1,8 @@
 // Yellow Jack plushie: fleece blob body (sheen fabric with a fine fuzz normal map), mismatched
 // googly eyes, open mouth, sprout and stub arms. The collider is almost entirely rounding, so it fits
-// the body's egg shape: no invisible corners for the claw to catch and knock about, and nothing to
-// see through. It has no bounce and plenty of drag; the give you see is Claw.tsx squashing the looks.
+// the body's egg shape, and a touch smaller than the body, so a finger presses into the fleece before it
+// meets anything solid. It has no bounce and plenty of drag; the give you see is the fleece denting
+// round the fingers (below) and Claw.tsx squashing the looks when something knocks it.
 // One of them (SHINY) is the gold one.
 // The bodies are one component each; all the looks are drawn together, instanced per part.
 import { forwardRef, useMemo, type MutableRefObject } from 'react';
@@ -13,23 +14,67 @@ import { ItemInstances, place, type Bend, type Part } from '../arcade/instances'
 export const PG = {
   static: interactionGroups(6, [7, 8]),
   plush: interactionGroups(7, [6, 7, 8]),
-  held: interactionGroups(7, [6, 7]),       // in the claw: the fleece gives round the fingers, nothing grinds
-  wedged: interactionGroups(7, [6]),        // held but pinned in the pile: it squeezes out past its neighbours
   finger: interactionGroups(8, [6, 7]),     // the claw head and fingers
 };
-export const PLUSH = { hx: 0.016, hy: 0.012, hz: 0.01, r: 0.036 };   // collider: half extents + rounding
+export const PLUSH = { hx: 0.016, hy: 0.012, hz: 0.01, r: 0.034 };   // collider: half extents + rounding
 export const PLUSH_TOP = PLUSH.hy + PLUSH.r;
 export const SHINY = 7;
 
 export const PLUSH_COLORS = ['#F6F3EA', '#F6F3EA', '#FFB3CF', '#A9DBFF', '#B8F2D6', '#FFE58A'];
 const plushColor = (i: number) => PLUSH_COLORS[i % PLUSH_COLORS.length];
 
+// Fingers press real dents: the fabric's vertex shader pushes the surface in toward the plushie's centre
+// wherever a finger has gone below it, so the finger sits in a hollow instead of showing through.
+// Three fingers of two segments each, in the same space as the bodies; Claw.tsx keeps them current.
+const DENT_POINTS = 9, DENT_WIDTH = 0.034, FINGER_R = 0.008;
+export const dents = {
+  line: { value: Array.from({ length: DENT_POINTS }, () => new THREE.Vector3(0, -9, 0)) },
+  at: { value: new THREE.Vector3(0, -9, 0) },
+};
+const DENT_VERTEX = /* glsl */ `
+  uniform vec3 uFinger[${DENT_POINTS}];
+  uniform vec3 uFingerAt;
+  varying float vDent;
+`;
+const DENT_PROJECT = /* glsl */ `
+  vec4 mvPosition = vec4(transformed, 1.0);
+  mvPosition = instanceMatrix * mvPosition;
+  vDent = 0.0;
+  if (distance(mvPosition.xyz, uFingerAt) < 0.22) {
+    vec3 c = instanceMatrix[3].xyz, out0 = mvPosition.xyz - c;
+    float r = length(out0), deepest = r, give = 0.0;
+    vec3 dir = out0 / r;
+    for (int f = 0; f < 3; f++) for (int j = 0; j < 2; j++) {
+      vec3 a = uFinger[f * 3 + j], ab = uFinger[f * 3 + j + 1] - a;
+      vec3 q = a + ab * clamp(dot(c + dir * r - a, ab) / dot(ab, ab), 0.0, 1.0);    // nearest on the finger
+      float depth = length(q - c);                                                  // how far out it is
+      float near = smoothstep(${DENT_WIDTH.toFixed(3)}, 0.0, length(dir * depth - (q - c)));
+      float reach = min(r, depth - ${FINGER_R.toFixed(3)});
+      if (reach < r) { deepest = min(deepest, mix(r, reach, near)); give = max(give, near * (r - reach)); }
+    }
+    mvPosition.xyz = c + dir * deepest;
+    vDent = clamp(give / 0.016, 0.0, 1.0);
+  }
+  mvPosition = modelViewMatrix * mvPosition;
+  gl_Position = projectionMatrix * mvPosition;
+`;
+function dentable(m: THREE.MeshPhysicalMaterial) {
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uFinger = dents.line;
+    shader.uniforms.uFingerAt = dents.at;
+    shader.vertexShader = DENT_VERTEX + shader.vertexShader.replace('#include <project_vertex>', DENT_PROJECT);
+    shader.fragmentShader = 'varying float vDent;\n' + shader.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= 1.0 - 0.3 * vDent;');   // a hollow is darker
+  };
+  return m;
+}
+
 let mats: ReturnType<typeof build> | null = null;
 function build() {
   const fuzz = orangePeelNormal(); fuzz.repeat.set(3, 3);
   return {
-    fabric: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.95, sheen: 1, sheenRoughness: 0.42, sheenColor: new THREE.Color('#ffffff'), normalMap: fuzz, normalScale: new THREE.Vector2(0.5, 0.5) }),
-    gold: new THREE.MeshPhysicalMaterial({ color: '#F2C14A', metalness: 0.85, roughness: 0.3, clearcoat: 0.4, normalMap: fuzz, normalScale: new THREE.Vector2(0.25, 0.25) }),
+    fabric: dentable(new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.95, sheen: 1, sheenRoughness: 0.42, sheenColor: new THREE.Color('#ffffff'), normalMap: fuzz, normalScale: new THREE.Vector2(0.5, 0.5) })),
+    gold: dentable(new THREE.MeshPhysicalMaterial({ color: '#F2C14A', metalness: 0.85, roughness: 0.3, clearcoat: 0.4, normalMap: fuzz, normalScale: new THREE.Vector2(0.25, 0.25) })),
     seam: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 }),
     eyeWhite: new THREE.MeshPhysicalMaterial({ color: '#FFFFFF', roughness: 0.15, clearcoat: 1 }),
     pupil: new THREE.MeshPhysicalMaterial({ color: '#0B0B0D', roughness: 0.1, clearcoat: 1 }),
@@ -56,7 +101,7 @@ export const PlushBody = forwardRef<RapierRigidBody, Props>(function PlushBody({
   return (
     <RigidBody
       ref={ref} colliders={false} position={position} rotation={rotation}
-      mass={0.09} friction={1.1} restitution={0} linearDamping={0.5} angularDamping={1.4} ccd
+      mass={0.09} friction={0.8} restitution={0} linearDamping={0.5} angularDamping={1.4} ccd
       collisionGroups={PG.plush} onCollisionEnter={(p) => onHit?.(index, p)}
     >
       <RoundCuboidCollider args={[PLUSH.hx, PLUSH.hy, PLUSH.hz, PLUSH.r]} />
