@@ -6,29 +6,30 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';
 import { loading } from '../loader';
 import { intro } from './intro';
+import { pacer } from './Pacer';
 import { gacha } from '../gacha/store';
 
 export const SHADOW_FRAMES = 40;
 const SETTLE_CHUNKS = 12;  // x 0.25 s of simulated time: short enough that no frame stalls
 
 export default function Warmup() {
-  const { gl, scene, camera, setFrameloop } = useThree();
+  const { gl, scene, camera } = useThree();
   const { step } = useRapier();
   const w = useRef({ settleSteps: 0, frames: 0 });
 
-  // Pause the render loop while shaders compile in parallel (KHR_parallel_shader_compile where
+  // Hold the frames while shaders compile in parallel (KHR_parallel_shader_compile where
   // available), so no frame stalls compiling them one by one.
   useLayoutEffect(() => {
     let alive = true;
     loading.coast(1000, 'settle');   // compile + settle run in heavy frames: let the bar glide
-    setFrameloop('never');
+    pacer.held = true;
     gl.compileAsync(scene, camera).finally(() => {
       if (!alive) return;
       loading.report('compile', 1);
-      setFrameloop('always');
+      pacer.held = false;
     });
-    return () => { alive = false; setFrameloop('always'); };
-  }, [gl, scene, camera, setFrameloop]);
+    return () => { alive = false; pacer.held = false; };
+  }, [gl, scene, camera]);
 
   useFrame(() => {
     const s = w.current;

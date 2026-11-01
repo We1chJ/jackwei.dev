@@ -14,10 +14,11 @@ import CameraRig, { rig } from './CameraRig';
 import Drop from './Drop';
 import Dust from './Dust';
 import { HeroCamera, HeroFx } from './Hero';
+import Pacer, { pacer } from './Pacer';
 import Sparkles from './Sparkles';
 import Room, { RoomLight } from './Room';
 import Warmup from './Warmup';
-import { arcadeShot, useReel } from '../resume/store';
+import { arcadeShot } from '../resume/store';
 import { intro, useIntro } from './intro';
 import { arcade } from './store';
 import { measure, stepTrack, track } from './track';
@@ -25,8 +26,26 @@ import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
 const SHADOW_LINGER = 3;   // seconds the shadows keep updating after the last move: the machines settle, poses ease
-// Pixel density: properly sharp on retina; steps down a notch at a time if frames slow down.
-const DPR_HIGH = Math.min(window.devicePixelRatio, 2);
+// The picture's cost, lightest first; it steps a notch at a time if frames slow down. Ambient occlusion is
+// the dearest effect by far, so it goes before sharpness does. 1.5x is the top: at 2x a Retina screen holds
+// the GPU at full clock.
+const QUALITY = [
+  { sharpness: 1, ao: false },
+  { sharpness: 1.25, ao: false },
+  { sharpness: 1.5, ao: false },
+  { sharpness: 1.5, ao: true },
+];
+const TOP = QUALITY.length - 1;
+// Integrated graphics and phones, by the name the browser gives. They start on the lightest picture and climb if they hold 60 fps.
+const WEAK_GPU = /intel(?!.*\barc\b)|radeon(\(tm\))? (vega \d+ )?graphics|mali|adreno|powervr|swiftshader|llvmpipe|basic render/i;
+
+function weakGPU() {
+  const gl = document.createElement('canvas').getContext('webgl2');
+  const info = gl?.getExtension('WEBGL_debug_renderer_info');
+  const name = gl && info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+  gl?.getExtension('WEBGL_lose_context')?.loseContext();
+  return WEAK_GPU.test(name);
+}
 
 /** Reads the scroll before anything uses it, and keeps the sections' positions measured. */
 function ScrollTrack() {
@@ -61,34 +80,32 @@ function ShadowGate() {
 
 /** After the effects have drawn (they run at priority 1), so the résumé reel can take a still. */
 function ArcadeShot() {
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => arcadeShot.attach(invalidate), [invalidate]);
+  useEffect(() => arcadeShot.attach(() => pacer.draw()), []);
   useFrame(({ gl }) => arcadeShot.take(gl.domElement), 2);
   return null;
 }
 
 export default function Stage() {
-  const [dpr, setDpr] = useState(DPR_HIGH);
+  const [level, setLevel] = useState(() => (weakGPU() ? 0 : TOP));
+  const quality = QUALITY[level];
+  const ceiling = useRef(TOP);   // a level that proved too slow isn't tried again this visit
   // The monitor only judges once everything has landed: the drop is the one heavy stretch, and a
   // verdict taken then would leave the machines soft for the rest of the visit.
   const landed = useIntro((s) => s.phase === 'done');
-  // nothing to draw while the résumé reel covers the screen; while its loading dots dim the
-  // arcade it only redraws on demand, so the decoder and the dots get the machine
-  const covered = useReel((s) => s.covered);
-  const dimmed = useReel((s) => s.dimmed);
   return (
     <Canvas
       shadows
-      frameloop={covered ? 'never' : dimmed ? 'demand' : 'always'}
-      dpr={dpr}
+      frameloop="never"
+      dpr={Math.min(window.devicePixelRatio, quality.sharpness)}
       camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 60 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={(state) => { if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state; }}
     >
       <color attach="background" args={[BACKDROP]} />
+      <Pacer />
       <ScrollTrack />
       <ShadowGate />
-      {landed && <PerformanceMonitor flipflops={3} onDecline={() => setDpr((d) => Math.max(1, d - 0.5))} onIncline={() => setDpr((d) => Math.min(DPR_HIGH, d + 0.5))} onFallback={() => setDpr(Math.min(DPR_HIGH, 1.5))} />}
+      {landed && <PerformanceMonitor onDecline={() => { ceiling.current = Math.max(0, level - 1); setLevel(ceiling.current); }} onIncline={() => setLevel(Math.min(ceiling.current, level + 1))} />}
 
       <Environment resolution={512} frames={1}>
         {/* Studio room: warm grey walls and floor, plus softboxes for highlights. */}
@@ -130,7 +147,7 @@ export default function Stage() {
       />
 
       <EffectComposer multisampling={0}>
-        <N8AO aoRadius={0.05} distanceFalloff={0.6} intensity={2.4} halfRes />
+        {quality.ao ? <N8AO aoRadius={0.05} distanceFalloff={0.6} intensity={2.4} halfRes /> : <></>}
         <SMAA />
         <Vignette offset={0.32} darkness={0.38} />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />
