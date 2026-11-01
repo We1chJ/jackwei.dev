@@ -35,6 +35,11 @@ function thump(from: number, to: number, dur: number, gain: number, when = 0) {
   o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
 }
 
+/** The room's light switch. */
+export const lightSwitch = () => { burst(2400, 8, 0.02, 0.24); thump(210, 90, 0.07, 0.2); };
+/** Neon tubes striking: a few ticks and a low buzz. */
+export const neonHum = () => { [0.45, 0.55, 0.69, 0.93].forEach((t) => burst(3000, 2, 0.03, 0.05, t)); tone('sawtooth', 100, 0.5, 0.012, 0.5); };
+
 /** Ratchet pawl dropping into the next tooth. */
 export const ratchet = () => { burst(3200, 6, 0.03, 0.22); burst(1400, 4, 0.02, 0.08, 0.004); };
 /** The dispensing wheel releasing a capsule at the end of a full turn. */

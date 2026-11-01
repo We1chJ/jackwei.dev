@@ -2,8 +2,13 @@
   --backdrop: #E9C24A;
   --ink: #141414;
   --paper: #FFFDF6;
+  --chip: #ECEAF5;
+  --drop: #141414;     /* the hard shadow under cards and buttons */
   --font: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 }
+/* Dark: ink and paper swap, so everything drawn in them follows. The ticket and the reel keep their own. */
+html[data-theme="dark"] { --backdrop: #1D1638; --ink: #FFFDF6; --paper: #231B47; --chip: #3A2F70; --drop: #FF4F8B; color-scheme: dark; }
+.loader, .reel-layer { --ink: #141414; --paper: #FFFDF6; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 html, body, #root { margin: 0; min-height: 100%; }
@@ -49,19 +54,19 @@ html.locked { overflow: hidden; }
 .card-info {
   position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: min(300px, calc(100% - 32px));
   padding: 18px 18px 16px; border-radius: 18px; background: var(--paper); border: 3px solid var(--ink);
-  box-shadow: 6px 6px 0 var(--ink); animation: card-in .45s cubic-bezier(.3, 1.4, .5, 1);
+  box-shadow: 6px 6px 0 var(--drop); animation: card-in .45s cubic-bezier(.3, 1.4, .5, 1);
 }
 @keyframes card-in { from { opacity: 0; transform: translate(24px, -50%) rotate(3deg); } }
 .card-info h2 { margin: 8px 0 6px; font: 400 26px/1.05 'Lilita One', 'Arial Black', sans-serif; }
 .card-info p { margin: 0 0 10px; font-weight: 700; font-size: 15px; line-height: 1.4; }
 .card-info ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
-.card-info li { padding: 4px 10px; border-radius: 999px; background: #ECEAF5; font-weight: 800; font-size: 12px; }
+.card-info li { padding: 4px 10px; border-radius: 999px; background: var(--chip); font-weight: 800; font-size: 12px; }
 .card-info a { font-weight: 900; color: var(--ink); }
 .card-info-links { display: flex; gap: 14px; flex-wrap: wrap; }
-.card-rarity { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: #fff; font: 900 11px/1 var(--font); letter-spacing: 1.5px; }
-.rarity-legendary .card-rarity { background: linear-gradient(90deg, #FF8A1F, #FFC800); color: var(--ink); }
-.rarity-shiny .card-rarity { background: linear-gradient(90deg, #FF9EE0, #FFF27A, #7AF5FF); color: var(--ink); }
-.rarity-rare .card-rarity { background: linear-gradient(90deg, #7A5CFF, #8FE3FF); }
+.card-rarity { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: var(--paper); font: 900 11px/1 var(--font); letter-spacing: 1.5px; }
+.rarity-legendary .card-rarity { background: linear-gradient(90deg, #FF8A1F, #FFC800); color: #141414; }
+.rarity-shiny .card-rarity { background: linear-gradient(90deg, #FF9EE0, #FFF27A, #7AF5FF); color: #141414; }
+.rarity-rare .card-rarity { background: linear-gradient(90deg, #7A5CFF, #8FE3FF); color: #fff; }
 @media (max-width: 700px) {
   .card-info { top: auto; bottom: max(20px, env(safe-area-inset-bottom, 0px)); right: 50%; transform: translateX(50%); animation: none; }
 }
@@ -94,6 +99,7 @@ html.locked { overflow: hidden; }
 .loader.open .outline path { stroke: rgba(20, 20, 20, .62); }
 .loader.open .outline .glow { stroke: transparent; }
 .loader.open .outline .face { fill-opacity: 0; }
+html[data-theme="dark"] .loader.open .outline path { stroke: rgba(255, 253, 246, .62); }
 
 /* The middle: the ticket, in its own React root (src/ticket/LoaderTicket.tsx). The box is reserved
    so nothing shifts when it arrives. */
@@ -167,18 +173,63 @@ html.locked { overflow: hidden; }
 .hero-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .hero-links a {
   font: 800 14px/1 var(--font); color: var(--ink); text-decoration: none; padding: 10px 16px; border-radius: 999px;
-  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); transition: transform .15s, box-shadow .15s;
+  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop); transition: transform .15s, box-shadow .15s;
 }
-.hero-links a:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.hero-links a:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--drop); }
 .hero-links a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-.sound-toggle {
-  position: fixed; z-index: 3; top: max(16px, env(safe-area-inset-top, 0px)); right: 20px; font: 800 13px/1 var(--font); padding: 8px 14px; border-radius: 999px;
-  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .5s 3.2s;
-}
-.sound-toggle.in { opacity: 1; }
+.corner { position: fixed; z-index: 3; top: max(16px, env(safe-area-inset-top, 0px)); right: 20px; display: flex; align-items: center; gap: 12px; opacity: 0; transition: opacity .5s 3.2s; }
+.corner.in { opacity: 1; }
+.sound-toggle { min-width: 86px; font: 800 13px/1 var(--font); padding: 8px 14px; border-radius: 999px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
+
+/* The light and dark switch (ThemeToggle.tsx): brushed metal with a hard diagonal sheen, lit from behind. */
+@property --glow-at { syntax: '<angle>'; inherits: false; initial-value: 300deg; }
+.mode { position: relative; isolation: isolate; display: grid; place-items: center; width: 70px; height: 36px; padding: 0; border: 0; border-radius: 999px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(122deg, rgba(255, 255, 255, 0) 56%, rgba(255, 255, 255, .34) 56.6%), linear-gradient(160deg, #C9C9D0, #A6A6AF);
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 26, .6), inset 0 1.5px 1px rgba(255, 255, 255, .85), inset 0 -2px 3px rgba(20, 20, 26, .4);
+  transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+.mode:hover { transform: scale(1.05); }
+.mode:active { transform: scale(.94); }
+.mode:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+/* the light behind it, leaking round the edge, brightest at one corner */
+.mode-halo { position: absolute; z-index: -1; inset: -7px; border-radius: 999px; filter: blur(6px); pointer-events: none; opacity: .95;
+  background: conic-gradient(from var(--glow-at), #fff 0 70deg, rgba(255, 255, 255, .45) 130deg, rgba(255, 255, 255, .25) 210deg, rgba(255, 255, 255, .55) 300deg, #fff 360deg);
+  transition: opacity .45s, --glow-at 1.1s cubic-bezier(.3, .7, .2, 1); }
+.mode:hover .mode-halo { --glow-at: 40deg; }
+/* the same pill with the light off, over the metal so it can fade */
+.mode-plate { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .55s;
+  background: linear-gradient(122deg, rgba(255, 255, 255, 0) 56%, rgba(255, 255, 255, .09) 56.6%), linear-gradient(160deg, #2E2E38, #1A1A22);
+  box-shadow: 0 0 0 3px #08070F, 0 0 0 4px rgba(255, 255, 255, .16), inset 0 1px 1px rgba(255, 255, 255, .2), inset 0 -2px 4px rgba(0, 0, 0, .7); }
+.mode svg { position: relative; width: 25px; height: 25px; overflow: visible; display: block; }
+.mode path { stroke-linejoin: round; }
+.mode-cut { fill: #3F3F48; stroke: #15151A; stroke-width: 1.2; filter: drop-shadow(0 .6px 0 rgba(255, 255, 255, .75)); transition: fill .5s; }
+.mode-lit { fill: #E4FAFF; opacity: 0; filter: drop-shadow(0 0 3px #A9EEFF) drop-shadow(0 0 9px #58B8FF); transition: opacity .2s; }
+.mode-spark { fill: none; stroke: #BDF3FF; stroke-width: 1.7; stroke-linecap: round; stroke-dasharray: .2 .8; stroke-dashoffset: 1; opacity: 0; filter: drop-shadow(0 0 3px #7ADCFF); }
+html[data-theme="dark"] .mode-halo { opacity: 0; }
+html[data-theme="dark"] .mode-plate { opacity: 1; }
+html[data-theme="dark"] .mode-cut { fill: #23232C; }
+html[data-theme="dark"] .mode-spark { animation: moon-spark .95s cubic-bezier(.45, 0, .4, 1) .12s; }
+html[data-theme="dark"] .mode-lit { opacity: 1; transition: opacity .45s .85s; animation: moon-glow 3.6s ease-in-out 1.4s infinite; }
+html[data-theme="light"] .mode-halo { animation: halo-burst .9s cubic-bezier(.2, .8, .3, 1); }
+@keyframes moon-spark { 0% { opacity: 0; stroke-dashoffset: 1; } 12%, 80% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -1; } }
+@keyframes moon-glow { 50% { opacity: .78; } }
+@keyframes halo-burst { 0% { transform: scale(.7); opacity: 0; } 35% { transform: scale(1.45); opacity: 1; } 100% { transform: scale(1); opacity: .95; } }
+@media (prefers-reduced-motion: reduce) { .mode *, .mode { animation: none !important; transition: none !important; } }
+
+/* The wipe between the two looks (theme.ts): the new page grows over a picture of the old, a ring of light on its edge. */
+.theme-ring { display: none; position: fixed; inset: 0; z-index: 40; overflow: hidden; pointer-events: none; }
+.theme-wipe .theme-ring { display: block; view-transition-name: theme-ring; }
+.theme-ring i { --glow: 255, 214, 90; position: absolute; border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(closest-side, rgba(var(--glow), 0) 88%, rgba(var(--glow), .85) 97.5%, #fff 99.6%, rgba(var(--glow), .9) 100%); }
+html[data-theme="dark"] .theme-ring i { --glow: 255, 79, 139; }
+::view-transition { pointer-events: none; }
+.theme-wipe::view-transition-old(root), .theme-wipe::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+.theme-wipe::view-transition-new(root) { z-index: 1; }
+.theme-wipe::view-transition-group(theme-ring), .theme-wipe::view-transition-new(theme-ring) { animation: none; z-index: 2; }
+.theme-wipe::view-transition-old(theme-ring) { display: none; }
+
 .hero-cta {
   position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); margin: 0;
-  padding: 8px 14px; border-radius: 999px; border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink);
+  padding: 8px 14px; border-radius: 999px; border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop);
   font: 800 13px/1 var(--font); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .5s 1.2s;
 }
 .hero-cta.in { opacity: 1; }
@@ -197,15 +248,15 @@ html.locked { overflow: hidden; }
 .section-lead { margin: 0 0 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 800; font-size: 17px; }
 .pill {
   display: inline-block; font: 800 14px/1 var(--font); color: var(--ink); text-decoration: none; padding: 10px 16px; border-radius: 999px;
-  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; transition: transform .15s, box-shadow .15s;
+  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop); cursor: pointer; transition: transform .15s, box-shadow .15s;
 }
-.pill:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.pill:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--drop); }
 .pill:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
 .projects-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
 .skill-group + .skill-group { margin-top: 12px; }
 .skill-group h4 { margin: 0 0 6px; font: 900 12px/1 var(--font); letter-spacing: 1px; text-transform: uppercase; opacity: .65; }
-.card { position: relative; padding: 20px 22px 18px; border-radius: 18px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); }
+.card { position: relative; padding: 20px 22px 18px; border-radius: 18px; background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--drop); }
 .card h3 { margin: 0; font: 400 28px/1.05 'Lilita One', 'Arial Black', sans-serif; }
 .card .card-rarity + h3 { margin-top: 10px; }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -214,7 +265,7 @@ html.locked { overflow: hidden; }
 .card-blurb { margin: 6px 0 10px; font-weight: 700; font-size: 15px; line-height: 1.45; }
 .bullets { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 5px; font-weight: 600; font-size: 15px; line-height: 1.5; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.tags li { padding: 4px 10px; border-radius: 999px; background: #ECEAF5; font-weight: 800; font-size: 12px; }
+.tags li { padding: 4px 10px; border-radius: 999px; background: var(--chip); font-weight: 800; font-size: 12px; }
 .card-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .contact-row { display: flex; flex-wrap: wrap; gap: 12px; }
 .site-footer { margin-top: 72px; font-weight: 700; font-size: 13px; opacity: .65; }
@@ -224,7 +275,7 @@ html.locked { overflow: hidden; }
   .scene.cards-right, .scene.cards-left { justify-content: stretch; }
   .scene-col { width: 100%; }
 }
-@media (max-width: 560px) { .scene { padding-left: 16px; padding-right: 16px; } .card { padding: 16px 16px 14px; box-shadow: 4px 4px 0 var(--ink); } }
+@media (max-width: 560px) { .scene { padding-left: 16px; padding-right: 16px; } .card { padding: 16px 16px 14px; box-shadow: 4px 4px 0 var(--drop); } }
 
 /* The card in the visitor's hand (src/vending/HeldCard.tsx): where the 3D card has just landed. */
 .held-card { position: fixed; z-index: 3; left: 36vw; top: 50%; transform: translate(-50%, -50%); animation: held-in .4s cubic-bezier(.2, 1.3, .4, 1); }
@@ -236,9 +287,9 @@ html.locked { overflow: hidden; }
 .resume-btn {
   position: absolute; top: calc(max(16px, env(safe-area-inset-top, 0px)) + 38px); left: 20px;
   font: 800 14px/1 var(--font); color: var(--ink); padding: 10px 16px; border-radius: 999px; cursor: pointer;
-  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); transition: transform .15s, box-shadow .15s;
+  border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop); transition: transform .15s, box-shadow .15s;
 }
-.resume-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.resume-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--drop); }
 .resume-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 @media (max-width: 640px) { .resume-btn { top: max(16px, env(safe-area-inset-top, 0px)); left: 14px; } }
 

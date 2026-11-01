@@ -3,10 +3,11 @@
 // letter has room to go.
 import { useCallback, useEffect, useState } from 'react';
 import ElasticMesh from './ElasticMesh';
+import { useTheme } from './theme';
 
 const INK = '#141414', PAPER = '#FFFDF6';
 const FONT = "'Lilita One', 'Arial Black', sans-serif";
-const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078];
+const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078], NEON_RGB: [number, number, number] = [1, 0.31, 0.545];
 const BOX_H = 1.75;         // the title's height, em
 const PULL = 1.5;           // how far a letter pulls, em
 const CLEAR = 2.4;          // canvas past each side of the title, em: the longest pull and its overshoot
@@ -19,6 +20,7 @@ const fontSize = () => Math.min(84, Math.max(44, innerWidth * 0.07));   // same 
 
 export default function SquishTitle({ text }: { text: string }) {
   const [size, setSize] = useState(fontSize);
+  const dark = useTheme((s) => s.mode === 'dark');
   useEffect(() => {
     const on = () => setSize(fontSize());
     addEventListener('resize', on);
@@ -57,7 +59,7 @@ export default function SquishTitle({ text }: { text: string }) {
         view={{
           layers: LAYERS,
           gap: LAYER_GAP * size,
-          color: INK_RGB,
+          color: dark ? NEON_RGB : INK_RGB,
           rest: REST,
           tilt: 3,
           perspective: 800,

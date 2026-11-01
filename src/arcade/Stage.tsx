@@ -15,7 +15,7 @@ import Drop from './Drop';
 import Dust from './Dust';
 import { HeroCamera, HeroFx } from './Hero';
 import Sparkles from './Sparkles';
-import Room from './Room';
+import Room, { RoomLight } from './Room';
 import Warmup from './Warmup';
 import { arcadeShot, useReel } from '../resume/store';
 import { intro, useIntro } from './intro';
@@ -81,7 +81,7 @@ export default function Stage() {
       shadows
       frameloop={covered ? 'never' : dimmed ? 'demand' : 'always'}
       dpr={dpr}
-      camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 30 }}
+      camera={{ fov: 26, position: VIEW.hero.main.position, near: 0.05, far: 60 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={(state) => { if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state; }}
     >
@@ -106,12 +106,7 @@ export default function Stage() {
       </Environment>
 
       <Room />
-      {/* The key: from high on the left and in front, so shadows fall back and right, across the floor and up the wall. */}
-      <directionalLight
-        position={[-2.6, 4.2, 4.4]} intensity={2.4} color="#fffaf2" castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.012}
-        shadow-camera-left={-5} shadow-camera-right={5} shadow-camera-top={4.2} shadow-camera-bottom={-4.2} shadow-camera-far={16}
-      />
+      <RoomLight />
 
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 120} lengthUnit={0.1} numSolverIterations={8}>

@@ -6,6 +6,8 @@ import Stage from './arcade/Stage';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
 import { arcade, useArcade } from './arcade/store';
+import { useTheme } from './arcade/theme';
+import ThemeToggle from './arcade/ThemeToggle';
 import { EXPERIENCE } from './data/experience';
 import { PROJECTS } from './data/projects';
 import { gacha, useGacha } from './gacha/store';
@@ -22,6 +24,7 @@ export default function App() {
   const gHeld = useGacha((s) => s.held);
   const sound = useGacha((s) => s.sound);
   const vHeld = useVending((s) => s.held);
+  const dark = useTheme((s) => s.mode === 'dark');
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const landed = useIntro((s) => s.phase === 'done');
   const hero = focus === 'hero';
@@ -51,7 +54,7 @@ export default function App() {
         <div className={`hero-copy${opened ? ' in' : ''}`} style={{ top: `${(HERO_TEXT_BOTTOM * 100 + 2.5).toFixed(1)}vh` }}>
           <h1 className="sr-only">Jack Wei</h1>
           <p className="hero-line">
-            <RotatingText texts={VERBS} mainClassName="hero-verb" highlight highlightColor="#141414" auto={opened} rotationInterval={2400} staggerFrom="last" staggerDuration={0.02} />
+            <RotatingText texts={VERBS} mainClassName="hero-verb" highlight highlightColor={dark ? '#FF6FA8' : '#141414'} auto={opened} rotationInterval={2400} staggerFrom="last" staggerDuration={0.02} />
             <span>too much.</span>
           </p>
           <nav className="hero-links" aria-label="Links">
@@ -63,7 +66,10 @@ export default function App() {
         </div>
       </section>
       <Sections />
-      <button className={`sound-toggle${opened ? ' in' : ''}`} aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>
+      <div className={`corner${opened ? ' in' : ''}`}>
+        <ThemeToggle />
+        <button className="sound-toggle" aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>
+      </div>
       {!hero && (
         <div className="play-ui">
           <header className="brand">jackwei.dev</header>
@@ -91,6 +97,7 @@ export default function App() {
       )}
       {focus === 'vending' && vHeld !== null && <HeldCard project={vHeld} />}
       <Reel />
+      <div className="theme-ring" aria-hidden="true"><i /></div>
     </main>
   );
 }

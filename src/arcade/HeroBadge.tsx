@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { intro, useIntro } from './intro';
 import Lanyard from './Lanyard';
 import { heroNameSize } from './NameSign';
+import { useTheme } from './theme';
 
 const ARRIVES_S = 3.1;     // after the drop starts, when the last letter is down
 const NAME_LEFT = 0.07, MACHINES_LEFT = 0.42;   // shares of the window
@@ -18,6 +19,7 @@ export default function HeroBadge() {
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const [show, setShow] = useState(played);
   const [swingIn] = useState(!played);
+  const dark = useTheme((s) => s.mode === 'dark');
   const [{ w, h }, setSize] = useState({ w: innerWidth, h: innerHeight });
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function HeroBadge() {
         size={cardH / h}
         anchorAt={(nameRight + gap / 2) / w}
         strapLength={0.22}
-        strapColor="#141414"
+        strapColor={dark ? '#FF4F8B' : '#141414'}
         breeze={0}
         intro={swingIn}
         hold={!show}

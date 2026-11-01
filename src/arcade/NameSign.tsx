@@ -7,6 +7,7 @@ import { thud } from '../gacha/sound';
 import { intro, useIntro } from './intro';
 import { HERO_NAME, HERO_TEXT_BOTTOM } from './layout';
 import ElasticMesh from './ElasticMesh';
+import { useTheme } from './theme';
 
 const ROWS = ['JACK', 'WEI'];
 export const TURN_DEG = 22;
@@ -21,7 +22,7 @@ const LINE = 0.94;        // baseline to baseline, em
 const SPACING = 0.015;    // em
 const OUTLINE = 0.05;     // stroke width, em: half of it shows outside the letter
 const LAYERS = 10, LAYER_GAP = 0.018;   // the depth: copies, and em between them
-const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078];
+const INK_RGB: [number, number, number] = [0.078, 0.078, 0.078], NEON_RGB: [number, number, number] = [1, 0.31, 0.545];
 const BOX_W = 0.56, BOX_H = 0.7;   // the canvas, as shares of the window
 
 let played = false;       // only the first arrival stamps in; coming back from a machine it is just there
@@ -61,6 +62,7 @@ function letters(g: CanvasRenderingContext2D, width: number, height: number, siz
 export default function NameSign() {
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const { w, h } = useWindowSize();
+  const dark = useTheme((s) => s.mode === 'dark');
   const [landing, setLanding] = useState(played);
   const [typeIn] = useState(!played);
 
@@ -108,7 +110,7 @@ export default function NameSign() {
         view={{
           layers: LAYERS,
           gap: LAYER_GAP * size,
-          color: INK_RGB,
+          color: dark ? NEON_RGB : INK_RGB,
           rest: REST,
           tilt: 4,
           perspective: 800,
