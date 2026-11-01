@@ -12,3 +12,12 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// The performance panel, on any page with #debug on the URL (src/debug/PerfPanel.ts).
+let stopPanel: (() => void) | null = null;
+function debugPanel() {
+  if (location.hash === '#debug') void import('./debug/PerfPanel').then((m) => { stopPanel ??= m.startPerfPanel(); });
+  else { stopPanel?.(); stopPanel = null; }
+}
+addEventListener('hashchange', debugPanel);
+debugPanel();
