@@ -7,10 +7,10 @@ import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
 import { arcade, useArcade } from './arcade/store';
 import { useTheme } from './arcade/theme';
-import ThemeToggle from './arcade/ThemeToggle';
+import { SoundToggle, ThemeToggle } from './arcade/ThemeToggle';
 import { EXPERIENCE } from './data/experience';
 import { PROJECTS } from './data/projects';
-import { gacha, useGacha } from './gacha/store';
+import { useGacha } from './gacha/store';
 import HeldCard from './vending/HeldCard';
 import { useVending, vendActions } from './vending/store';
 import Reel from './resume/Reel';
@@ -22,7 +22,6 @@ const VERBS = ['builds', 'trolls', 'creates content', 'ships', 'tinkers'];
 export default function App() {
   const focus = useArcade((s) => s.focus);
   const gHeld = useGacha((s) => s.held);
-  const sound = useGacha((s) => s.sound);
   const vHeld = useVending((s) => s.held);
   const dark = useTheme((s) => s.mode === 'dark');
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
@@ -68,7 +67,7 @@ export default function App() {
       <Sections />
       <div className={`corner${opened ? ' in' : ''}`}>
         <ThemeToggle />
-        <button className="sound-toggle" aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>
+        <SoundToggle />
       </div>
       {!hero && (
         <div className="play-ui">
