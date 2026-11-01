@@ -135,7 +135,6 @@ export default function Machine() {
   };
 
   useEffect(() => {
-    gacha.actions.turn = turnOnce;
     gacha.actions.putBack = putBack;
   });
 

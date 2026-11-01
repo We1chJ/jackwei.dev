@@ -18,7 +18,7 @@ export const gacha = {
   },
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
   // Wired by the machine once it mounts.
-  actions: { turn: () => {}, putBack: () => {} },
+  actions: { putBack: () => {} },
 };
 
 export function useGacha<T>(select: (s: State) => T): T {

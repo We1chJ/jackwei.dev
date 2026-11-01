@@ -29,24 +29,6 @@ html.locked { overflow: hidden; }
   pointer-events: none;
 }
 
-.dock {
-  position: absolute; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-  display: grid; justify-items: center; gap: 10px; width: min(560px, calc(100% - 32px));
-}
-.hint {
-  margin: 0; padding: 9px 16px; border-radius: 999px; background: rgba(20, 20, 20, .86); color: var(--paper);
-  font-weight: 800; font-size: 15px; text-align: center; backdrop-filter: blur(6px);
-}
-.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
-.controls button {
-  font: inherit; font-weight: 800; font-size: 14px; padding: 9px 16px; border-radius: 999px;
-  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer;
-}
-.controls button:hover { background: #fff; }
-.controls button:disabled { opacity: .5; cursor: default; }
-.controls button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-.controls .quiet { background: transparent; }
-
 /* ---------- Arcade: machine tabs, card info ---------- */
 .tabs {
   position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
@@ -59,7 +41,10 @@ html.locked { overflow: hidden; }
 }
 .tabs button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
 .tabs button:focus-visible { outline: 3px solid #FFC800; outline-offset: 2px; }
-@media (max-width: 560px) { .brand { display: none; } }
+@media (max-width: 640px) {
+  .brand { display: none; }
+  .tabs { top: calc(max(16px, env(safe-area-inset-top, 0px)) + 46px); }   /* the top row is the sound button's */
+}
 
 .card-info {
   position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: min(300px, calc(100% - 32px));
@@ -78,7 +63,7 @@ html.locked { overflow: hidden; }
 .rarity-shiny .card-rarity { background: linear-gradient(90deg, #FF9EE0, #FFF27A, #7AF5FF); color: var(--ink); }
 .rarity-rare .card-rarity { background: linear-gradient(90deg, #7A5CFF, #8FE3FF); }
 @media (max-width: 700px) {
-  .card-info { top: auto; bottom: 150px; right: 50%; transform: translateX(50%); animation: none; }
+  .card-info { top: auto; bottom: max(20px, env(safe-area-inset-bottom, 0px)); right: 50%; transform: translateX(50%); animation: none; }
 }
 
 /* ---------- Loading screen (index.html + src/loader.ts) ---------- */
@@ -255,7 +240,7 @@ html.locked { overflow: hidden; }
 }
 .resume-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
 .resume-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-@media (max-width: 560px) { .resume-btn { top: calc(max(14px, env(safe-area-inset-top, 0px)) + 56px); left: 14px; } }
+@media (max-width: 640px) { .resume-btn { top: max(16px, env(safe-area-inset-top, 0px)); left: 14px; } }
 
 .reel-layer { position: fixed; inset: 0; z-index: 30; touch-action: none; transition: opacity .35s; }
 .reel-layer.closing { opacity: 0; pointer-events: none; }

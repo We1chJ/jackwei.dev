@@ -6,56 +6,22 @@ import Stage from './arcade/Stage';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
 import { arcade, useArcade } from './arcade/store';
-import { useClaw, type ClawPhase } from './claw/store';
 import { EXPERIENCE } from './data/experience';
 import { PROJECTS } from './data/projects';
-import { gacha, useGacha, type Phase } from './gacha/store';
+import { gacha, useGacha } from './gacha/store';
 import HeldCard from './vending/HeldCard';
-import { useVending, vendActions, type VendPhase } from './vending/store';
+import { useVending, vendActions } from './vending/store';
 import Reel from './resume/Reel';
 import { loadReel, reel } from './resume/store';
 import Sections, { openReel } from './Sections';
 
 const VERBS = ['builds', 'trolls', 'creates content', 'ships', 'tinkers'];
 
-const GACHA_HINT: Record<Phase, string> = {
-  settling: 'Filling the machine…',
-  idle: 'Drag the handle clockwise one full turn',
-  turning: 'Keep turning…',
-  dispensing: 'Here it comes',
-  ready: 'Push the flap in to take your capsule',
-  taking: 'Got it',
-  held: 'Click the capsule to put it back',
-};
-const VEND_HINT: Record<VendPhase, string> = {
-  idle: 'Punch a code on the keypad: a letter, then a number (try B2)',
-  vending: 'Here it comes…',
-  ready: 'Push the flap in to take your card',
-  taking: 'Got it',
-  held: 'Tilt the card, or click it to flip it over',
-};
-const CLAW_HINT: Record<ClawPhase, string> = {
-  idle: 'Grab the red joystick and steer, then press DROP',
-  dropping: 'Going down…',
-  grabbing: 'Grab!',
-  lifting: 'Hold on…',
-  returning: 'Hold on…',
-  releasing: 'Letting go…',
-  prize: 'You won! Push the prize door in to take it',
-  taking: 'Got it',
-  held: 'Click the plushie to put it back',
-};
-const CLAW_RESULT = { slipped: 'So close! It slipped.', missed: 'Missed! Try again.', won: '' };
-
 export default function App() {
   const focus = useArcade((s) => s.focus);
-  const gPhase = useGacha((s) => s.phase);
   const gHeld = useGacha((s) => s.held);
   const sound = useGacha((s) => s.sound);
-  const vPhase = useVending((s) => s.phase);
   const vHeld = useVending((s) => s.held);
-  const cPhase = useClaw((s) => s.phase);
-  const lastGrab = useClaw((s) => s.lastGrab);
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const landed = useIntro((s) => s.phase === 'done');
   const hero = focus === 'hero';
@@ -63,9 +29,6 @@ export default function App() {
   // The page holds still through the opening and while a machine is being played.
   useEffect(() => { document.documentElement.classList.toggle('locked', !landed || !hero); }, [landed, hero]);
 
-  const hint = focus === 'gacha' ? GACHA_HINT[gPhase]
-    : focus === 'vending' ? VEND_HINT[vPhase]
-    : (cPhase === 'idle' && lastGrab && CLAW_RESULT[lastGrab]) || CLAW_HINT[cPhase];
   // What the visitor is holding: a job card from the vending machine, a project from the gacha.
   const card = focus === 'vending' && vHeld !== null ? { ...EXPERIENCE[vHeld], anchor: `exp-${EXPERIENCE[vHeld].id}` }
     : focus === 'gacha' && gHeld !== null ? { ...PROJECTS[gHeld], anchor: PROJECTS[gHeld].listed === false ? null : `project-${PROJECTS[gHeld].id}` }
@@ -100,7 +63,7 @@ export default function App() {
         </div>
       </section>
       <Sections />
-      {hero && <button className={`sound-toggle${opened ? ' in' : ''}`} aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>}
+      <button className={`sound-toggle${opened ? ' in' : ''}`} aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>
       {!hero && (
         <div className="play-ui">
           <header className="brand">jackwei.dev</header>
@@ -124,13 +87,6 @@ export default function App() {
               </div>
             </aside>
           )}
-          <footer className="dock">
-            <p className="hint" aria-live="polite">{hint}</p>
-            <div className="controls">
-              {focus === 'gacha' && <button onClick={() => gacha.actions.turn()} disabled={gPhase === 'settling'}>Turn the handle</button>}
-              <button className="quiet" aria-pressed={sound} onClick={() => gacha.set({ sound: !sound })}>Sound {sound ? 'on' : 'off'}</button>
-            </div>
-          </footer>
         </div>
       )}
       {focus === 'vending' && vHeld !== null && <HeldCard project={vHeld} />}
