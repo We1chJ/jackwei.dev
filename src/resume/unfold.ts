@@ -1,13 +1,13 @@
-// The résumé coming out: a crumpled ball pops up in the middle of the window and opens into the page,
+// The résumé coming out: a small crumpled ball in the middle of the window bursts open into the page,
 // landing flat on the exact pixels of the real one (ResumePages.tsx), which then takes over. The paper's
 // frames come from paper.ts; the shading and normals here follow React Bits' PaperCrumple. Once flat the
 // sheet is drawn unlit, so it matches the page.
 import * as THREE from 'three';
 import { PAPER_ASPECT, type Paper } from './paper';
 
-const POP_S = 0.34;          // the ball appears
-const OPEN_S = 1.9;          // and opens
-const FADE_MS = 200;         // the real page shows through
+const OPEN_S = 0.38;         // ball to flat page
+const FADE_MS = 100;         // the real page shows through
+const START = 0.2;           // the ball's size at the start, against its size at full scale
 const SPIN = -1.1;           // radians the ball is turned from where the page ends up
 const TUMBLE = 0.5;
 const CREASE = 0.55;         // how much of the folds stays in while it opens
@@ -26,8 +26,7 @@ export function preparePaper() {
 }
 
 const smooth = THREE.MathUtils.smoothstep;
-const easeOutBack = (t: number) => 1 + 2.4 * Math.pow(t - 1, 3) + 1.4 * Math.pow(t - 1, 2);
-const easeInOut = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+const easeOut = (t: number) => 1 - (1 - t) * (1 - t);
 
 export interface Unfolding {
   opened: Promise<void>;   // flat: show the real page
@@ -161,10 +160,10 @@ export function unfold(panel: HTMLElement, page: HTMLCanvasElement, paper: Paper
   renderer.render(scene, camera);
   const frame = (now: number) => {
     start ||= now;
-    const t = (now - start) / 1000, pop = Math.min(1, t / POP_S), open = Math.min(1, Math.max(0, t - POP_S * 0.7) / OPEN_S);
-    const out = easeInOut(open), fold = 1 - out, turned = fold * fold;   // straight before it's wide, or it would run off the window
+    const open = Math.min(1, (now - start) / 1000 / OPEN_S);
+    const out = easeOut(open), fold = 1 - out, turned = fold * fold;   // straight before it's wide, or it would run off the window
     shape(fold, CREASE * (1 - smooth(open, 0.5, 1)));
-    const size = w * easeOutBack(pop);
+    const size = w * (START + (1 - START) * out);
     sheet.scale.set(size, size * stretch, size);
     sheet.rotation.set(TUMBLE * turned, -TUMBLE * turned, SPIN * turned);
     sheet.position.set(toX * out, toY * out, 0);
