@@ -1,5 +1,6 @@
 // From React Bits. Local changes: `locked` (the stub stays on but the ticket still tilts), `onBreak`
-// (fires as each paper bridge snaps), and ctrl-click no longer grabs (it is a right click on a Mac).
+// (fires as each paper bridge snaps), `beckon` (the stub keeps tugging at its perforation until someone
+// starts tearing), and ctrl-click no longer grabs (it is a right click on a Mac).
 import React, {
   useEffect,
   useLayoutEffect,
@@ -52,6 +53,7 @@ export interface TearTicketProps {
   recenter?: boolean;
   disabled?: boolean;
   locked?: boolean;
+  beckon?: boolean;
   onBreak?: () => void;
   ariaLabel?: string;
   className?: string;
@@ -135,6 +137,7 @@ const GRAVITY = 2400;
 const ART_INSET = 8;
 const ART_SPAN = 0.78;
 const RETRACT = 0.17;
+const TUG = 2.6;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -245,6 +248,7 @@ const TearTicket: React.FC<TearTicketProps> = ({
   recenter = true,
   disabled = false,
   locked = false,
+  beckon = false,
   onBreak,
   ariaLabel = 'Tear off the stub',
   className = ''
@@ -626,6 +630,24 @@ const TearTicket: React.FC<TearTicketProps> = ({
     e.preventDefault();
     if (!e.repeat) tearNow();
   };
+
+  useEffect(() => {
+    if (!beckon || reduce || used) return undefined;
+    const tug = setInterval(() => {
+      const s = sim.current;
+      if (s.phase !== 'idle' || s.snapped.some(Boolean)) return;
+      const end = geo.ends[1];
+      s.sign = geo.vertical ? -1 : 1;
+      s.hinge = { x: end.x, y: end.y };
+      s.hingeV = end.v;
+      if (stubRef.current) stubRef.current.style.transformOrigin = `${s.hinge.x}px ${s.hinge.y}px`;
+      s.thetaV = TUG;
+      s.phase = 'return';
+      run();
+    }, 2600);
+    return () => clearInterval(tug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beckon, reduce, used, geo]);
 
   useEffect(() => {
     if (!tilt || reduce || disabled) return undefined;
