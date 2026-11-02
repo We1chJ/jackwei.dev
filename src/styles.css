@@ -114,11 +114,40 @@ html[data-theme="dark"] .loader.open .outline path { stroke: rgba(255, 253, 246,
 .ticket-art img { pointer-events: none; }
 .ticket-side { position: absolute; left: 300px; top: 140px; width: 280px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 14px; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; color: var(--ink); }
 .ticket-side b { font: 400 28px/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .6px; }
-/* The stub: plain gold, its name, and which way it pulls. */
-.ticket-stub { height: 100%; padding: 26px 0 28px 26px; display: flex; flex-direction: column; justify-content: space-between; color: var(--ink); }
-.ticket-stub strong { font: 400 46px/.92 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .4px; }
-.ticket-stub small { font: 900 11px/1 var(--font); letter-spacing: 1.5px; text-transform: uppercase; opacity: .6; }
-.stub-arrow { width: 112px; height: 24px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; animation: stub-pull 1.3s ease-in-out infinite; }
+/* The stub: rays and a halftone corner inside a printed frame, the machines as stickers that go on as
+   it prints, a barcode down the edge, a stamp and a foil seal once it is ready, and which way it pulls. */
+.ticket-stub { position: relative; height: 100%; padding: 24px 0 28px 26px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; color: var(--ink);
+  background: repeating-conic-gradient(from 0deg at 42% 34%, rgba(255, 244, 220, .32) 0 9deg, transparent 9deg 18deg); }
+.ticket-stub::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(20, 20, 20, .26) 1.3px, transparent 1.6px) 0 0 / 7px 7px;
+  mask-image: linear-gradient(to top left, #000, transparent 46%); }
+.ticket-stub::after { content: ''; position: absolute; inset: 7px 7px 7px 11px; border: 1.5px solid var(--ink); border-radius: 9px; box-shadow: inset 0 0 0 2px #F2C744, inset 0 0 0 3px rgba(20, 20, 20, .5); pointer-events: none; }
+.ticket-stub strong { position: relative; font: 400 44px/.92 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .4px; text-shadow: 2.5px 2.5px 0 #FF4F8B; }
+.ticket-stub small { position: relative; font: 900 11px/1 var(--font); letter-spacing: 1.5px; text-transform: uppercase; opacity: .6; }
+.stub-stickers { position: absolute; left: 24px; top: 116px; display: flex; }
+.stub-stickers i { --turn: -9deg; --drop: 0px; display: grid; place-items: center; width: 38px; height: 38px; border: 2px solid var(--ink); border-radius: 50%; color: var(--ink);
+  box-shadow: 0 0 0 3px #FFFDF6, 1px 3px 4px 3px rgba(20, 20, 20, .32); opacity: 0; transform: translateY(var(--drop)) rotate(var(--turn)); }
+.stub-stickers i + i { --turn: 7deg; --drop: 7px; margin-left: -7px; }
+.stub-stickers i + i + i { --turn: -5deg; --drop: -2px; }
+.stub-stickers i.on { opacity: 1; animation: sticker-on .3s cubic-bezier(.3, 1.5, .5, 1) backwards; }
+@keyframes sticker-on { from { opacity: 0; transform: rotate(calc(var(--turn) + 24deg)) scale(2.2); } }
+.stub-stickers svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.stub-seal { position: absolute; left: 22px; top: 176px; width: 42px; height: 42px; filter: drop-shadow(1px 2px 2px rgba(20, 20, 20, .4)); opacity: 0; }
+.stub-seal::before { content: ''; position: absolute; inset: 0;
+  clip-path: polygon(50% 0, 61% 12%, 75% 7%, 79% 21%, 93% 25%, 88% 39%, 100% 50%, 88% 61%, 93% 75%, 79% 79%, 75% 93%, 61% 88%, 50% 100%, 39% 88%, 25% 93%, 21% 79%, 7% 75%, 12% 61%, 0 50%, 12% 39%, 7% 25%, 21% 21%, 25% 7%, 39% 12%);
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .95) 50%, transparent 62%) 130% 0 / 260% 100% no-repeat, conic-gradient(from 40deg, #FFB3D1, #FFE680, #A8F0C6, #9FD4FF, #CDB4FF, #FFB3D1); animation: seal-shine 3.4s ease-in-out infinite; }
+.stub-seal::after { content: ''; position: absolute; inset: 12px; background: var(--ink); clip-path: polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%); }
+@keyframes seal-shine { 70%, 100% { background-position: -30% 0, 0 0; } }
+.ticket-stub.ready .stub-seal { opacity: 1; animation: seal-on .3s cubic-bezier(.3, 1.5, .5, 1) .32s backwards; }
+@keyframes seal-on { from { opacity: 0; transform: rotate(-40deg) scale(2); } }
+.stub-stamp { position: absolute; left: 70px; top: 182px; padding: 4px 8px 3px; border: 2.5px solid #D81E5B; border-radius: 6px; font: 400 19px/1 'Lilita One', 'Arial Black', sans-serif; letter-spacing: 1px; text-transform: uppercase;
+  color: #D81E5B; transform: rotate(-11deg); opacity: 0; pointer-events: none; }
+.ticket-stub.ready .stub-stamp { opacity: .92; animation: stamp-in .34s cubic-bezier(.3, 1.5, .5, 1) .15s backwards; }
+@keyframes stamp-in { from { opacity: 0; transform: rotate(-11deg) scale(2.3); } }
+.stub-code { position: absolute; right: 13px; top: 68px; height: 106px; display: flex; gap: 3px; }
+.stub-code em { writing-mode: vertical-rl; font: 800 8px/1 var(--font); letter-spacing: 1.4px; text-align: center; opacity: .7; }
+.stub-code div { width: 11px; overflow: hidden; }
+.stub-code div i { display: block; background: var(--ink); }
+.stub-arrow { position: relative; width: 112px; height: 24px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; animation: stub-pull 1.3s ease-in-out infinite; }
 @keyframes stub-pull { 50% { transform: translateX(8px); } }
 /* Over the stub once it can be torn: what to do, and an arrow drawing itself to where. */
 .tear-cue { position: absolute; right: 8px; bottom: calc(100% + 16px); display: flex; align-items: flex-start; gap: 6px; color: var(--gold); filter: drop-shadow(0 0 14px rgba(242, 199, 68, .35)); pointer-events: none; opacity: 0; transition: opacity .2s; }
@@ -132,7 +161,7 @@ html[data-theme="dark"] .loader.open .outline path { stroke: rgba(255, 253, 246,
 @keyframes cue-draw { to { stroke-dashoffset: 0; } }
 @keyframes cue-bob { 50% { transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) {
-  .stub-arrow, .loader.ready .tear-cue { animation: none; }
+  .stub-arrow, .loader.ready .tear-cue, .stub-seal::before, .stub-stickers i.on, .ticket-stub.ready .stub-seal, .ticket-stub.ready .stub-stamp { animation: none; }
   .loader.ready .tear-cue path { animation-duration: .01s; animation-delay: 0s; }
 }
 
