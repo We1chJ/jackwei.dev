@@ -326,8 +326,10 @@ html[data-theme="dark"] .theme-ring i { --glow: 255, 79, 139; }
 .reel-toggle svg { display: block; fill: currentColor; }
 .reel-layer.resume .reel-ui button { background: var(--ink); }
 
-/* On the clip's final white frame the résumé starts tiny in the middle of the window and grows
-   until it fills it. It is sized to fit (ResumePages.tsx); anything taller scrolls from its top. */
+/* On the clip's final white frame the résumé opens out of a crumpled ball (unfold.ts) over the real page,
+   which stays hidden until the sheet lands on it. If that can't run, the page starts tiny in the middle of
+   the window and grows until it fills it. It is sized to fit (ResumePages.tsx); anything taller scrolls
+   from its top. */
 .reel-resume {
   position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y;
   display: flex; flex-direction: column; opacity: 0; transform: scale(.03); pointer-events: none;
@@ -343,6 +345,8 @@ html[data-theme="dark"] .theme-ring i { --glow: 255, 79, 139; }
 @media (prefers-reduced-motion: reduce) {
   .reel-resume, .reel-layer.resume .reel-resume { transition: opacity .3s; }
 }
+.reel-layer.unfolding .reel-resume { visibility: hidden; transform: none; transition: none; }
+.reel-paper { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; transition: opacity .2s; }
 .reel-pages { flex: none; margin: auto; display: grid; gap: 18px; padding: 24px; }
 .reel-pages canvas { display: block; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .1); }
 .reel-ui { align-items: center; }

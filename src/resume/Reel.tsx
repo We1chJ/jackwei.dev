@@ -4,17 +4,19 @@
 // behind it, and two big ripples fan out from both and carry the frame in (ripple.ts). The clip then
 // plays by itself; a small toggle (or just
 // scrolling) pauses that and hands the clip to the scroll. On its final white frame the résumé
-// rises to the front.
+// comes out as a crumpled ball and opens into the page (unfold.ts).
 //
 // The page itself never scrolls (the arcade is a fixed canvas), so wheel, touch and keys move a
 // target frame and the shown frame eases toward it every display refresh. That turns notchy
 // wheels and uneven trackpads into a glide.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Frames } from './frames';
+import type { Paper } from './paper';
 import ResumePages, { type ZoomApi } from './ResumePages';
 import { createRipple, type Ripple } from './ripple';
 import { arcadeShot, loadReel, reel, useReel } from './store';
 import { FPS, pickSize, smaller } from './stream';
+import { preparePaper, unfold } from './unfold';
 
 type Phase = 'loading' | 'travel' | 'fan' | 'play' | 'resume' | 'closing';
 
@@ -61,10 +63,12 @@ function Overlay() {
   const zoomApi = useRef<ZoomApi | null>(null);
   const [beadDone, setBeadDone] = useState(false); // the ripple has taken over from the dots
   const [fade, setFade] = useState(false);         // no WebGL: the frame crossfades in instead
+  const [unfolding, setUnfolding] = useState(false); // the paper is out: the real page waits underneath
   const layer = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const rippleCanvas = useRef<HTMLCanvasElement>(null);
   const ripple = useRef<Ripple | null>(null);
+  const paper = useRef<Paper | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const dotCanvas = useRef<HTMLCanvasElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
@@ -228,6 +232,20 @@ function Overlay() {
   }, [phase]);
   useEffect(() => () => { ripple.current?.dispose(); ripple.current = null; }, []);
 
+  // solved while the clip loads, so nothing stalls when it ends
+  useEffect(() => { preparePaper().then((p) => { paper.current = p; }).catch(() => { /* the page just rises instead */ }); }, []);
+
+  // the page opens out of a crumpled ball; if anything isn't ready it simply rises (styles.css)
+  useLayoutEffect(() => {
+    const sheet = panel.current?.querySelector('canvas');
+    if (phase !== 'resume' || s.current.skip || !paper.current || !sheet || matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    let run;
+    try { run = unfold(panel.current!, sheet, paper.current); } catch { return undefined; }
+    setUnfolding(true);
+    void run.opened.then(() => setUnfolding(false));
+    return () => { run.stop(); setUnfolding(false); };
+  }, [phase]);
+
   // two ripples fan out from the orbs and bring the first frame in; without WebGL it crossfades instead
   useEffect(() => {
     if (phase !== 'fan') return;
@@ -350,7 +368,7 @@ function Overlay() {
   }, []);
 
   return (
-    <div ref={layer} className={`reel-layer ${phase}${s.current.skip || fade ? ' fade' : ''}`} role="dialog" aria-modal="true" aria-label="Résumé">
+    <div ref={layer} className={`reel-layer ${phase}${s.current.skip || fade ? ' fade' : ''}${unfolding ? ' unfolding' : ''}`} role="dialog" aria-modal="true" aria-label="Résumé">
       <div className="reel-scrim">
         {(phase === 'loading' || phase === 'travel' || phase === 'fan') && <canvas ref={rippleCanvas} className="reel-ripple" aria-hidden="true" />}
         <canvas ref={dotCanvas} className={`reel-dots${beadDone ? ' done' : ''}`} role="img" aria-label="Loading" />
