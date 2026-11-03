@@ -1,7 +1,7 @@
 // The loading screen. Plain DOM (markup in index.html), so it paints before React and three.js
 // arrive. A black screen with a thin bar at the bottom and a ticket in the middle, whose photo prints
 // itself as the site loads (the ticket is React, src/ticket/, and follows a moment after the first
-// paint). The stub stays on until everything is ready. Tear it off: the paper rips, and the hero draws
+// paint). The stub stays on until the shaders are compiled. Tear it off: the paper rips, and the hero draws
 // itself in wireframe, the lines flowing out from the ticket; the floor line lights up yellow and the
 // black opens along it, the floor sliding down and the wall lifting away, onto the arcade as the
 // machines drop into their outlines.
@@ -12,13 +12,14 @@
 import type { FontData } from './arcade/heroName';
 import { heroOutline, type Pt } from './arcade/silhouette';
 
-export type LoadStage = 'download' | 'compile' | 'settle' | 'shadows';
+export type LoadStage = 'download' | 'compile';
 
-// Share of the progress each stage owns, in the order they happen.
+// Share of the progress each stage owns, in the order they happen. The stub unlocks once the shaders are
+// compiled; the rest of the warm-up (Warmup.tsx) runs while the hero draws itself, and the floor waits for it.
 const RANGE: Record<LoadStage, [number, number]> = {
-  download: [0, 0.7], compile: [0.7, 0.8], settle: [0.8, 0.86], shadows: [0.86, 1],
+  download: [0, 0.8], compile: [0.8, 1],
 };
-const SMOOTH = 0.42;                   // spring smoothing time, seconds
+const SMOOTH = 0.25;                   // spring smoothing time, seconds
 
 const root = document.getElementById('loader')!;
 const q = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
@@ -136,6 +137,8 @@ function drawIn() {
 let target = 0, pos = 0, vel = 0, last = performance.now();
 let finished = false, entering = false;
 let arrive: (() => void) | null = null;
+let warmed = () => {};
+const warm = new Promise<void>((r) => { warmed = r; });
 function tick(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
@@ -227,6 +230,7 @@ function enter() {
     // the floor line lights up...
     void play(horizon, [{ transform: 'scaleX(0)', opacity: 0 }, { transform: 'scaleX(1)', opacity: 1 }], 460, 'cubic-bezier(.2, .7, .2, 1)');
     await wait(340);
+    await warm;
     // ...and the black opens along it: the floor slides down, the wall lifts away
     root.classList.add('open');
     sfx.open();
@@ -262,13 +266,16 @@ export const loading = {
   // Everything is ready: the photo finishes printing and the stub comes unlocked.
   finish() {
     if (finished) return;
-    loading.report('shadows', 1);
+    loading.report('compile', 1);
     finished = true;
     void (async () => {
       await new Promise<void>((r) => { arrive = r; });
       ready();
     })();
   },
+
+  /** The scene has settled behind the loader, so the floor may open. */
+  warmed() { warmed(); },
 
   /** Called inside the visitor's gesture on the stub (so audio may start). */
   onEnter(fn: () => void) { onEnter.push(fn); },

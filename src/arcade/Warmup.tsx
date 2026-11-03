@@ -9,7 +9,7 @@ import { intro } from './intro';
 import { pacer } from './Pacer';
 import { gacha } from '../gacha/store';
 
-export const SHADOW_FRAMES = 40;
+export const SHADOW_FRAMES = 4;
 const SETTLE_CHUNKS = 12;  // x 0.25 s of simulated time: short enough that no frame stalls
 
 export default function Warmup() {
@@ -21,11 +21,11 @@ export default function Warmup() {
   // available), so no frame stalls compiling them one by one.
   useLayoutEffect(() => {
     let alive = true;
-    loading.coast(1000, 'settle');   // compile + settle run in heavy frames: let the bar glide
+    loading.coast(1000, 'compile');   // compiling runs in heavy frames: let the bar glide
     pacer.held = true;
     gl.compileAsync(scene, camera).finally(() => {
       if (!alive) return;
-      loading.report('compile', 1);
+      loading.finish();   // the stub unlocks; the rest runs while the hero draws itself
       pacer.held = false;
     });
     return () => { alive = false; pacer.held = false; };
@@ -38,15 +38,13 @@ export default function Warmup() {
       // pile settles over a dozen frames without one long freeze.
       step(0.25);
       s.settleSteps++;
-      loading.report('settle', s.settleSteps / SETTLE_CHUNKS);
       if (s.settleSteps === SETTLE_CHUNKS) gacha.set({ phase: 'idle' });
       return;
     }
     if (s.frames >= SHADOW_FRAMES + 4) return;
     s.frames++;
-    loading.report('shadows', Math.min(1, s.frames / SHADOW_FRAMES));
     // A few frames' margin so the shadow bake is done before the machines are lifted out of sight.
-    if (s.frames === SHADOW_FRAMES + 4) { loading.finish(); intro.set({ phase: 'ready' }); }
+    if (s.frames === SHADOW_FRAMES + 4) { intro.set({ phase: 'ready' }); loading.warmed(); }
   });
   return null;
 }

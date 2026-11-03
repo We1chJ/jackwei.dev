@@ -2,7 +2,7 @@
 // fixed colliders the dropped cards fall through. Machine frame: see dims.ts.
 import { useMemo, type MutableRefObject, type Ref } from 'react';
 import * as THREE from 'three';
-import { RoundedBox } from '@react-three/drei';
+import { RoundedBox } from '../arcade/RoundedBox';
 import { CuboidCollider, RigidBody, interactionGroups } from '@react-three/rapier';
 import { frame, panel, slab, uShell } from '../gacha/geometry';
 import { materials } from '../gacha/materials';

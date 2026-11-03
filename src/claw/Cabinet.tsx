@@ -3,7 +3,7 @@
 // button) and the fixed colliders. Machine frame: see dims.ts.
 import { useMemo, type MutableRefObject, type Ref } from 'react';
 import * as THREE from 'three';
-import { RoundedBox } from '@react-three/drei';
+import { RoundedBox } from '../arcade/RoundedBox';
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { expand, frame, panel, uShell } from '../gacha/geometry';
 import { materials } from '../gacha/materials';
