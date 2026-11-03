@@ -18,7 +18,7 @@ const CARD_ASPECT = 1.6 / 2.25;
 const LINES: { role: string; at: string; href?: string }[] = [
   { role: 'ECE/CS student', at: '@ Olin College of Engineering' },
   { role: 'Solo founder', at: '@ Truly', href: 'https://trulyta.com' },
-  { role: 'Content creator', at: '@ Instagram', href: 'https://www.instagram.com/' },   // TODO: Jack's handle
+  { role: 'Content creator', at: '@we1chj on Instagram', href: 'https://www.instagram.com/we1chj/' },
 ];
 const INK = '#141414', PINK = '#FF4F8B', GOLD = '#F2C744', MUTED = '#6B6760';
 
