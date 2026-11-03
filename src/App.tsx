@@ -80,7 +80,7 @@ export default function App() {
               <button key={f} type="button" aria-pressed={focus === f} onClick={() => arcade.set({ focus: f })}>{SPOT[f].label}</button>
             ))}
           </nav>
-          {focus === 'gacha' && gHeld !== null && !gOpened && <p className="twist-hint" aria-live="polite">Twist the top to open it</p>}
+          {focus === 'gacha' && gHeld !== null && !gOpened && <p className="twist-hint" aria-live="polite">Click the capsule to open it</p>}
           {card && (
             <aside className={`card-info rarity-${card.rarity.toLowerCase()}`} aria-live="polite">
               <span className="card-rarity">{card.rarity}</span>

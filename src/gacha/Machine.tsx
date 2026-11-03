@@ -5,7 +5,7 @@
 // capsule is drawn out under it on its own physics, lifting the flap as it passes; the flap falls
 // shut behind it. Choreographed (the "hybrid" part): the hand-off from the disc pocket into the
 // chute, which happens out of sight inside the cabinet, and the capsule's trip up to the visitor
-// once it is out. In hand, the capsule is twisted open (Held.tsx).
+// once it is out. In hand, a click opens the capsule (Held.tsx).
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -23,7 +23,7 @@ import { G } from './groups';
 import { materials } from './materials';
 import { clack, clunk, flapSound, ratchet } from './sound';
 import { gacha, useGacha } from './store';
-import { Held, OPEN, twistState, type HeldApi, type Twist } from './Held';
+import { Held, twistState, type HeldApi, type Twist } from './Held';
 import { arcade } from '../arcade/store';
 import { sparkle } from '../arcade/Sparkles';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
@@ -229,12 +229,8 @@ export default function Machine() {
         flapDown.current = { x: e.clientX, y: e.clientY };
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
       } else if (target.kind === 'held') {
-        // Whole: a drag twists the top off. Opened: a click puts it all back.
-        if (twist.current.opened) putBack();
-        else {
-          twist.current.drag = { x0: e.clientX, y0: e.clientY, a0: twist.current.angle };
-          try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
-        }
+        // Whole: a click opens it. Opened: a click puts it all back.
+        if (twist.current.opened) putBack(); else heldApi.current?.open();
       }
     };
     const move = (e: PointerEvent) => {
@@ -248,23 +244,10 @@ export default function Machine() {
         return;
       }
       if (door.dragging) { door.drag(e.clientX, e.clientY); return; }
-      const tw = twist.current;
-      if (tw.drag && !tw.opened) {
-        // The top turns with the pointer, either way round; far enough and it comes off.
-        tw.angle = tw.drag.a0 + (e.clientX - tw.drag.x0) * 0.012;
-        tw.v = 0;
-        if (Math.abs(tw.angle) >= OPEN) { tw.drag = null; heldApi.current?.pop(); gacha.set({ opened: true }); navigator.vibrate?.(8); }
-        return;
-      }
       if (arcade.get().focus === 'gacha') el.style.cursor = hit(e) ? 'pointer' : 'grab';
     };
     const up = (e: PointerEvent) => {
       const s = h.current;
-      if (twist.current.drag) {
-        twist.current.drag = null;
-        try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-        return;
-      }
       const fd = flapDown.current;
       if (fd) {
         flapDown.current = null;
@@ -373,6 +356,7 @@ drawing: drawing.current >= 0,
 
     door.step(dt, flap.current, joint.current);
     if (door.dragging && door.angle > 0.7 && drawing.current < 0 && waiting() >= 0) take();   // pushed open: reach in
+    if (twist.current.opened !== gacha.get().opened && mode.current.includes('held')) gacha.set({ opened: twist.current.opened });
     // Drawing the capsule out: once the flap is pushed in far enough, it is pulled along the cup floor
     // and out under the flap (lifting it as it passes); taken once it is through.
     const w = waiting(), wb = w >= 0 ? bodies.current[w] : null;
