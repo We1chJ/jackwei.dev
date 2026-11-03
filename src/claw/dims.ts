@@ -22,9 +22,9 @@ export const DOOR = { x0: HOLE.x0 + 0.01, x1: HOLE.x1 - 0.01, y0: 0.2, y1: 0.44,
 export const GANTRY_Y = 1.6;
 export const TRAVEL = { x: 0.3, z: 0.28 };
 export const HOME = { x: (HOLE.x0 + HOLE.x1) / 2 + 0.01, z: (HOLE.z0 + HOLE.z1) / 2 - 0.01 };
-export const CABLE = { min: 0.13, max: 0.47 };
+export const CABLE = { min: 0.13, max: 0.53 };   // paid out fully, the head sits down on the pile or its fingertips touch the floor
 export const HUB = { r: 0.03, h: 0.05 };
-export const FINGER = { root: 0.022, open: 0.8, idle: 0.32, closed: -0.16 };
+export const FINGER = { root: 0.022, open: 0.95, idle: 0.32, closed: -0.16 };   // open wide, so the head can settle down over a plushie
 
 // Control panel ledge in front of the glass, and its joystick: ball-top height above the base,
 // how far (m, at the ball) a full deflection is, and the lever's tilt at full deflection.

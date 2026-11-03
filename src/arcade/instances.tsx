@@ -62,7 +62,10 @@ function squash(m: THREE.Matrix4, { n, amount }: Bend, a: THREE.Matrix4) {
 export function ItemInstances({ count, bodies, scales, bends, unit = 1, parts, meshesRef }: Props) {
   const built = useMemo(() => parts.map((p) => {
     const items = p.items ?? Array.from({ length: count }, (_, i) => i);
-    const mesh = new THREE.InstancedMesh(p.geometry, p.material, items.length);
+    // Each instance knows which item it is (`aItem`), for shaders that look an item's state up.
+    const geometry = p.geometry.clone();
+    geometry.setAttribute('aItem', new THREE.InstancedBufferAttribute(new Float32Array(items), 1));
+    const mesh = new THREE.InstancedMesh(geometry, p.material, items.length);
     // The items move: culling would need the bounds recomputed every frame, and raycasting
     // culls against a sphere InstancedMesh computes once, so it gets one that holds everything.
     mesh.frustumCulled = false;
@@ -84,7 +87,7 @@ export function ItemInstances({ count, bodies, scales, bends, unit = 1, parts, m
 
   useEffect(() => {
     if (meshesRef) meshesRef.current = built.map((b) => b.mesh);
-    return () => { built.forEach((b) => b.mesh.dispose()); if (meshesRef) meshesRef.current = []; };
+    return () => { built.forEach((b) => { b.mesh.geometry.dispose(); b.mesh.dispose(); }); if (meshesRef) meshesRef.current = []; };
   }, [built, meshesRef]);
 
   const [m, mp, ma] = useMemo(() => [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()], []);

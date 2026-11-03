@@ -1,12 +1,14 @@
 // The claw machine's mechanism, played with the machine's own controls: grab the joystick on the
 // control panel and drag it any way (it springs back to centre when let go), press the big
 // DROP button. Fully physical (Rapier):
-//   - the gantry carriage (kinematic) follows the stick with limited acceleration;
+//   - the gantry carriage (kinematic) follows the stick with limited acceleration, through a belt
+//     with a little slop in it;
 //   - the claw head hangs from it on a rope whose length is the winch: it swings when the gantry
-//     starts and stops, a heavier load swings differently, and when the head lands on the pile the
-//     rope goes slack, which is how the machine knows to stop lowering;
-//   - three fingers on one plunger squeeze with a limited force, strong for the pickup and
-//     weaker for the carry, as real machines are set up.
+//     starts and stops, a heavier load swings differently, and it is lowered until the rope goes
+//     slack (it has landed on the pile), which is how the machine knows to stop;
+//   - three fingers on one plunger are pulled shut by a solenoid: a torque that grows as the plunger
+//     seats and stalls against whatever is in the way, strong for the pickup and weaker for the
+//     carry, as real machines are set up; the plushies are soft (Plush.tsx), so the fingers sink in.
 // Nothing holds a plushie but the fingers: the claw comes down gently with them spread, so the tips pass
 // either side of it, and as they close they swing down and in, under its middle. Force and friction do
 // the rest, so aim, how it lies and the swing decide whether it makes it to the chute. The fleece dents
@@ -32,7 +34,7 @@ import { onImpact } from '../arcade/intro';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
 import { ClawColliders, ClawVisual, DoorGlow, clawMaterials } from './Cabinet';
 import { BOX_TOP, CABLE, DOOR, FINGER, FLOOR_Y, GANTRY_Y, HOLE, HOME, HUB, IN, SHAFT, STICK, TRAVEL } from './dims';
-import { PG, PLUSH_TOP, PlushBody, Plushies, SHINY, dents } from './Plush';
+import { PG, PLUSH_TOP, PlushBody, Plushies, SATS, SHINY, dents, soft, softTexture } from './Plush';
 import { claw, pad } from './store';
 import { itemOf, itemPoint, type Bend } from '../arcade/instances';
 
@@ -43,17 +45,21 @@ const STICK_K = 320, STICK_C = 11;       // joystick return spring
 const SPOOL_R = 0.011;
 const ATTACH = HUB.h / 2 + 0.058;        // where the cable meets the head, above its centre
 const SPOOL_Y = -0.03;                   // the cable leaves the carriage here
-// Finger motors (force-based: N*m per rad, N*m*s per rad). The target is never more than REACH
-// ahead of where a finger is, so the squeeze is capped at K * REACH, like a claw coil's pull: it
-// grips, it can't crush through a plushie. Strong to grab, weaker to carry (the weight can pry the
-// fingers open); the carry strength varies a little from play to play, as an operator's settings do.
-const GRAB_K = 0.5, CARRY_K = 0.42, FINGER_C = 0.032, IDLE_K = 0.1, REACH = 0.1;
-const LINK_PLAY = 0.16;                  // how far (rad) one finger can lead the others on the plunger
-const TIP_CLEAR = 0.12;                  // closed, the fingers reach this far under the hub
-const GRIP_ABOVE = 0.07;                 // the head stops this far above a plushie's top: the closing tips meet it at its middle, not its shoulder
+// The fingers. Opening and resting: a position motor (force-based: N*m per rad, N*m*s per rad), never
+// asked for more than REACH ahead of where a finger is. Squeezing: the solenoid, a torque at each hinge
+// (N*m) that rises as the plunger seats (a coil pulls hardest nearly closed) and simply stalls against
+// whatever is in the way: it grips, it can't crush through a plushie. Strong to grab, weaker to carry
+// (the weight can pry the fingers open); the carry strength varies a little from play to play, as an
+// operator's settings do.
+const OPEN_K = 0.5, FINGER_C = 0.032, IDLE_K = 0.1, REACH = 0.1;
+const GRAB_T = 0.28, CARRY_T = 0.12;     // the solenoid's pull at the hinge (N*m), fully seated: a few newtons at the tips, enough to sink into the fleece
+const SQUEEZE_C = 0.12;                  // hinge damping while it pulls: the close takes a moment, it is not a snap
+const LINK_PLAY = 0.16;                  // how far (rad) one finger can close ahead of the others on the plunger
+const DESCENT = 0.22;                    // m/s the winch pays out
+const SQUEEZE = FINGER.closed - 0.05;    // where the solenoid pulls toward: past shut, never reached
+const SLOP = 0.004;                      // m of play in the belt: the head moves only once the carriage has taken it up
 // How plushies give when something hits them: a damped spring on the squash.
 const GIVE_K = 130, GIVE_C = 10, GIVE_HIT = 4.5, GIVE_MIN = 0.16, GIVE_FLAT = -0.24, GIVE_LONG = 0.14;
-const SQUEEZE = FINGER.closed - 0.03;    // just past fully shut, so they keep pressing on whatever they hold
 const DOOR_OPEN = 1.3;                   // how far a push takes it in; a plushie coming out lifts it the rest of the way
 const DOOR_MAX = 1.55;
 const DRAW_TIME = 3;                     // a plushie that will not come out in this long is left for another try
@@ -119,6 +125,9 @@ export default function Claw() {
   const plushMeshes = useRef<THREE.InstancedMesh[]>([]);
   const bends = useRef<Bend[]>(pile.map(() => ({ n: new THREE.Vector3(0, 1, 0), amount: 0 })));
   const give = useRef(pile.map(() => ({ v: 0, was: new THREE.Vector3() })));
+  const sats = useRef<(RapierRigidBody | null)[][]>(pile.map(() => []));
+  const softTex = useMemo(() => softTexture(N_PLUSH), []);
+  useEffect(() => { soft.value = softTex.tex; }, [softTex]);
   const mode = useRef<Mode[]>(pile.map(() => 'pit'));
   const bridge = useRef<THREE.Group>(null), carriage = useRef<THREE.Group>(null), cable = useRef<THREE.Mesh>(null);
   const spool = useRef<THREE.Group>(null), plunger = useRef<THREE.Mesh>(null), pulleys = useRef<(THREE.Mesh | null)[]>([]), aim = useRef<THREE.Group>(null);
@@ -143,7 +152,7 @@ export default function Claw() {
 
   const c = useRef({
     t: 0, step: 0, cx: HOME.x, cz: HOME.z, vx: 0, vz: 0,
-    L: CABLE.min, stopL: CABLE.max, carry: -1, carryK: CARRY_K, slack: 0, armed: false, pressedAt: -9, celebrateUntil: 0,
+    L: CABLE.min, bx: HOME.x, bz: HOME.z, carry: -1, carryT: CARRY_T, slack: 0, armed: false, pressedAt: -9, celebrateUntil: 0,
     sx: 0, sz: 0, svx: 0, svz: 0, dragging: false, hover: '' as '' | 'stick' | 'button',
     auto: null as null | { x: number; z: number }, heldAt: 0,
   });
@@ -194,9 +203,7 @@ export default function Claw() {
     keyBeep();
     if (!canPlay()) return;
     c.current.step = 0; c.current.auto = null;
-    c.current.carryK = CARRY_K * (0.8 + Math.random() * 0.4);
-    // Down to where the fingers will close round whatever is under it, stopping short of the floor.
-    c.current.stopL = THREE.MathUtils.clamp(GANTRY_Y - Math.max(topUnder(H.x, H.z) + GRIP_ABOVE, FLOOR_Y + TIP_CLEAR + HUB.h / 2), CABLE.min, CABLE.max);
+    c.current.carryT = CARRY_T * (0.8 + Math.random() * 0.4);
     claw.set({ phase: 'dropping', lastGrab: null });
     motor(1.2, 70, 0.05);
   };
@@ -218,6 +225,7 @@ export default function Claw() {
     b.resetForces(true);
     b.collider(0).setEnabled(false);
     b.setBodyType(RigidBodyType.KinematicPositionBased, true);
+    softOff(i, true);
     sparkle.burst(p, 30, 0.38);
     mode.current[i] = 'out';
     anim.current.set(i, { kind: 'out', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
@@ -232,6 +240,18 @@ export default function Claw() {
     mode.current[i] = 'return';
     anim.current.set(i, { kind: 'return', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
     claw.set({ phase: mode.current.includes('prize') ? 'prize' : 'idle' });
+  };
+
+  // Out of play (in hand, or on the way), a plushie's satellites ride along on their springs without
+  // touching anything; back in the pit they are solid again.
+  const softOff = (i: number, off: boolean) => {
+    for (const sb of sats.current[i]) {
+      if (!sb) continue;
+      sb.collider(0).setEnabled(!off);
+      sb.setGravityScale(off ? 0 : 1, true);
+      if (off) { const p = bodies.current[i]!.translation(); sb.setTranslation(p, true); sb.setLinvel({ x: 0, y: 0, z: 0 }, true); }
+      sb.wakeUp();
+    }
   };
 
   // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
@@ -256,6 +276,9 @@ export default function Claw() {
       goto: (x: number, z: number) => { c.current.auto = { x, z }; },
       drop,
       plush: () => mode.current.map((md, i) => { const p = bodies.current[i]?.translation(); return p ? { i, md, x: p.x - OX, y: p.y, z: p.z } : null; }),
+      sats: (i: number) => sats.current[i].map((sb) => { const p = sb?.translation(); return p ? [+(p.x - OX).toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3), sb!.collider(0).isEnabled()] : null; }),
+      head: () => [+(H.x - OX).toFixed(3), +H.y.toFixed(3), +H.z.toFixed(3), +hq.x.toFixed(2), +hq.y.toFixed(2), +hq.z.toFixed(2), +hq.w.toFixed(2), +fingerAngle(0).toFixed(2), +fingerAngle(1).toFixed(2), +fingerAngle(2).toFixed(2)],
+      tips: () => fingerBodies.map((f) => { const b = f.current; if (!b) return null; const p = b.translation(), r = b.rotation(); const q = new THREE.Quaternion(r.x, r.y, r.z, r.w); return [0, 1, 2].map((n) => { const v = new THREE.Vector3(FINGER.root + 0.02, -HUB.h / 2 - 0.112, 0).applyAxisAngle(up, YAW[n]).applyQuaternion(q).add(p as THREE.Vector3); return [+(v.x - OX).toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]; })[fingerBodies.indexOf(f)]; }),
       win: () => { const i = mode.current.indexOf('pit'); bodies.current[i]?.setTranslation({ x: OX + (HOLE.x0 + HOLE.x1) / 2, y: FLOOR_Y + 0.12, z: (HOLE.z0 + HOLE.z1) / 2 }, true); },
     };
   }
@@ -413,27 +436,31 @@ export default function Claw() {
     s.cz = THREE.MathUtils.clamp(s.cz + s.vz * dt, -TRAVEL.z, TRAVEL.z);
     if (Math.abs(s.cx) >= TRAVEL.x) s.vx = 0;
     if (Math.abs(s.cz) >= TRAVEL.z) s.vz = 0;
-    trolley.current?.setNextKinematicTranslation({ x: OX + s.cx, y: GANTRY_Y, z: s.cz });
+    // The belt's slop: the head's carriage only moves once the drive has taken the play up.
+    s.bx = THREE.MathUtils.clamp(s.bx, s.cx - SLOP, s.cx + SLOP);
+    s.bz = THREE.MathUtils.clamp(s.bz, s.cz - SLOP, s.cz + SLOP);
+    trolley.current?.setNextKinematicTranslation({ x: OX + s.bx, y: GANTRY_Y, z: s.bz });
 
     // How slack the rope is: the head resting on something instead of hanging from it.
     top.set(0, ATTACH, 0).applyQuaternion(hq).add(H);
-    s.slack = s.L + SPOOL_Y - ATTACH - top.distanceTo(c2.set(OX + s.cx, GANTRY_Y + SPOOL_Y, s.cz));
+    s.slack = s.L + SPOOL_Y - ATTACH - top.distanceTo(c2.set(OX + s.bx, GANTRY_Y + SPOOL_Y, s.bz));
 
-    // Claw cycle: the winch sets the rope length, the motors set where the fingers want to be.
-    let fingerTarget = FINGER.idle, k = IDLE_K;
+    // Claw cycle: the winch sets the rope length; the fingers are either placed (a position motor,
+    // opening and resting) or squeezed by the solenoid (a torque, `pull`).
+    let fingerTarget = FINGER.idle, k = IDLE_K, pull = 0;
     if (phase === 'dropping') {
-      fingerTarget = FINGER.open; k = GRAB_K;
-      s.L = Math.min(s.stopL, s.L + Math.min(0.26, 0.05 + (s.stopL - s.L) * 3.5) * dt);   // slows as it arrives
-      // Stop there, or if the rope goes slack first (it landed on something).
-      if ((s.slack > 0.008 && s.step > 0.3) || s.L >= s.stopL - 1e-4) {
+      fingerTarget = FINGER.open; k = OPEN_K;
+      // Lowered until the rope goes slack: it has landed on the pile (or the floor at the end of the rope).
+      s.L = Math.min(CABLE.max, s.L + DESCENT * dt);
+      if ((s.slack > 0.008 && s.step > 0.3) || s.L >= CABLE.max - 1e-4) {
         s.L -= Math.max(0, s.slack - 0.004);
         s.step = 0; claw.set({ phase: 'grabbing' }); ratchet();
       }
     } else if (phase === 'grabbing') {
-      fingerTarget = s.step < 0.1 ? FINGER.open : SQUEEZE; k = GRAB_K;
+      if (s.step < 0.1) { fingerTarget = FINGER.open; k = OPEN_K; } else pull = GRAB_T;
       if (s.step > 1.05) { s.step = 0; claw.set({ phase: 'lifting' }); motor(1.4, 60, 0.05); }
     } else if (phase === 'lifting') {
-      fingerTarget = SQUEEZE; k = s.step < 0.9 ? GRAB_K : s.carryK;   // the pickup strength drops once it is off the floor
+      pull = s.step < 0.9 ? GRAB_T : s.carryT;   // the pickup strength drops once it is off the floor
       if (s.step > 0.25) s.L = Math.max(CABLE.min, s.L - 0.2 * dt);
       const lifted = inClaw();                                         // up off the floor with it, or lost it on the way
       if (lifted >= 0) s.carry = lifted;
@@ -443,21 +470,30 @@ export default function Claw() {
         claw.set({ phase: 'returning' }); motor(Math.hypot(HOME.x - s.cx, HOME.z - s.cz) / VMAX + 0.6, 85, 0.05);
       }
     } else if (phase === 'returning') {
-      fingerTarget = SQUEEZE; k = s.carryK;
+      pull = s.carryT;
       if (s.carry >= 0 && inClaw() !== s.carry) { s.carry = -1; claw.set({ lastGrab: 'slipped' }); }
       if (Math.hypot(HOME.x - s.cx, HOME.z - s.cz) < 0.003 && Math.hypot(s.vx, s.vz) < 0.02 && s.step > 0.4) { s.step = 0; claw.set({ phase: 'releasing' }); }
     } else if (phase === 'releasing') {
       if (s.carry >= 0) { wobble.current.set(s.carry, { at: s.t, amount: 0.12 }); s.carry = -1; }
-      fingerTarget = s.step < 0.9 ? FINGER.open : FINGER.idle; k = GRAB_K;
+      fingerTarget = s.step < 0.9 ? FINGER.open : FINGER.idle; k = OPEN_K;
       if (s.step > 1.4) claw.set({ phase: mode.current.includes('prize') ? 'prize' : 'idle', lastGrab: claw.get().lastGrab ?? 'missed' });
     }
     if (s.L !== pL || phase === 'dropping') { setRopeLength(rope.current, s.L + SPOOL_Y - ATTACH); hb.wakeUp(); }
     // One plunger drives all three: a finger that meets something holds the others back with it, so they
     // close as a set and centre what is between them, instead of one running past and pinching it out.
     const a0 = fingerAngle(0), a1 = fingerAngle(1), a2 = fingerAngle(2), lead = Math.max(a0, a1, a2);
+    const seated = THREE.MathUtils.clamp((FINGER.open - (a0 + a1 + a2) / 3) / (FINGER.open - FINGER.closed), 0, 1);
     hingeJoints.forEach((j, n) => {
       const at = n === 0 ? a0 : n === 1 ? a1 : a2;
-      j.current!.configureMotorPosition(THREE.MathUtils.clamp(Math.max(fingerTarget, lead - LINK_PLAY), at - REACH, at + REACH), k, FINGER_C);
+      if (pull > 0) {
+        // The solenoid: the coil's torque pulls the finger shut, harder the further the plunger has seated,
+        // and stalls against whatever is in the way; a finger ahead of the others on the plunger waits. It
+        // is put through the hinge motor (a stiffness that gives exactly that torque from where the finger
+        // is, toward a target it never reaches), so the solver handles it: a torque kicked in per frame
+        // throws a finger this light through its stops.
+        const want = at > lead - LINK_PLAY && at > FINGER.closed + 0.02 ? pull * (0.55 + 0.9 * seated) : 0;
+        j.current!.configureMotorPosition(SQUEEZE, want / Math.max(at - SQUEEZE, 0.2), SQUEEZE_C);   // never so stiff it drives through the stop
+      } else j.current!.configureMotorPosition(THREE.MathUtils.clamp(Math.max(fingerTarget, lead - LINK_PLAY), at - REACH, at + REACH), k, FINGER_C);
     });
     // A real head barely spins on its cable: damp any twist about the vertical.
     const w = hb.angvel();
@@ -514,6 +550,23 @@ export default function Claw() {
     });
 
     // Where the fingers are, for the fleece to dent round (Plush.tsx).
+    // Where each plushie's satellites have gone, for the fabric to follow (Plush.tsx).
+    mode.current.forEach((md, i) => {
+      const b = bodies.current[i];
+      if (!b) return;
+      const p = b.translation(), r = b.rotation();
+      qTmp.set(r.x, r.y, r.z, r.w);
+      softTex.set(i, 0, p.x, p.y, p.z);
+      sats.current[i].forEach((sb, kk) => {
+        c1.set(...SATS[kk]).applyQuaternion(qTmp);                         // rest offset, world
+        const n = c2.copy(c1).normalize();
+        const sp = sb && md === 'pit' ? sb.translation() : null;
+        oTmp.set(sp ? sp.x - p.x - c1.x : 0, sp ? sp.y - p.y - c1.y : 0, sp ? sp.z - p.z - c1.z : 0);   // gone from rest
+        softTex.set(i, 1 + 2 * kk, n.x, n.y, n.z);
+        softTex.set(i, 2 + 2 * kk, oTmp.x, oTmp.y, oTmp.z);
+      });
+    });
+    softTex.tex.needsUpdate = true;
     dents.at.value.set(H.x, H.y - 0.07, H.z);
     fingerBodies.forEach((f, n) => {
       const b = f.current;
@@ -620,6 +673,7 @@ export default function Claw() {
           b.collider(0).setEnabled(true);
           b.setBodyType(RigidBodyType.Dynamic, true);
           b.setLinvel({ x: 0, y: -0.3, z: 0 }, true);
+          softOff(i, false);
           mode.current[i] = 'pit';
         }
       }
@@ -715,7 +769,7 @@ export default function Claw() {
         <CuboidCollider args={[(HOLE.x1 - HOLE.x0) / 2, 0.006, (SHAFT.floorFront - SHAFT.bottomFront[0]) / 2 + 0.01]} position={[OX + DOOR_X, SHAFT.bottomFront[1] - 0.006, (SHAFT.floorFront + SHAFT.bottomFront[0]) / 2]} />
       </RigidBody>
       {pile.map((p, i) => (
-        <PlushBody key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />
+        <PlushBody key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} onSatellite={(pi, kk, sb) => { sats.current[pi][kk] = sb; }} />
       ))}
       <Plushies count={N_PLUSH} bodies={bodies} scales={scales} bends={bends} meshesRef={plushMeshes} />
     </group>
