@@ -29,7 +29,6 @@ export const CapsuleBody = forwardRef<RapierRigidBody, Props>(function CapsuleBo
       colliders={false}
       position={position}
       rotation={rotation}
-      mass={0.04}
       friction={0.45}
       restitution={0.28}
       linearDamping={0.15}
@@ -39,7 +38,8 @@ export const CapsuleBody = forwardRef<RapierRigidBody, Props>(function CapsuleBo
       collisionGroups={G.capsuleHopper}
       onCollisionEnter={(p) => onHit?.(index, p)}
     >
-      <BallCollider args={[CAPSULE_R]} />
+      {/* The mass goes on the collider: on the body it is ignored, leaving a capsule of a couple of grams. */}
+      <BallCollider args={[CAPSULE_R]} mass={0.04} />
     </RigidBody>
   );
 });

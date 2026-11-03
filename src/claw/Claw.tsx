@@ -10,10 +10,12 @@
 // Nothing holds a plushie but the fingers: the claw comes down gently with them spread, so the tips pass
 // either side of it, and as they close they swing down and in, under its middle. Force and friction do
 // the rest, so aim, how it lies and the swing decide whether it makes it to the chute. The fleece dents
-// where the fingers press (Plush.tsx). The prize door is a push-flap (src/arcade/flap.ts); the hand-off to
-// the visitor is choreographed.
+// where the fingers press (Plush.tsx). The prize door is a push-flap (src/arcade/flap.ts): push it in (drag it
+// any way, or click) and a won plushie is drawn out under it on its own physics, lifting the door as it
+// passes. Its trip up to the visitor from there is choreographed.
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { RoundedBox } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   CapsuleCollider, CuboidCollider, CylinderCollider, RigidBody, useRevoluteJoint, useRopeJoint,
@@ -25,11 +27,11 @@ import { materials } from '../gacha/materials';
 import { SPOT } from '../arcade/layout';
 import { sparkle } from '../arcade/Sparkles';
 import { arcade, wantShot } from '../arcade/store';
-import { pushFlap } from '../arcade/flap';
+import { draw, pushFlap } from '../arcade/flap';
 import { onImpact } from '../arcade/intro';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
-import { ClawColliders, ClawVisual, DoorGlow, DoorVisual, clawMaterials } from './Cabinet';
-import { BOX_TOP, CABLE, DOOR, FINGER, FLOOR_Y, GANTRY_Y, HOLE, HOME, HUB, IN, STICK, TRAVEL } from './dims';
+import { ClawColliders, ClawVisual, DoorGlow, clawMaterials } from './Cabinet';
+import { BOX_TOP, CABLE, DOOR, FINGER, FLOOR_Y, GANTRY_Y, HOLE, HOME, HUB, IN, SHAFT, STICK, TRAVEL } from './dims';
 import { PG, PLUSH_TOP, PlushBody, Plushies, SHINY, dents } from './Plush';
 import { claw, pad } from './store';
 import { itemOf, itemPoint, type Bend } from '../arcade/instances';
@@ -52,7 +54,11 @@ const GRIP_ABOVE = 0.07;                 // the head stops this far above a plus
 // How plushies give when something hits them: a damped spring on the squash.
 const GIVE_K = 130, GIVE_C = 10, GIVE_HIT = 4.5, GIVE_MIN = 0.16, GIVE_FLAT = -0.24, GIVE_LONG = 0.14;
 const SQUEEZE = FINGER.closed - 0.03;    // just past fully shut, so they keep pressing on whatever they hold
-const DOOR_OPEN = 1.3;                   // pushed in far enough for a plushie to pass under
+const DOOR_OPEN = 1.3;                   // how far a push takes it in; a plushie coming out lifts it the rest of the way
+const DOOR_MAX = 1.55;
+const DRAW_TIME = 3;                     // a plushie that will not come out in this long is left for another try
+const DOOR_X = (DOOR.x0 + DOOR.x1) / 2;
+const PLUSH_R = 0.05;
 type Mode = 'pit' | 'chute' | 'prize' | 'out' | 'land' | 'held' | 'return';
 
 // Finger shape in its hinge plane (x out from the hub, y down), and matching colliders: the shaft,
@@ -80,6 +86,18 @@ const HINGE_AXIS = YAW.map((a) => [Math.sin(a), 0, Math.cos(a)] as [number, numb
 type RawJoints = { rawSet: { jointSetLimits(handle: number, axis: number, min: number, max: number): void } };
 const setRopeLength = (j: ImpulseJoint, length: number) => (j as unknown as RawJoints).rawSet.jointSetLimits(j.handle, 0, 0, length);
 
+/** The prize door: smoked plastic with the PRIZE print, hung from its top edge. */
+function PrizeDoor() {
+  const base = materials(), m = clawMaterials();
+  const w = DOOR.x1 - DOOR.x0 - 0.008, h = DOOR.height;
+  return (
+    <group userData={{ cdoor: true }}>
+      <RoundedBox args={[w, h, DOOR.thickness]} radius={0.0015} smoothness={2} position={[0, -h / 2, 0]} material={base.smoke} renderOrder={2} />
+      <mesh material={m.prize} position={[0, -h / 2, DOOR.thickness / 2 + 0.0005]} renderOrder={3}><planeGeometry args={[0.12, 0.06]} /></mesh>
+    </group>
+  );
+}
+
 function spawnPile(n: number) {
   let s = 11;
   const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 - 0.5; };
@@ -106,6 +124,10 @@ export default function Claw() {
   const spool = useRef<THREE.Group>(null), plunger = useRef<THREE.Mesh>(null), pulleys = useRef<(THREE.Mesh | null)[]>([]), aim = useRef<THREE.Group>(null);
   const stick = useRef<THREE.Group>(null), button = useRef<THREE.Group>(null), banks = useRef<THREE.Group[]>([]);
   const door = useRef<RapierRigidBody>(null), doorAnchor = useRef<RapierRigidBody>(null), doorGroup = useRef<THREE.Group>(null), doorGlow = useRef<THREE.Mesh>(null);
+  const pocket = useRef<THREE.Mesh>(null);
+  const doorDown = useRef<null | { x: number; y: number }>(null);
+  // A plushie being drawn out of the pocket: since when.
+  const drawing = useRef(-1);
 
   // The rig: carriage -> rope -> head -> three hinged fingers; the prize door on its hinge.
   const trolley = useRef<RapierRigidBody>(null), head = useRef<RapierRigidBody>(null);
@@ -116,16 +138,16 @@ export default function Claw() {
   const j1 = useRevoluteJoint(head, f1, [HINGE[1], HINGE[1], HINGE_AXIS[1], [FINGER.closed, FINGER.open + 0.08]]);
   const j2 = useRevoluteJoint(head, f2, [HINGE[2], HINGE[2], HINGE_AXIS[2], [FINGER.closed, FINGER.open + 0.08]]);
   const hingeJoints = [j0, j1, j2];
-  const doorJoint = useRevoluteJoint(doorAnchor, door, [[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, DOOR_OPEN + 0.25]]);
-  const flap = useMemo(() => pushFlap(DOOR_OPEN, () => flapSound()), []);
+  const doorJoint = useRevoluteJoint(doorAnchor, door, [[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, DOOR_MAX]]);
+  const flap = useMemo(() => pushFlap(DOOR_OPEN, () => flapSound(), DOOR_MAX), []);
 
   const c = useRef({
     t: 0, step: 0, cx: HOME.x, cz: HOME.z, vx: 0, vz: 0,
     L: CABLE.min, stopL: CABLE.max, carry: -1, carryK: CARRY_K, slack: 0, armed: false, pressedAt: -9, celebrateUntil: 0,
     sx: 0, sz: 0, svx: 0, svz: 0, dragging: false, hover: '' as '' | 'stick' | 'button',
-    auto: null as null | { x: number; z: number }, heldAt: 0, doorDown: null as null | { x: number; y: number },
+    auto: null as null | { x: number; z: number }, heldAt: 0,
   });
-  const anim = useRef(new Map<number, { kind: 'reach' | 'slide' | 'out' | 'land' | 'return'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion }>());
+  const anim = useRef(new Map<number, { kind: 'out' | 'land' | 'return'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion }>());
   const wobble = useRef(new Map<number, { at: number; amount: number }>());
   const rest = useRef(new Map<number, number>());
   const [vTmp, oTmp, c1, c2, axis, H, top] = useMemo(() => Array.from({ length: 7 }, () => new THREE.Vector3()), []);
@@ -179,13 +201,26 @@ export default function Claw() {
     motor(1.2, 70, 0.05);
   };
 
+  // Reaching in for the won plushie: the door is held open and the plushie drawn out under it.
   const take = () => {
-    const i = mode.current.indexOf('prize');
-    if (!bodies.current[i] || anim.current.size) return;
-    // A hand pushes the door in and reaches for the prize (still loose behind it).
+    if (drawing.current >= 0 || !mode.current.includes('prize')) return;
+    drawing.current = c.current.t;
     flap.holdOpen(true);
+    claw.set({ phase: 'taking' });
+  };
+
+  // Out past the door: up to the visitor it goes, and the door is let go.
+  const taken = (i: number) => {
+    const b = bodies.current[i]!;
+    const p = b.translation(), q = b.rotation();
+    drawing.current = -1;
+    flap.holdOpen(false);
+    b.resetForces(true);
+    b.collider(0).setEnabled(false);
+    b.setBodyType(RigidBodyType.KinematicPositionBased, true);
+    sparkle.burst(p, 30, 0.38);
     mode.current[i] = 'out';
-    anim.current.set(i, { kind: 'reach', t: 0, from: new THREE.Vector3(), fromQ: new THREE.Quaternion() });
+    anim.current.set(i, { kind: 'out', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
     claw.set({ phase: 'taking' });
   };
 
@@ -200,7 +235,11 @@ export default function Claw() {
   };
 
   // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
-  useEffect(() => arcade.subscribe(() => { if (arcade.get().focus !== 'claw' && mode.current.includes('held')) putBack(); }), []);
+  useEffect(() => arcade.subscribe(() => {
+    if (arcade.get().focus === 'claw') return;
+    drawing.current = -1; flap.holdOpen(false);
+    if (mode.current.includes('held')) putBack();
+  }), []);
 
   const onHit = (i: number, p: CollisionEnterPayload) => {
     const md = mode.current[i];
@@ -217,6 +256,7 @@ export default function Claw() {
       goto: (x: number, z: number) => { c.current.auto = { x, z }; },
       drop,
       plush: () => mode.current.map((md, i) => { const p = bodies.current[i]?.translation(); return p ? { i, md, x: p.x - OX, y: p.y, z: p.z } : null; }),
+      win: () => { const i = mode.current.indexOf('pit'); bodies.current[i]?.setTranslation({ x: OX + (HOLE.x0 + HOLE.x1) / 2, y: FLOOR_Y + 0.12, z: (HOLE.z0 + HOLE.z1) / 2 }, true); },
     };
   }
 
@@ -235,12 +275,13 @@ export default function Claw() {
       if (stick.current?.parent) targets.push(stick.current.parent);
       if (button.current?.parent) targets.push(button.current.parent);
       if (doorGroup.current) targets.push(doorGroup.current);
-      // Nearest first; a plushie only counts where it can be taken (behind the door) or put back (held).
+      if (pocket.current) targets.push(pocket.current);
+      // Nearest first; a plushie only counts where it can be reached for (behind the door) or put back (held).
       for (const h of ray.intersectObjects(targets, true)) {
         const i = itemOf(h);
         if (i >= 0) {
           if (mode.current[i] === 'held') return 'held';
-          if (mode.current[i] === 'prize') return 'take';
+          if (mode.current[i] === 'prize') return 'door';
           continue;
         }
         let o: THREE.Object3D | null = h.object;
@@ -279,27 +320,23 @@ export default function Claw() {
       } else if (h === 'button') drop();
       else if (h === 'door') {
         // Push it with the pointer; a plain click is a quick push (or a reach for a waiting prize).
-        flap.grab(e.clientY);
-        c.current.doorDown = { x: e.clientX, y: e.clientY };
+        flap.grab(e.clientX, e.clientY);
+        doorDown.current = { x: e.clientX, y: e.clientY };
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
-      } else if (h === 'take') take();
-      else putBack();
+      } else putBack();
     };
     const move = (e: PointerEvent) => {
       if (c.current.dragging) { steer(e); return; }
-      if (flap.dragging) {
-        flap.drag(e.clientY);
-        return;
-      }
+      if (flap.dragging) { flap.drag(e.clientX, e.clientY); return; }
       if (arcade.get().focus !== 'claw' || e.buttons) return;
       const h = hit(e);
       c.current.hover = h === 'stick' || h === 'button' ? h : '';
       el.style.cursor = h ? 'pointer' : 'grab';
     };
     const end = (e: PointerEvent) => {
-      const dd = c.current.doorDown;
+      const dd = doorDown.current;
       if (dd) {
-        c.current.doorDown = null;
+        doorDown.current = null;
         flap.release();
         try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
         if (Math.hypot(e.clientX - dd.x, e.clientY - dd.y) < 6) { if (mode.current.includes('prize')) take(); else flap.push(0.35); }
@@ -433,6 +470,8 @@ export default function Claw() {
         phase, counts, cx: +s.cx.toFixed(3), cz: +s.cz.toFixed(3), L: +s.L.toFixed(3), slack: +s.slack.toFixed(4),
         sway: +Math.hypot(H.x - OX - s.cx, H.z - s.cz).toFixed(4), carry: s.carry, lastGrab: claw.get().lastGrab,
         pad: [+pad.x.toFixed(2), +pad.y.toFixed(2)], finger: +fingerAngle(0).toFixed(3), door: +flap.angle.toFixed(3),
+        prize: (() => { const i = mode.current.indexOf('prize'); const p = i >= 0 ? bodies.current[i]?.translation() : null; return p ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null; })(),
+        drawing: drawing.current >= 0,
       });
     }
 
@@ -485,9 +524,21 @@ export default function Claw() {
         .set(FINGER.root + x, -HUB.h / 2 + y, 0).applyAxisAngle(up, YAW[n]).applyQuaternion(qTmp).add(p as THREE.Vector3));
     });
 
-    // Door: a push-flap on its top hinge.
+    // Door: a push-flap on its top hinge. Drawing the prize out: once the door is pushed in far enough,
+    // the plushie is pulled along the pocket floor and out under the door (lifting it as it passes).
     flap.step(dt, door.current, doorJoint.current);
-    if (flap.dragging && flap.angle > 0.7 && mode.current.includes('prize')) take();   // pushed open: reach in
+    if (flap.dragging && flap.angle > 0.7 && drawing.current < 0 && mode.current.includes('prize')) take();   // pushed open: reach in
+    const pi = mode.current.indexOf('prize'), pb = pi >= 0 ? bodies.current[pi] : null;
+    if (drawing.current >= 0) {
+      if (!pb || s.t - drawing.current > DRAW_TIME) { drawing.current = -1; pb?.resetForces(true); flap.holdOpen(false); claw.set({ phase: pb ? 'prize' : 'idle' }); }
+      else {
+        const p = pb.translation();
+        // Only once the door is up out of its way: pulling sooner pins the plushie under its edge.
+        if (flap.angle > 1.3) draw(pb, OX + DOOR_X, p.y + 0.01, DOOR.z + PLUSH_R + 0.1, 25, 0.45)
+        else pb.resetForces(true);   // an added force stays on until it is reset
+      }
+    }
+    if (pb && pb.translation().z > DOOR.z + PLUSH_R + 0.012) taken(pi);   // out past the door
     const waiting = mode.current.includes('prize');
     if (doorGlow.current) doorGlow.current.visible = waiting;
     m.doorGlow.opacity = 0.45 + 0.4 * Math.sin(s.t * 5);
@@ -537,27 +588,7 @@ export default function Claw() {
       if (!b) { anim.current.delete(i); continue; }
       // Rapier won't move a sleeping kinematic body, so keep it awake while it is choreographed.
       b.wakeUp();
-      if (a.kind === 'reach') {
-        a.t += dt;
-        if (flap.angle < 1.05 && a.t < 0.9) continue;
-        const p = b.translation(), q = b.rotation();
-        a.from.set(p.x, p.y, p.z); a.fromQ.set(q.x, q.y, q.z, q.w);
-        b.setBodyType(RigidBodyType.KinematicPositionBased, true);
-        a.kind = 'slide'; a.t = 0;
-      } else if (a.kind === 'slide') {
-        // Out along the tray under the raised door (it lifts the door as it passes; its collider
-        // is still on), then the hand lets the door fall shut behind it.
-        a.t = Math.min(1, a.t + dt / 0.5);
-        oTmp.set(a.from.x, DOOR.y0 + 0.075, DOOR.z + 0.085);
-        b.setNextKinematicTranslation(vTmp.copy(a.from).lerp(oTmp, easeInOut(a.t)));
-        if (a.t >= 1) {
-          flap.holdOpen(false);
-          b.collider(0).setEnabled(false);
-          sparkle.burst(oTmp, 30, 0.38);
-          a.from.copy(oTmp);
-          a.kind = 'out'; a.t = 0;
-        }
-      } else if (a.kind === 'out') {
+      if (a.kind === 'out') {
         a.t += dt;
         const hold = holdPoint(camera, oTmp, 0.72, 0.07, 0.03);
         const t = clamp01(a.t / 0.9), kk = easeOut(t);
@@ -640,6 +671,8 @@ export default function Claw() {
           <mesh material={m.aim}><ringGeometry args={[0.028, 0.034, 40]} /></mesh>
           <mesh material={m.aim}><circleGeometry args={[0.006, 20]} /></mesh>
         </group>
+        {/* The pocket opening behind the door, for the pointer (the door itself is the usual target). */}
+        <mesh ref={pocket} position={[DOOR_X, (DOOR.y0 + DOOR.y1) / 2, DOOR.z - 0.03]} userData={{ cdoor: true }}><planeGeometry args={[DOOR.x1 - DOOR.x0, DOOR.y1 - DOOR.y0]} /><meshBasicMaterial visible={false} /></mesh>
       </group>
       <ClawColliders x={OX} />
 
@@ -674,8 +707,12 @@ export default function Claw() {
       {/* Prize door: hinged at its top edge, swings inward only, hangs shut under its own weight. */}
       <RigidBody ref={doorAnchor} type="fixed" colliders={false} position={[OX + (DOOR.x0 + DOOR.x1) / 2, DOOR.hingeY, DOOR.z]} />
       <RigidBody ref={door} canSleep={false} colliders={false} position={[OX + (DOOR.x0 + DOOR.x1) / 2, DOOR.hingeY, DOOR.z]} angularDamping={0.4} ccd>
-        <CuboidCollider args={[(DOOR.x1 - DOOR.x0) / 2, (DOOR.y1 - DOOR.y0) / 2, DOOR.thickness / 2]} position={[0, -(DOOR.y1 - DOOR.y0) / 2, 0]} mass={0.07} collisionGroups={PG.static} />
-        <group ref={doorGroup}><DoorVisual /></group>
+        <CuboidCollider args={[(DOOR.x1 - DOOR.x0) / 2, DOOR.height / 2, DOOR.thickness / 2]} position={[0, -DOOR.height / 2, 0]} mass={0.05} collisionGroups={PG.static} />
+        <group ref={doorGroup}><PrizeDoor /></group>
+      </RigidBody>
+      {/* The flat front of the pocket floor, behind the door. */}
+      <RigidBody type="fixed" colliders={false} collisionGroups={PG.static}>
+        <CuboidCollider args={[(HOLE.x1 - HOLE.x0) / 2, 0.006, (SHAFT.floorFront - SHAFT.bottomFront[0]) / 2 + 0.01]} position={[OX + DOOR_X, SHAFT.bottomFront[1] - 0.006, (SHAFT.floorFront + SHAFT.bottomFront[0]) / 2]} />
       </RigidBody>
       {pile.map((p, i) => (
         <PlushBody key={i} index={i} position={p.p} rotation={p.q} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />

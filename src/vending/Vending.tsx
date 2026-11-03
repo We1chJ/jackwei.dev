@@ -2,7 +2,8 @@
 // keypad; that coil turns once and walks its cards forward. Choreographed: the coil turn (the
 // cards ride the wire as kinematic bodies) and the hand-off to the visitor. Physical (Rapier):
 // the front card tipping off the shelf, falling, tumbling and landing in the bin behind a hinged
-// push-flap (src/arcade/flap.ts); push it in and the card slides out under it.
+// push-flap (src/arcade/flap.ts): push it in (drag it any way, or click) and the card is drawn out
+// under it on its own physics, lifting the flap as it passes.
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -14,21 +15,31 @@ import { SPOT } from '../arcade/layout';
 import { sparkle } from '../arcade/Sparkles';
 import { arcade, wantShot } from '../arcade/store';
 import { TAU, bezier, clamp01, easeInOut, easeOut, easeOutBack, holdPoint, landWobble, spinDown } from '../arcade/present';
-import { pushFlap } from '../arcade/flap';
+import { draw, pushFlap } from '../arcade/flap';
 import { onImpact } from '../arcade/intro';
 import { ledDisplay } from './art';
 import { CardBody, Cards } from './Card';
 import { itemOf, itemPoint } from '../arcade/instances';
 import { FlapVisual, Highlights, VG, VendingColliders, VendingVisual, vendMaterials } from './Cabinet';
-import { BIN, BIN_FLAP, COIL, COLS, COL_X, PER_COIL, ROWS, SHELF, SHELF_Y, SLAB, WINDOW, slotZ } from './dims';
+import { BIN, BIN_FLAP, COIL, COLS, COL_X, INSIDE, PER_COIL, ROWS, SHELF, SHELF_Y, SLAB, WINDOW, slotZ } from './dims';
 import { vendActions, vending } from './store';
 
 const OX = SPOT.vending.x;
 const COILS = ROWS.length * COLS;
 const TURN_TIME = 1.6;
-const FLAP_OPEN = 1.05;                    // how far a hand pushes it in (joint limit 1.3)
+const FLAP_OPEN = 1.05;                    // how far a push takes it in; a card coming out lifts it the rest of the way
+const FLAP_MAX = 1.3;
+const DRAW_TIME = 3;                       // a card that will not come out in this long is left for another try
 const ATTRACT = 'PRESS A LETTER, THEN A NUMBER   *   STAR = SURPRISE ME   *';
 type Mode = 'shelf' | 'falling' | 'bin' | 'out' | 'land' | 'held' | 'return';
+
+// A thick slab under the bin's sloped floor, its top face on the floor: a card landing at full speed
+// punches a corner through the cabinet's thin one and is kicked out of the bin.
+const SLOPE = (() => {
+  const [z0, y0] = BIN.floorBack, [z1, y1] = BIN.floorFront;
+  const dz = z1 - z0, dy = y1 - y0, length = Math.hypot(dz, dy), angle = -Math.atan2(dy, dz), T = 0.03;
+  return { length, angle, T, center: [(BIN.x0 + BIN.x1) / 2, (y0 + y1) / 2 - Math.cos(angle) * T, (z0 + z1) / 2 - Math.sin(angle) * T] as [number, number, number] };
+})();
 
 const rowOf = (c: number) => Math.floor(c / COLS);
 const slotPos = (c: number, k: number, advance = 0) => ({ x: OX + COL_X[c % COLS], y: SHELF_Y[rowOf(c)] + SLAB.h / 2 + 0.0005, z: slotZ(k) + advance });
@@ -48,14 +59,18 @@ export default function Vending() {
   const pressedAt = useRef(new Map<string, number>());
   const flap = useRef<RapierRigidBody>(null), flapAnchor = useRef<RapierRigidBody>(null);
   const flapGroup = useRef<THREE.Group>(null);
-  const joint = useRevoluteJoint(flapAnchor, flap, [[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, 1.3]]);
-  const door = useMemo(() => pushFlap(FLAP_OPEN, () => flapSound()), []);
+  const joint = useRevoluteJoint(flapAnchor, flap, [[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, FLAP_MAX]]);
+  const door = useMemo(() => pushFlap(FLAP_OPEN, () => flapSound(), FLAP_MAX), []);
+  const bin = useRef<THREE.Mesh>(null);
+  const flapDown = useRef<null | { x: number; y: number }>(null);
+  // A card being drawn out of the bin: since when.
+  const drawing = useRef(-1);
   const led = useMemo(() => ledDisplay(), []);
   const slotGlow = useRef<(THREE.Mesh | null)[]>([]), binGlow = useRef<THREE.Mesh>(null);
   const ui = useRef({ hover: '', used: false, scroll: true, scrollAt: 0, lastDraw: 0 });
-  const s = useRef({ t: 0, row: null as number | null, ledResetAt: -1, heldAt: 0, flapDown: null as null | { x: number; y: number } });
+  const s = useRef({ t: 0, row: null as number | null, ledResetAt: -1, heldAt: 0 });
   const turn = useRef<null | { coil: number; t: number; dropped: boolean }>(null);
-  const anim = useRef(new Map<number, { kind: 'reach' | 'slide' | 'out' | 'land' | 'return' | 'refill'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion; prev?: number }>());
+  const anim = useRef(new Map<number, { kind: 'out' | 'land' | 'return' | 'refill'; t: number; from: THREE.Vector3; fromQ: THREE.Quaternion; prev?: number }>());
   const rest = useRef(new Map<number, number>());
   const stuck = useRef(new Map<number, number>());
   const [vTmp, hTmp, oTmp, c1, c2, axis] = useMemo(() => Array.from({ length: 6 }, () => new THREE.Vector3()), []);
@@ -103,18 +118,37 @@ export default function Vending() {
     b.setBodyType(RigidBodyType.Dynamic, true);
     b.setLinvel({ x: 0, y: 0, z: 0.14 }, true);
     b.setAngvel({ x: 3.4, y: (Math.random() - 0.5) * 1.6, z: (Math.random() - 0.5) * 0.8 }, true);   // tips forward off the lip
+    b.setLinearDamping(2.5);   // flutters down, as a card in a slab does, instead of dropping like a brick
     mode.current[i] = 'falling';
   };
 
-  const take = () => {
+  // The card in the bin nearest the flap (the one to take), or -1.
+  const waiting = () => {
     let best = -1, bestZ = -Infinity;
     mode.current.forEach((m, i) => { const b = bodies.current[i]; if (m === 'bin' && b && b.translation().z > bestZ) { bestZ = b.translation().z; best = i; } });
-    const b = bodies.current[best];
-    if (!b) return;
-    // A hand pushes the flap in and reaches for the card (still loose in the bin).
+    return best;
+  };
+
+  // Reaching in for the card in the bin: the flap is held open and the card drawn out under it.
+  const take = () => {
+    if (drawing.current >= 0 || waiting() < 0) return;
+    drawing.current = s.current.t;
     door.holdOpen(true);
-    mode.current[best] = 'out';
-    anim.current.set(best, { kind: 'reach', t: 0, from: new THREE.Vector3(), fromQ: new THREE.Quaternion() });
+    vending.set({ phase: 'taking' });
+  };
+
+  // Out past the flap: up to the visitor it goes, and the flap is let go.
+  const taken = (i: number) => {
+    const b = bodies.current[i]!;
+    const p = b.translation(), q = b.rotation();
+    drawing.current = -1;
+    door.holdOpen(false);
+    b.resetForces(true);
+    b.collider(0).setEnabled(false);
+    b.setBodyType(RigidBodyType.KinematicPositionBased, true);
+    sparkle.burst(p, 28, 0.36);
+    mode.current[i] = 'out';
+    anim.current.set(i, { kind: 'out', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
     vending.set({ phase: 'taking' });
   };
 
@@ -130,8 +164,18 @@ export default function Vending() {
   };
 
   useEffect(() => { vendActions.putBack = putBack; });
+  if (import.meta.env.DEV) {
+    (window as unknown as { __vending: unknown }).__vending = {
+      cards: () => mode.current.map((m, i) => { const b = bodies.current[i]; const p = b?.translation(), v = b?.linvel(); return m !== 'shelf' && p && v ? { i, m, x: +(p.x - OX).toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3), v: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)] } : null; }).filter(Boolean),
+      flap: () => { const f = flap.current; if (!f) return null; const i = f.principalInertia(), w = f.angvel(); return { mass: f.mass(), inertia: [i.x, i.y, i.z], angvel: [+w.x.toFixed(2), +w.y.toFixed(2), +w.z.toFixed(2)] }; },
+    };
+  }
   // Leaving the machine: the prize in hand goes back, it can't follow the visitor down the page.
-  useEffect(() => arcade.subscribe(() => { if (arcade.get().focus !== 'vending' && mode.current.includes('held')) putBack(); }), []);
+  useEffect(() => arcade.subscribe(() => {
+    if (arcade.get().focus === 'vending') return;
+    drawing.current = -1; door.holdOpen(false);
+    if (mode.current.includes('held')) putBack();
+  }), []);
 
   const onHit = (i: number, p: CollisionEnterPayload) => {
     if (mode.current[i] !== 'falling') return;
@@ -139,7 +183,7 @@ export default function Vending() {
     const speed = v ? Math.hypot(v.x, v.y, v.z) : 0;
     if (speed > 0.25) thud(speed / 2.5);
     const y = bodies.current[i]?.translation().y ?? 1;
-    if (speed > 0.3 && y < BIN.y1 + 0.08) flap.current?.applyTorqueImpulse({ x: 0.0004 * Math.min(1, speed), y: 0, z: 0 }, true);   // the flap rattles when a card lands
+    if (speed > 0.3 && y < BIN.y1 + 0.08) flap.current?.applyTorqueImpulse({ x: 0.00015 * Math.min(1, speed), y: 0, z: 0 }, true);   // the flap rattles when a card lands
     void p;
   };
 
@@ -158,12 +202,13 @@ export default function Vending() {
       ray.setFromCamera(ndc, camera);
       const targets: THREE.Object3D[] = [...cardMeshes.current, ...keys.current.values()];
       if (flapGroup.current) targets.push(flapGroup.current);
-      // Nearest first; a card only counts where it can be taken (in the bin) or put back (held).
+      if (bin.current) targets.push(bin.current);
+      // Nearest first; a card only counts where it can be reached for (in the bin) or put back (held).
       for (const h of ray.intersectObjects(targets, true)) {
         const i = itemOf(h);
         if (i >= 0) {
           if (mode.current[i] === 'held') return { kind: 'held' as const };
-          if (mode.current[i] === 'bin') return { kind: 'take' as const };
+          if (mode.current[i] === 'bin') return { kind: 'flap' as const };
           continue;
         }
         let o: THREE.Object3D | null = h.object;
@@ -183,27 +228,21 @@ export default function Vending() {
       if (h.kind === 'key') press(h.key);
       else if (h.kind === 'flap') {
         // Push it with the pointer; a plain click is a quick push (or a reach for a waiting card).
-        door.grab(e.clientY);
-        s.current.flapDown = { x: e.clientX, y: e.clientY };
+        door.grab(e.clientX, e.clientY);
+        flapDown.current = { x: e.clientX, y: e.clientY };
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
-      } else if (h.kind === 'take') take();
-      else putBack();
+      } else putBack();
     };
     const up = (e: PointerEvent) => {
-      const fd = s.current.flapDown;
+      const fd = flapDown.current;
       if (!fd) return;
-      s.current.flapDown = null;
+      flapDown.current = null;
       door.release();
       try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-      if (Math.hypot(e.clientX - fd.x, e.clientY - fd.y) < 6) {
-        if (mode.current.includes('bin')) take(); else door.push(0.35);
-      }
+      if (Math.hypot(e.clientX - fd.x, e.clientY - fd.y) < 6) { if (waiting() >= 0) take(); else door.push(0.35); }
     };
     const move = (e: PointerEvent) => {
-      if (door.dragging) {
-        door.drag(e.clientY);
-        return;
-      }
+      if (door.dragging) { door.drag(e.clientX, e.clientY); return; }
       if (arcade.get().focus !== 'vending' || e.buttons) { ui.current.hover = ''; return; }
       const h = hit(e);
       ui.current.hover = h?.kind === 'key' ? h.key : '';
@@ -239,7 +278,10 @@ export default function Vending() {
       const counts: Record<string, number> = {};
       mode.current.forEach((m) => { counts[m] = (counts[m] ?? 0) + 1; });
       const i = mode.current.findIndex((m) => m !== 'shelf'), p = i >= 0 ? bodies.current[i]?.translation() : null;
-      document.body.dataset.vending = JSON.stringify({ phase: vending.get().phase, counts, tracked: p ? [+(p.x - OX).toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null, turning: !!turn.current, flap: +door.angle.toFixed(3) });
+      document.body.dataset.vending = JSON.stringify({
+        phase: vending.get().phase, counts, tracked: p ? [+(p.x - OX).toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null, turning: !!turn.current, flap: +door.angle.toFixed(3),
+drawing: drawing.current >= 0,
+      });
     }
 
     // Keys: quick press, springy return; backlight waves until first used, brightens on hover/press.
@@ -267,8 +309,8 @@ export default function Vending() {
     });
     vm.select.opacity = 0.35 + 0.35 * pulse;
     vm.selectHot.opacity = 0.7 + 0.3 * Math.sin(st.t * 14);
-    const waiting = mode.current.includes('bin') && vending.get().phase === 'ready';
-    if (binGlow.current) binGlow.current.visible = waiting;
+    const cardWaits = mode.current.includes('bin') && vending.get().phase === 'ready';
+    if (binGlow.current) binGlow.current.visible = cardWaits;
     vm.binGlow.opacity = 0.45 + 0.45 * pulse;
     if (focused) {
       const ph = vending.get().phase;
@@ -276,7 +318,20 @@ export default function Vending() {
     }
 
     door.step(dt, flap.current, joint.current);
-    if (door.dragging && door.angle > 0.6 && mode.current.includes('bin') && !anim.current.size) take();   // pushed open: reach in
+    if (door.dragging && door.angle > 0.6 && drawing.current < 0 && waiting() >= 0) take();   // pushed open: reach in
+    // Drawing the card out: once the flap is pushed in far enough, it is pulled along the bin floor and
+    // out under the flap (lifting it as it passes); taken once it is through.
+    const w = waiting(), wb = w >= 0 ? bodies.current[w] : null;
+    if (drawing.current >= 0) {
+      if (!wb || st.t - drawing.current > DRAW_TIME) { drawing.current = -1; wb?.resetForces(true); door.holdOpen(false); vending.set({ phase: wb ? 'ready' : 'idle' }); }
+      else {
+        const p = wb.translation();
+        // Only once the flap is up out of its way: pulling sooner pins the card under its edge.
+        if (door.angle > 1.15) draw(wb, p.x, p.y + 0.01, BIN_FLAP.z + 0.12, 25, 0.45)
+        else wb.resetForces(true);   // an added force stays on until it is reset
+      }
+    }
+    if (wb && wb.translation().z > BIN_FLAP.z + 0.06) taken(w);   // out past the flap
 
     // Coil turn: the wire walks every card in the coil one pitch forward.
     const tr = turn.current;
@@ -313,28 +368,7 @@ export default function Vending() {
       if (!b) { anim.current.delete(i); continue; }
       // Rapier won't move a sleeping kinematic body, so keep it awake while it is choreographed.
       b.wakeUp();
-      if (a.kind === 'reach') {
-        // Wait for the flap to be pushed in far enough to get the card out under it.
-        a.t += dt;
-        if (door.angle < 0.6 && a.t < 0.8) continue;
-        const p = b.translation(), q = b.rotation();
-        a.from.set(p.x, p.y, p.z); a.fromQ.set(q.x, q.y, q.z, q.w);
-        b.setBodyType(RigidBodyType.KinematicPositionBased, true);
-        a.kind = 'slide'; a.t = 0;
-      } else if (a.kind === 'slide') {
-        // Drawn out along the bin floor under the raised flap (it lifts the flap as it passes),
-        // then the hand lets the flap fall shut behind it.
-        a.t = Math.min(1, a.t + dt / 0.45);
-        oTmp.set(a.from.x, BIN.y0 + 0.05, BIN_FLAP.z + 0.07);
-        b.setNextKinematicTranslation(vTmp.copy(a.from).lerp(oTmp, easeInOut(a.t)));
-        if (a.t >= 1) {
-          door.holdOpen(false);
-          b.collider(0).setEnabled(false);
-          sparkle.burst(oTmp, 28, 0.36);
-          a.from.copy(oTmp);
-          a.kind = 'out'; a.t = 0;
-        }
-      } else if (a.kind === 'out') {
+      if (a.kind === 'out') {
         a.t += dt;
         const hold = holdPoint(camera, hTmp, 0.58, -0.07, 0.02);
         const t = clamp01(a.t / 0.85), k = easeOut(t);
@@ -393,7 +427,7 @@ export default function Vending() {
         if (p.y < BIN.y1 + 0.06 && speed < 0.05) {
           const t0 = rest.current.get(i) ?? st.t; rest.current.set(i, t0);
           if (st.t - t0 > 0.3) {
-            rest.current.delete(i); mode.current[i] = 'bin';
+            rest.current.delete(i); mode.current[i] = 'bin'; b.setLinearDamping(0.1);
             if (vending.get().phase !== 'held' && vending.get().phase !== 'taking') vending.set({ phase: 'ready' });
             say('TAKE CARD');
           }
@@ -425,12 +459,18 @@ export default function Vending() {
       </group>
       <group position={[OX, 0, 0]}><Highlights slotRefs={slotGlow} binRef={binGlow} /></group>
       <VendingColliders x={OX} />
+      <RigidBody type="fixed" colliders={false} position={[OX, 0, 0]} collisionGroups={VG.static}>
+        <CuboidCollider args={[(INSIDE.x1 - INSIDE.x0) / 2, SLOPE.T, SLOPE.length / 2]} position={SLOPE.center} rotation={[SLOPE.angle, 0, 0]} />
+      </RigidBody>
       {/* Bin flap: hinged at its top edge, swings inward only, hangs shut under its own weight. */}
       <RigidBody ref={flapAnchor} type="fixed" colliders={false} position={[binX, BIN_FLAP.hingeY, BIN_FLAP.z]} />
-      <RigidBody ref={flap} canSleep={false} colliders={false} position={[binX, BIN_FLAP.hingeY, BIN_FLAP.z]} mass={0.05} angularDamping={0.4} collisionGroups={VG.static} ccd>
-        <CuboidCollider args={[BIN_FLAP.width / 2, BIN_FLAP.height / 2, BIN_FLAP.thickness / 2]} position={[0, -BIN_FLAP.height / 2, 0]} />
+      <RigidBody ref={flap} canSleep={false} colliders={false} position={[binX, BIN_FLAP.hingeY, BIN_FLAP.z]} angularDamping={0.4} collisionGroups={VG.static} ccd>
+        {/* The mass goes on the collider: on the body it is ignored, leaving a flap of a third of a gram that whips open at a touch. */}
+        <CuboidCollider args={[BIN_FLAP.width / 2, BIN_FLAP.height / 2, BIN_FLAP.thickness / 2]} position={[0, -BIN_FLAP.height / 2, 0]} mass={0.05} />
         <group ref={flapGroup}><FlapVisual /></group>
       </RigidBody>
+      {/* The bin opening behind the flap, for the pointer (the flap itself is the usual target). */}
+      <mesh ref={bin} position={[binX, (BIN.y0 + BIN.y1) / 2, BIN_FLAP.z - 0.03]} userData={{ vflap: true }}><planeGeometry args={[BIN.x1 - BIN.x0, BIN.y1 - BIN.y0]} /><meshBasicMaterial visible={false} /></mesh>
       {items.map((it, i) => {
         const p = slotPos(it.coil, i % PER_COIL);
         return <CardBody key={i} index={i} position={[p.x, p.y, p.z]} ref={(b) => { bodies.current[i] = b; }} onHit={onHit} />;

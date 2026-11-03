@@ -11,9 +11,12 @@ export const GLASS = { inset: 0.4, y0: BODY_TOP, y1: BOX_TOP };
 
 // Prize hole in the front-left corner, with a low acrylic guard on its two inner sides.
 export const HOLE = { x0: -IN, x1: -0.17, z0: 0.17, z1: IN, guard: 0.09 };
-// Shaft below the hole, down to a sloped floor behind the prize door.
-export const SHAFT = { bottomBack: [HOLE.z0, 0.36] as [number, number], bottomFront: [FRONT_Z - 0.01, 0.22] as [number, number] };
-export const DOOR = { x0: HOLE.x0 + 0.01, x1: HOLE.x1 - 0.01, y0: 0.2, y1: 0.44, hingeY: 0.436, z: FRONT_Z + 0.004, thickness: 0.004 };
+// Shaft below the hole, down a slope to a flat floor behind the prize door (flat, so the door
+// swinging in slides a plushie back along it instead of up a ramp, out of a hand's reach).
+export const SHAFT = { bottomBack: [HOLE.z0, 0.36] as [number, number], bottomFront: [0.25, 0.22] as [number, number], floorFront: FRONT_Z - 0.01 };
+// The door opening (y0..y1) and the door in it: hung from the top, short of the sill, so swung in
+// its edge clears a plushie.
+export const DOOR = { x0: HOLE.x0 + 0.01, x1: HOLE.x1 - 0.01, y0: 0.2, y1: 0.44, hingeY: 0.436, height: 0.16, z: FRONT_Z + 0.004, thickness: 0.004 };
 
 // Gantry and claw.
 export const GANTRY_Y = 1.6;

@@ -197,7 +197,7 @@ function CupVisual() {
   const m = materials();
   return (
     <group>
-      <mesh material={m.cavity} position={[0, 0.102, 0.145]} rotation={[0.05, 0, 0]} receiveShadow><boxGeometry args={[0.128, 0.008, 0.094]} /></mesh>
+      <mesh material={m.cavity} position={[0, 0.102, 0.127]} rotation={[0.05, 0, 0]} receiveShadow><boxGeometry args={[0.128, 0.008, 0.13]} /></mesh>
       <mesh material={m.cavity} position={[-0.069, 0.2, 0.06]} receiveShadow><boxGeometry args={[0.006, 0.22, 0.26]} /></mesh>
       <mesh material={m.cavity} position={[0.069, 0.2, 0.06]} receiveShadow><boxGeometry args={[0.006, 0.22, 0.26]} /></mesh>
       <mesh material={m.cavity} position={RAMP.center} rotation={[RAMP.angle, 0, 0]} receiveShadow><boxGeometry args={[0.128, 0.008, RAMP.length]} /></mesh>
@@ -208,7 +208,7 @@ function CupVisual() {
 
 // Hidden ramp from the hand-off point down to the cup.
 const RAMP = (() => {
-  const a = new THREE.Vector2(-0.02, 0.215), b = new THREE.Vector2(0.105, 0.112);   // (z, y)
+  const a = new THREE.Vector2(-0.02, 0.215), b = new THREE.Vector2(0.07, 0.112);   // (z, y): the cup floor is deep enough that the flap, swung in, clears a capsule pushed to its back
   const dz = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dz, dy);
   // Rotating by +t about X maps local +Z to (y = -sin t, z = cos t), so a down-slope toward +Z
   // (dy < 0) needs t = -atan2(dy, dz). The top-face normal (local +Y) becomes (y = cos t, z = sin t).
@@ -247,14 +247,17 @@ export const CabinetColliders = forwardRef<RapierRigidBody>(function CabinetColl
       </RigidBody>
       <RigidBody ref={chuteRef} type="fixed" colliders={false} collisionGroups={G.chuteStatic}>
         <CuboidCollider args={[0.064, 0.004, RAMP.length / 2]} position={RAMP.center} rotation={[RAMP.angle, 0, 0]} />
-        <CuboidCollider args={[0.064, 0.004, 0.047]} position={[0, 0.102, 0.145]} rotation={[0.05, 0, 0]} />
+        <CuboidCollider args={[0.064, 0.004, 0.065]} position={[0, 0.102, 0.127]} rotation={[0.05, 0, 0]} />
         <CuboidCollider args={[0.003, 0.11, 0.13]} position={[-0.069, 0.2, 0.06]} />
         <CuboidCollider args={[0.003, 0.11, 0.13]} position={[0.069, 0.2, 0.06]} />
         <CuboidCollider args={[0.07, 0.11, 0.003]} position={[0, 0.2, -0.055]} />
-        <CuboidCollider args={[0.07, 0.06, 0.006]} position={[0, EXIT.y1 + 0.06, FRONT_Z - 0.006]} />
+        <CuboidCollider args={[0.07, 0.057, 0.006]} position={[0, EXIT.y1 + 0.063, FRONT_Z - 0.006]} />
         <CuboidCollider args={[0.07, 0.003, 0.13]} position={[0, 0.31, 0.06]} />
-        {/* Door frame stop just outside the flap: the capsule always ends up resting here. */}
-        <CuboidCollider args={[EXIT.x1 - EXIT.x0, (EXIT.y1 - EXIT.y0) / 2, 0.002]} position={[0, (EXIT.y0 + EXIT.y1) / 2, FLAP.z + FLAP.thickness / 2 + 0.0025]} />
+        {/* A low sill inside the flap: the capsule rests against it, clear of the flap's swing. */}
+        <CuboidCollider args={[0.064, 0.002, 0.002]} position={[0, 0.108, FLAP.z - 0.028]} />
+        {/* The front panel either side of the opening: the flap's frame. */}
+        <CuboidCollider args={[(PLATE.x1 - EXIT.x1) / 2, 0.1, 0.006]} position={[(EXIT.x1 + PLATE.x1) / 2, (EXIT.y0 + EXIT.y1) / 2, FRONT_Z - 0.006]} />
+        <CuboidCollider args={[(EXIT.x0 - PLATE.x0) / 2, 0.1, 0.006]} position={[(PLATE.x0 + EXIT.x0) / 2, (EXIT.y0 + EXIT.y1) / 2, FRONT_Z - 0.006]} />
       </RigidBody>
       <RigidBody type="fixed" colliders={false} collisionGroups={G.catchFloor}>
         <CuboidCollider args={[3, 0.01, 3]} position={[0, -0.01, 0]} />

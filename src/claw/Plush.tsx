@@ -101,10 +101,11 @@ export const PlushBody = forwardRef<RapierRigidBody, Props>(function PlushBody({
   return (
     <RigidBody
       ref={ref} colliders={false} position={position} rotation={rotation}
-      mass={0.09} friction={0.8} restitution={0} linearDamping={0.5} angularDamping={1.4} ccd
+      friction={0.8} restitution={0} linearDamping={0.5} angularDamping={1.4} ccd
       collisionGroups={PG.plush} onCollisionEnter={(p) => onHit?.(index, p)}
     >
-      <RoundCuboidCollider args={[PLUSH.hx, PLUSH.hy, PLUSH.hz, PLUSH.r]} />
+      {/* The mass goes on the collider: on the body it is ignored. */}
+      <RoundCuboidCollider args={[PLUSH.hx, PLUSH.hy, PLUSH.hz, PLUSH.r]} mass={0.09} />
     </RigidBody>
   );
 });

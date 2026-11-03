@@ -46,7 +46,7 @@ export const LABEL = { x: -0.108, y: 0.338 };
 // Exit opening, the cup behind it and the hinged flap.
 export const EXIT = { x0: -0.066, x1: 0.066, y0: 0.103, y1: 0.188, radius: 0.012 };
 export const CUP = { floor: 0.106, back: 0.095 };   // cup floor height, cup back wall z
-export const FLAP = { hingeY: EXIT.y1 - 0.002, z: FRONT_Z + 0.002, height: 0.083, width: 0.128, thickness: 0.003 };
+export const FLAP = { hingeY: EXIT.y1 - 0.002, z: FRONT_Z + 0.002, height: 0.062, width: 0.128, thickness: 0.003 };   // short of the floor: swung in, its edge clears a capsule
 
 // Capsules (65 mm is the most common gashapon size).
 export const CAPSULE_R = 0.0325;

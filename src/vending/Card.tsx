@@ -53,10 +53,11 @@ export const CardBody = forwardRef<RapierRigidBody, Props>(function CardBody({ i
   return (
     <RigidBody
       ref={ref} type="kinematicPosition" colliders={false} position={position}
-      mass={0.06} friction={0.5} restitution={0.15} linearDamping={0.1} angularDamping={0.4} ccd
+      friction={0.5} restitution={0.15} linearDamping={0.1} angularDamping={0.4} ccd
       collisionGroups={VG.item} onCollisionEnter={(p) => onHit?.(index, p)}
     >
-      <CuboidCollider args={[SLAB.w / 2, SLAB.h / 2, SLAB.t / 2]} />
+      {/* The mass goes on the collider: on the body it is ignored. */}
+      <CuboidCollider args={[SLAB.w / 2, SLAB.h / 2, SLAB.t / 2]} mass={0.06} />
     </RigidBody>
   );
 });

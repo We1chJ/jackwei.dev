@@ -27,6 +27,8 @@ export const PANEL = { x0: 0.215, x1: 0.435 };
 export const LED = { x: 0.325, y: 1.43, w: 0.18, h: 0.052 };
 export const KEYPAD = { x: 0.325, y: 1.2, key: [0.04, 0.032] as [number, number], gap: 0.008 };
 export const HOWTO = { x: 0.325, y: 1.31, w: 0.19, h: 0.074 };
-export const BIN = { x0: -0.36, x1: 0.1, y0: 0.16, y1: 0.36, radius: 0.02, floorBack: [0.08, 0.31] as [number, number], floorFront: [GLASS_Z, 0.17] as [number, number] };
+// The bin floor slopes only gently: a steep one carries a card up and out of reach when the flap,
+// swung in, slides it to the back.
+export const BIN = { x0: -0.36, x1: 0.1, y0: 0.16, y1: 0.36, radius: 0.02, floorBack: [0.08, 0.235] as [number, number], floorFront: [GLASS_Z, 0.17] as [number, number] };
 export const BIN_FLAP = { hingeY: BIN.y1 - 0.004, z: FRONT_Z + 0.003, width: BIN.x1 - BIN.x0 - 0.012, height: BIN.y1 - BIN.y0 - 0.008, thickness: 0.004 };
 export const HEADER = { y0: 1.69, y1: 1.8 };
