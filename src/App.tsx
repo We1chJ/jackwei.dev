@@ -6,6 +6,7 @@ import Stage from './arcade/Stage';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
 import { arcade, useArcade } from './arcade/store';
+import { LogoLink } from './arcade/logos';
 import { useTheme } from './arcade/theme';
 import { SoundToggle, ThemeToggle } from './arcade/ThemeToggle';
 import { EXPERIENCE } from './data/experience';
@@ -58,7 +59,9 @@ export default function App() {
             <span>too much.</span>
           </p>
           <nav className="hero-links" aria-label="Links">
-            <a href="https://github.com/We1chJ" target="_blank" rel="noreferrer">GitHub ↗</a>
+            <LogoLink name="github" className="logo" />
+            <LogoLink name="linkedin" className="logo" />
+            <LogoLink name="instagram" className="logo" />
             <a href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a>
           </nav>
         </div>

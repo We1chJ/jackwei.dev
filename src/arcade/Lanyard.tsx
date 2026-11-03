@@ -49,6 +49,8 @@ export interface LanyardProps {
   backKey?: string | number;
   /** A click on the back, at (u, v) across it (v up): return true to take it instead of flipping the card. */
   onBackClick?: (u: number, v: number) => boolean;
+  /** How many times bigger the card is shown while its back is up: lifted toward the viewer to be read. */
+  liftOnBack?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -79,6 +81,7 @@ interface Settings {
   backPainter?: (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
   backKey?: string | number;
   onBackClick?: (u: number, v: number) => boolean;
+  liftOnBack: number;
 }
 
 interface Images {
@@ -910,6 +913,7 @@ const Lanyard = ({
   backPainter,
   backKey,
   onBackClick,
+  liftOnBack = 1,
   className = '',
   style
 }: LanyardProps) => {
@@ -942,7 +946,8 @@ const Lanyard = ({
     hold,
     backPainter,
     backKey,
-    onBackClick
+    onBackClick,
+    liftOnBack
   };
 
   useEffect(() => {
@@ -1297,9 +1302,18 @@ const Lanyard = ({
       clampGroup.position.copy(hang);
     };
 
+    // While the back is up the card is drawn `lift` times its size, grown about its hang point so
+    // the strap stays on it; the simulation knows nothing of it. Eased toward its target each tick.
+    let lift = 1;
+    const liftHang = new THREE.Vector3(), liftArm = new THREE.Vector3();
+    const liftWanted = () => (sim.turn !== 0 ? Math.max(1, settingsRef.current!.liftOnBack) : 1);
     const render = () => {
-      cardGroup.position.copy(sim.body.position);
-      cardGroup.quaternion.copy(sim.body.quaternion);
+      const body = sim.body;
+      liftHang.copy(body.hang).applyQuaternion(body.quaternion).add(body.position);
+      liftArm.subVectors(body.position, liftHang);
+      cardGroup.position.copy(liftHang).addScaledVector(liftArm, lift);
+      cardGroup.quaternion.copy(body.quaternion);
+      cardGroup.scale.setScalar(lift);
       updateBand();
       renderer.render(scene, camera);
     };
@@ -1344,8 +1358,9 @@ const Lanyard = ({
         sim.grab = null;
         placeHanging(sim, layout, false);
       }
+      lift += (liftWanted() - lift) * (1 - Math.exp(-dt * 7));
       render();
-      const resting = sim.calm > 1.2 && !sim.grab && current.breeze === 0;
+      const resting = sim.calm > 1.2 && !sim.grab && current.breeze === 0 && Math.abs(liftWanted() - lift) < 0.002;
       if (visible && !resting) raf = requestAnimationFrame(tick);
     };
 
@@ -1399,6 +1414,7 @@ const Lanyard = ({
       toPointer(event);
       const hit = pickCard();
       if (!hit) return;
+      event.stopPropagation();   // heard first (capture): whatever is behind the card never sees this press
       sim.grab = {
         local: hit.point.clone().sub(sim.body.position).applyQuaternion(sim.body.quaternion.clone().invert()),
         rotation: sim.body.quaternion.clone(),
@@ -1444,7 +1460,7 @@ const Lanyard = ({
       if (pickCard()) event.preventDefault();
     };
 
-    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerdown', onPointerDown, { capture: true });
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
@@ -1481,7 +1497,7 @@ const Lanyard = ({
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerdown', onPointerDown, { capture: true });
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
