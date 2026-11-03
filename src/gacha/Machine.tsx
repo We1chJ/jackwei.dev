@@ -5,7 +5,7 @@
 // capsule is drawn out under it on its own physics, lifting the flap as it passes; the flap falls
 // shut behind it. Choreographed (the "hybrid" part): the hand-off from the disc pocket into the
 // chute, which happens out of sight inside the cabinet, and the capsule's trip up to the visitor
-// once it is out.
+// once it is out. In hand, the capsule is twisted open (Held.tsx).
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -22,7 +22,8 @@ import {
 import { G } from './groups';
 import { materials } from './materials';
 import { clack, clunk, flapSound, ratchet } from './sound';
-import { gacha } from './store';
+import { gacha, useGacha } from './store';
+import { Held, OPEN, twistState, type HeldApi, type Twist } from './Held';
 import { arcade } from '../arcade/store';
 import { sparkle } from '../arcade/Sparkles';
 import { bezier, clamp01, easeInOut, easeOut, holdPoint, landWobble, spinDown } from '../arcade/present';
@@ -72,6 +73,9 @@ export default function Machine() {
   const disc = useRef<RapierRigidBody>(null);
   const knob = useRef<THREE.Group>(null);
   const tray = useRef<THREE.Mesh>(null);
+  const heldApi = useRef<HeldApi>(null);
+  const twist = useRef<Twist>(twistState());
+  const heldProject = useGacha((st) => st.held);
   const joint = useRevoluteJoint(chute, flap, [[0, FLAP.hingeY * S, FLAP.z * S], [0, 0, 0], [1, 0, 0], [0, FLAP_MAX]]);
 
   // Handle state: angle is negative going clockwise (as seen from the front).
@@ -145,6 +149,7 @@ export default function Machine() {
     const i = mode.current.indexOf('held');
     const b = bodies.current[i];
     if (!b) return;
+    heldApi.current?.park();
     const p = b.translation(), q = b.rotation();
     mode.current[i] = 'return';
     anim.current.set(i, { kind: 'return', t: 0, from: new THREE.Vector3(p.x, p.y, p.z), fromQ: new THREE.Quaternion(q.x, q.y, q.z, q.w) });
@@ -180,11 +185,12 @@ export default function Machine() {
       if (knob.current) targets.push(knob.current);
       if (flapGroup.current) targets.push(flapGroup.current);
       if (tray.current) targets.push(tray.current);
-      // Nearest first; a capsule only counts where it can be reached for (in the cup) or put back (held).
+      if (heldApi.current?.group?.visible) targets.push(heldApi.current.group);
+      // Nearest first; a capsule only counts where it can be reached for (in the cup); the one in hand
+      // is drawn by Held, which is what the pointer meets there.
       for (const h of ray.intersectObjects(targets, true)) {
         const i = itemOf(h);
         if (i >= 0) {
-          if (mode.current[i] === 'held') return { kind: 'held' as const };
           if (mode.current[i] === 'cup' || mode.current[i] === 'chute') return { kind: 'cup' as const };
           continue;
         }
@@ -192,6 +198,7 @@ export default function Machine() {
         while (o) {
           if (o.userData.knob) return { kind: 'knob' as const };
           if (o.userData.flap || o.userData.tray) return { kind: 'flap' as const };
+          if (o.userData.held) return { kind: 'held' as const };
           o = o.parent;
         }
       }
@@ -221,7 +228,14 @@ export default function Machine() {
         door.grab(e.clientX, e.clientY);
         flapDown.current = { x: e.clientX, y: e.clientY };
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
-      } else if (target.kind === 'held') putBack();
+      } else if (target.kind === 'held') {
+        // Whole: a drag twists the top off. Opened: a click puts it all back.
+        if (twist.current.opened) putBack();
+        else {
+          twist.current.drag = { x0: e.clientX, y0: e.clientY, a0: twist.current.angle };
+          try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
+        }
+      }
     };
     const move = (e: PointerEvent) => {
       const s = h.current;
@@ -234,10 +248,23 @@ export default function Machine() {
         return;
       }
       if (door.dragging) { door.drag(e.clientX, e.clientY); return; }
+      const tw = twist.current;
+      if (tw.drag && !tw.opened) {
+        // The top turns with the pointer, either way round; far enough and it comes off.
+        tw.angle = tw.drag.a0 + (e.clientX - tw.drag.x0) * 0.012;
+        tw.v = 0;
+        if (Math.abs(tw.angle) >= OPEN) { tw.drag = null; heldApi.current?.pop(); gacha.set({ opened: true }); navigator.vibrate?.(8); }
+        return;
+      }
       if (arcade.get().focus === 'gacha') el.style.cursor = hit(e) ? 'pointer' : 'grab';
     };
     const up = (e: PointerEvent) => {
       const s = h.current;
+      if (twist.current.drag) {
+        twist.current.drag = null;
+        try { if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        return;
+      }
       const fd = flapDown.current;
       if (fd) {
         flapDown.current = null;
@@ -398,8 +425,8 @@ drawing: drawing.current >= 0,
         scales.current[i].copy(landWobble(oTmp, a.t, 0.1));
         b.setNextKinematicTranslation(holdPoint(camera, hTmp, ...HOLD));
         if (a.t > 0.6) {
-          scales.current[i].setScalar(1);
-          anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held', held: i % PROJECTS.length });
+          scales.current[i].setScalar(0.001);   // from here Held draws it, in two halves
+          anim.current.delete(i); mode.current[i] = 'held'; gacha.set({ phase: 'held', held: i % PROJECTS.length, opened: false });
           clock.current.heldAt = clock.current.t;
         }
       } else if (a.kind === 'return') {
@@ -422,7 +449,7 @@ drawing: drawing.current >= 0,
           scales.current[i].setScalar(1);
           mode.current[i] = 'hopper';
           const waiting = mode.current.some((m) => m === 'cup' || m === 'chute');
-          gacha.set({ phase: waiting ? 'ready' : 'idle', held: null });
+          gacha.set({ phase: waiting ? 'ready' : 'idle', held: null, opened: false });
         }
       }
     }
@@ -486,6 +513,15 @@ drawing: drawing.current >= 0,
         <CuboidCollider args={[FLAP.width / 2, FLAP.height / 2, FLAP.thickness / 2]} position={[0, -FLAP.height / 2, 0]} mass={0.03} />
         <group ref={flapGroup}><FlapVisual width={FLAP.width} height={FLAP.height} thickness={FLAP.thickness} /></group>
       </RigidBody>
+      {/* The capsule in hand: two halves on a thread, the project's token inside. */}
+      <Held
+        ref={heldApi}
+        held={() => { const i = mode.current.indexOf('held'); return i >= 0 && !anim.current.has(i) ? bodies.current[i] : null; }}
+        index={Math.max(0, mode.current.indexOf('held'))}
+        project={heldProject === null ? null : PROJECTS[heldProject]}
+        twist={twist}
+        time={() => clock.current.t}
+      />
       {/* The opening behind the flap, for the pointer (the flap itself is the usual target). */}
       <mesh ref={tray} position={[0, (EXIT.y0 + EXIT.y1) / 2, FLAP.z - 0.03]} userData={{ tray: true }}><planeGeometry args={[EXIT.x1 - EXIT.x0, EXIT.y1 - EXIT.y0]} /><meshBasicMaterial visible={false} /></mesh>
 

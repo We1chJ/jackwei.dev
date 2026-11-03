@@ -10,7 +10,7 @@ import { useTheme } from './arcade/theme';
 import { SoundToggle, ThemeToggle } from './arcade/ThemeToggle';
 import { EXPERIENCE } from './data/experience';
 import { PROJECTS } from './data/projects';
-import { useGacha } from './gacha/store';
+import { gacha, useGacha } from './gacha/store';
 import HeldCard from './vending/HeldCard';
 import { useVending, vendActions } from './vending/store';
 import Reel from './resume/Reel';
@@ -22,6 +22,7 @@ const VERBS = ['builds', 'trolls', 'creates content', 'ships', 'tinkers'];
 export default function App() {
   const focus = useArcade((s) => s.focus);
   const gHeld = useGacha((s) => s.held);
+  const gOpened = useGacha((s) => s.opened);
   const vHeld = useVending((s) => s.held);
   const dark = useTheme((s) => s.mode === 'dark');
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
@@ -33,7 +34,7 @@ export default function App() {
 
   // What the visitor is holding: a job card from the vending machine, a project from the gacha.
   const card = focus === 'vending' && vHeld !== null ? { ...EXPERIENCE[vHeld], anchor: `exp-${EXPERIENCE[vHeld].id}` }
-    : focus === 'gacha' && gHeld !== null ? { ...PROJECTS[gHeld], anchor: PROJECTS[gHeld].listed === false ? null : `project-${PROJECTS[gHeld].id}` }
+    : focus === 'gacha' && gHeld !== null && gOpened ? { ...PROJECTS[gHeld], anchor: PROJECTS[gHeld].listed === false ? null : `project-${PROJECTS[gHeld].id}` }
     : null;
 
   // Leave the machine, then down to that entry once the page can scroll again.
@@ -79,6 +80,7 @@ export default function App() {
               <button key={f} type="button" aria-pressed={focus === f} onClick={() => arcade.set({ focus: f })}>{SPOT[f].label}</button>
             ))}
           </nav>
+          {focus === 'gacha' && gHeld !== null && !gOpened && <p className="twist-hint" aria-live="polite">Twist the top to open it</p>}
           {card && (
             <aside className={`card-info rarity-${card.rarity.toLowerCase()}`} aria-live="polite">
               <span className="card-rarity">{card.rarity}</span>
@@ -88,6 +90,7 @@ export default function App() {
               <div className="card-info-links">
                 {card.anchor && <button type="button" onClick={() => readMore(card.anchor!)}>Read more</button>}
                 {focus === 'vending' && <button type="button" onClick={() => vendActions.putBack()}>Put it back</button>}
+                {focus === 'gacha' && <button type="button" onClick={() => gacha.actions.putBack()}>Put it back</button>}
                 {card.url && <a href={card.url} target="_blank" rel="noreferrer">Open project ↗</a>}
               </div>
             </aside>
