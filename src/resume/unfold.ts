@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { PAPER_ASPECT, type Paper } from './paper';
 
-const OPEN_S = 0.38;         // ball to flat page
+const OPEN_S = 0.9;       // ball to flat page
 const FADE_MS = 100;         // the real page shows through
 const START = 0.2;           // the ball's size at the start, against its size at full scale
 const SPIN = -1.1;           // radians the ball is turned from where the page ends up
