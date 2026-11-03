@@ -44,6 +44,11 @@ export interface LanyardProps {
   interactive?: boolean;
   intro?: boolean;
   hold?: boolean;
+  /** Draws the back of the card (over the card colour) instead of an image; `backKey` changing repaints it. */
+  backPainter?: (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
+  backKey?: string | number;
+  /** A click on the back, at (u, v) across it (v up): return true to take it instead of flipping the card. */
+  onBackClick?: (u: number, v: number) => boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -71,6 +76,9 @@ interface Settings {
   interactive: boolean;
   intro: boolean;
   hold: boolean;
+  backPainter?: (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
+  backKey?: string | number;
+  onBackClick?: (u: number, v: number) => boolean;
 }
 
 interface Images {
@@ -167,6 +175,8 @@ interface Press {
   y: number;
   time: number;
   point: THREE.Vector3;
+  back: boolean;
+  uv: THREE.Vector2 | null;
 }
 
 const CARD_SIZES: Record<string, [number, number]> = {
@@ -897,6 +907,9 @@ const Lanyard = ({
   interactive = true,
   intro = true,
   hold = false,
+  backPainter,
+  backKey,
+  onBackClick,
   className = '',
   style
 }: LanyardProps) => {
@@ -926,7 +939,10 @@ const Lanyard = ({
     breeze,
     interactive,
     intro,
-    hold
+    hold,
+    backPainter,
+    backKey,
+    onBackClick
   };
 
   useEffect(() => {
@@ -1078,7 +1094,11 @@ const Lanyard = ({
         backTexture.dispose();
       }
       paintFace(frontCanvas, images.front, color, s.imageFit);
-      paintFace(backCanvas, images.back || images.front, color, s.imageFit);
+      if (s.backPainter) {
+        paintFace(backCanvas, null, color, s.imageFit);
+        const ctx = backCanvas.getContext('2d');
+        if (ctx) { ctx.save(); s.backPainter(ctx, backCanvas.width, backCanvas.height); ctx.restore(); }
+      } else paintFace(backCanvas, images.back || images.front, color, s.imageFit);
       frontTexture.needsUpdate = true;
       backTexture.needsUpdate = true;
       start();
@@ -1163,7 +1183,7 @@ const Lanyard = ({
           repaintStrap();
         });
       }
-      const faceKey = `${layoutKey}|${s.cardColor}|${s.imageFit}`;
+      const faceKey = `${layoutKey}|${s.cardColor}|${s.imageFit}|${s.backKey}`;
       if (faceKey !== applied.faceKey) paintFaces();
       if (s.strapColor !== applied.strapColor) repaintStrap();
 
@@ -1386,7 +1406,7 @@ const Lanyard = ({
         from: hit.point.clone(),
         target: hit.point.clone()
       };
-      press = { x: event.clientX, y: event.clientY, time: performance.now(), point: hit.point.clone() };
+      press = { x: event.clientX, y: event.clientY, time: performance.now(), point: hit.point.clone(), back: hit.object === backMesh, uv: hit.uv ? hit.uv.clone() : null };
       setCursor('grabbing');
       start();
     };
@@ -1408,7 +1428,11 @@ const Lanyard = ({
     const onPointerUp = (event: PointerEvent) => {
       if (!sim.grab) return;
       sim.grab = null;
-      if (press && event.type === 'pointerup' && performance.now() - press.time < 450) flip(press.point);
+      if (press && event.type === 'pointerup' && performance.now() - press.time < 450) {
+        // A tap on something written on the back (a link) is that; anywhere else turns the card over.
+        const s = settingsRef.current!;
+        if (!(press.back && press.uv && s.onBackClick?.(press.uv.x, press.uv.y))) flip(press.point);
+      }
       press = null;
       setCursor(hovering && event.pointerType !== 'touch' ? 'grab' : '');
       start();
