@@ -142,6 +142,7 @@ interface Simulation {
   twist: number;
   twistRaw: number;
   calm: number;
+  energy: number;
 }
 
 interface Physics {
@@ -193,6 +194,9 @@ const JOINTS = 4;
 const NODE_WEIGHT = 1 / 0.05;
 const MAX_STEP = 1 / 960;
 const ITERATIONS = 2;
+const CALM_BELOW = 3e-3;   // motion energy under which the card counts as still: the solver's own jitter is below it
+const BRAKE_BELOW = 0.01;  // under this the air thickens: a swing too small to see is stopped, not left to ring
+const BRAKE = 4;           // per second
 const SAMPLES = 72;
 const FOV = 24;
 const STRAP_WIDTH = 0.36;
@@ -670,7 +674,8 @@ const createSimulation = (): Simulation => {
     turn: 0,
     twist: 0,
     twistRaw: 0,
-    calm: 0
+    calm: 0,
+    energy: 0
   };
 };
 
@@ -804,9 +809,10 @@ const stepSimulation = (sim: Simulation, dt: number, physics: Physics, time: num
   const windZ = physics.breeze * Math.sin(time * 0.37 + 0.6) * 2;
   const grab = sim.grab;
   const pin = scratch.pin;
-  const nodeDrag = Math.exp(-physics.nodeDrag * h);
-  const linearDrag = Math.exp(-physics.linearDrag * h);
-  const angularDrag = Math.exp(-physics.angularDrag * h);
+  const brake = !sim.grab && sim.energy < BRAKE_BELOW ? Math.exp(-BRAKE * h) : 1;
+  const nodeDrag = Math.exp(-physics.nodeDrag * h) * brake;
+  const linearDrag = Math.exp(-physics.linearDrag * h) * brake;
+  const angularDrag = Math.exp(-physics.angularDrag * h) * brake;
 
   for (let s = 0; s < steps; s++) {
     for (let i = 1; i < JOINTS; i++) {
@@ -884,7 +890,8 @@ const stepSimulation = (sim: Simulation, dt: number, physics: Physics, time: num
 
   let energy = body.velocity.lengthSq() + body.angular.lengthSq() * 0.3;
   for (let i = 1; i < JOINTS; i++) energy += velocities[i].lengthSq() * 0.05;
-  sim.calm = energy < 2e-4 ? sim.calm + dt : 0;
+  sim.energy = energy;
+  sim.calm = energy < CALM_BELOW ? sim.calm + dt : 0;
 };
 
 const Lanyard = ({
