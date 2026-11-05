@@ -10,6 +10,7 @@ export const SOFTWARE: readonly Software[] = [
     stack: ['Next.js', 'Supabase', 'LangChain'],
     proof: 'Top 3 at Ship Season 2026 Demo Day',
     links: [{ kind: 'live', url: 'https://trulyta.com' }],
+    cover: 'cover.jpg',
   },
   {
     id: 'afora', title: 'Afora', rarity: 'LEGENDARY',
@@ -17,6 +18,7 @@ export const SOFTWARE: readonly Software[] = [
     stack: ['Next.js', 'Firebase', 'Vercel'],
     proof: '100+ users, Babson Foundry funded',
     links: [{ kind: 'live', url: 'https://afora1.vercel.app' }],
+    cover: 'cover.jpg',
   },
   {
     id: 'factuality', title: 'Factuality', rarity: 'LEGENDARY',
@@ -24,6 +26,7 @@ export const SOFTWARE: readonly Software[] = [
     stack: ['React', 'Perplexity API'],
     proof: 'Won the Generator Buildathon',
     links: [{ kind: 'live', url: 'https://we1chj.github.io/FactualityPage' }],
+    cover: 'cover.jpg',
   },
   {
     id: 'rehab-ar', title: 'Rehab AR app', rarity: 'RARE',
