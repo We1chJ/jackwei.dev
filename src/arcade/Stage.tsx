@@ -5,7 +5,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
-import { EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
+import { EffectComposer, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import Machine from '../gacha/Machine';
 import Vending from '../vending/Vending';
@@ -25,14 +25,13 @@ import { SPOT, VIEW } from './layout';
 
 const BACKDROP = '#F2C744';
 const SHADOW_LINGER = 3;   // seconds the shadows keep updating after the last move: the machines settle, poses ease
-// The picture's cost, lightest first; it steps a notch at a time if frames slow down. Ambient occlusion is
-// the dearest effect by far, so it goes before sharpness does. 1.5x is the top: at 2x a Retina screen holds
-// the GPU at full clock.
+// The picture's cost, lightest first; it steps a notch at a time if frames slow down. 1.5x is the top: at 2x
+// a Retina screen holds the GPU at full clock. (Ambient occlusion used to sit above: the dearest effect by
+// far, for contact shadows the key light already draws.)
 const QUALITY = [
-  { sharpness: 1, ao: false },
-  { sharpness: 1.25, ao: false },
-  { sharpness: 1.5, ao: false },
-  { sharpness: 1.5, ao: true },
+  { sharpness: 1 },
+  { sharpness: 1.25 },
+  { sharpness: 1.5 },
 ];
 const TOP = QUALITY.length - 1;
 // Integrated graphics and phones, by the name the browser gives. They start on the lightest picture and climb if they hold 60 fps.
@@ -148,7 +147,6 @@ export default function Stage() {
       />
 
       <EffectComposer multisampling={0}>
-        {quality.ao ? <N8AO aoRadius={0.05} distanceFalloff={0.6} intensity={2.4} halfRes /> : <></>}
         <SMAA />
         <Vignette offset={0.32} darkness={0.38} />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />

@@ -1476,7 +1476,7 @@ const Lanyard = ({
     const resize = () => {
       view.width = Math.max(1, container.clientWidth);
       view.height = Math.max(1, container.clientHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));   // the canvas spans the window: 2x on a Retina screen was a quarter of its cost for nothing the eye could tell
       renderer.setSize(view.width, view.height, false);
       apply();
       render();
