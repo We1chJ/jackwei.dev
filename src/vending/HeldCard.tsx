@@ -1,8 +1,8 @@
 // The card in the visitor's hand. The 3D card flies up from the bin and lands; this takes over with the
 // same printed art under HoloCard's foil, so it tilts with the pointer and flips over on a click.
 import { useEffect, useState } from 'react';
-import { EXPERIENCE } from '../data/experience';
-import type { Rarity } from '../data/projects';
+import type { Rarity } from '../data/schema';
+import { SOFTWARE } from '../data/software';
 import { cardPictures } from './art';
 import HoloCard from './HoloCard';
 
@@ -11,11 +11,11 @@ const CARD_RATIO = 512 / 716;
 
 export default function HeldCard({ project }: { project: number }) {
   const [art, setArt] = useState<{ front: string; back: string } | null>(null);
-  const card = EXPERIENCE[project];
+  const card = SOFTWARE[project];
 
   useEffect(() => {
     let alive = true;
-    cardPictures(card, project, EXPERIENCE.length).then((pictures) => { if (alive) setArt(pictures); });
+    cardPictures(card, project, SOFTWARE.length).then((pictures) => { if (alive) setArt(pictures); });
     return () => { alive = false; };
   }, [card, project]);
 

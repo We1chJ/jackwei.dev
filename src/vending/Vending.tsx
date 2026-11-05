@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CuboidCollider, RigidBody, useRevoluteJoint, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier';
 import { RigidBodyType } from '@dimforge/rapier3d-compat';
-import { EXPERIENCE } from '../data/experience';
+import { SOFTWARE } from '../data/software';
 import { errorBeep, flapSound, jingle, keyBeep, motor, thud } from '../gacha/sound';
 import { SPOT } from '../arcade/layout';
 import { sparkle } from '../arcade/Sparkles';
@@ -47,13 +47,15 @@ const codeOf = (c: number) => `${ROWS[rowOf(c)]}${(c % COLS) + 1}`;
 
 export default function Vending() {
   const { camera, gl } = useThree();
-  const items = useMemo(() => Array.from({ length: COILS * PER_COIL }, (_, i) => ({ coil: Math.floor(i / PER_COIL), project: Math.floor(i / PER_COIL) % EXPERIENCE.length })), []);
+  // A coil per project, in order from A1; the coils past the last project stay empty.
+  const filled = Math.min(COILS, SOFTWARE.length);
+  const items = useMemo(() => Array.from({ length: filled * PER_COIL }, (_, i) => ({ coil: Math.floor(i / PER_COIL), project: Math.floor(i / PER_COIL) })), [filled]);
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
   const scales = useRef(items.map(() => new THREE.Vector3(1, 1, 1)));
   const cardMeshes = useRef<THREE.InstancedMesh[]>([]);
   const projects = useMemo(() => items.map((it) => it.project), [items]);
   const mode = useRef<Mode[]>(items.map(() => 'shelf'));
-  const coils = useRef<number[][]>(Array.from({ length: COILS }, (_, c) => Array.from({ length: PER_COIL }, (_, k) => c * PER_COIL + k)));
+  const coils = useRef<number[][]>(Array.from({ length: COILS }, (_, c) => (c < filled ? Array.from({ length: PER_COIL }, (_, k) => c * PER_COIL + k) : [])));
   const coilGroups = useRef<(THREE.Group | null)[]>([]);
   const keys = useRef(new Map<string, THREE.Object3D>());
   const pressedAt = useRef(new Map<string, number>());

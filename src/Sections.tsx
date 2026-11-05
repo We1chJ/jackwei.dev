@@ -6,9 +6,12 @@ import { LogoLink } from './arcade/logos';
 import SquishTitle from './arcade/SquishTitle';
 import { arcade, type MachineId } from './arcade/store';
 import { EXPERIENCE, SKILLS } from './data/experience';
-import { PROJECTS } from './data/projects';
+import type { Link } from './data/schema';
+import { SOFTWARE } from './data/software';
 import { loadReel, reel } from './resume/store';
 import { S, useSquish } from './Squish';
+
+const LINK_LABEL: Record<Link['kind'], string> = { live: 'Open', code: 'Code', video: 'Video' };
 
 /** Play the machine beside this section; leaving it comes back to the same place on the page. */
 const play = (machine: MachineId) => arcade.set({ focus: machine, shot: 'main' });
@@ -36,29 +39,33 @@ export default function Sections() {
   useSquish(root);
   return (
     <div ref={root} className="sections">
-      <section id="experience" data-stop className="scene cards-right">
-        <div className="scene-col">
-          <SquishTitle text="Experience" />
-          <p className="section-lead"><span><S>The vending machine sells these as cards.</S></span> <button type="button" className="pill" onClick={() => play('vending')}>Buy one</button></p>
-          <ol className="cards">{EXPERIENCE.filter((e) => !e.about).map((e) => <EntryCard key={e.id} entry={e} />)}</ol>
-        </div>
-      </section>
-
-      <section id="projects" data-stop className="scene cards-left">
+      <section id="projects" data-stop className="scene cards-right">
         <div className="scene-col">
           <SquishTitle text="Projects" />
-          <p className="section-lead"><span><S>The gacha machine dispenses these, pranks included.</S></span> <button type="button" className="pill" onClick={() => play('gacha')}>Turn the handle</button></p>
+          <p className="section-lead"><span><S>The vending machine sells these as cards.</S></span> <button type="button" className="pill" onClick={() => play('vending')}>Buy one</button></p>
           <ul className="cards projects-grid">
-            {PROJECTS.filter((p) => p.listed !== false).map((p) => (
+            {SOFTWARE.map((p) => (
               <li key={p.id} id={`project-${p.id}`} className={`card rarity-${p.rarity.toLowerCase()}`}>
                 <span className="card-rarity">{p.rarity}</span>
                 <h3><S>{p.title}</S></h3>
                 <p className="card-blurb"><S>{p.blurb}</S></p>
-                <ul className="tags">{p.tags.map((t) => <li key={t}><S>{t}</S></li>)}</ul>
-                {p.url && <div className="card-links"><a className="pill" href={p.url} target="_blank" rel="noreferrer">Open ↗</a></div>}
+                <ul className="tags">{p.stack.map((t) => <li key={t}><S>{t}</S></li>)}</ul>
+                {p.links && (
+                  <div className="card-links">
+                    {p.links.map((l) => <a key={l.url} className="pill" href={l.url} target="_blank" rel="noreferrer">{LINK_LABEL[l.kind]} ↗</a>)}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section id="experience" data-stop className="scene cards-left">
+        <div className="scene-col">
+          <SquishTitle text="Experience" />
+          <p className="section-lead"><span><S>Work and research, from the résumé.</S></span> <button type="button" className="pill" onClick={() => play('gacha')}>Turn the handle</button></p>
+          <ol className="cards">{EXPERIENCE.filter((e) => !e.about).map((e) => <EntryCard key={e.id} entry={e} />)}</ol>
         </div>
       </section>
 

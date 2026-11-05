@@ -9,8 +9,8 @@ import { arcade, useArcade } from './arcade/store';
 import { LogoLink } from './arcade/logos';
 import { useTheme } from './arcade/theme';
 import { SoundToggle, ThemeToggle } from './arcade/ThemeToggle';
-import { EXPERIENCE } from './data/experience';
 import { PROJECTS } from './data/projects';
+import { SOFTWARE } from './data/software';
 import { gacha, useGacha } from './gacha/store';
 import HeldCard from './vending/HeldCard';
 import { useVending, vendActions } from './vending/store';
@@ -33,8 +33,9 @@ export default function App() {
   // The page holds still through the opening and while a machine is being played.
   useEffect(() => { document.documentElement.classList.toggle('locked', !landed || !hero); }, [landed, hero]);
 
-  // What the visitor is holding: a job card from the vending machine, a project from the gacha.
-  const card = focus === 'vending' && vHeld !== null ? { ...EXPERIENCE[vHeld], anchor: `exp-${EXPERIENCE[vHeld].id}` }
+  // What the visitor is holding: a software card from the vending machine, a project from the gacha.
+  const sold = vHeld === null ? null : SOFTWARE[vHeld];
+  const card = focus === 'vending' && sold ? { ...sold, tags: sold.stack, url: sold.links?.[0]?.url, anchor: `project-${sold.id}` }
     : focus === 'gacha' && gHeld !== null && gOpened ? { ...PROJECTS[gHeld], anchor: PROJECTS[gHeld].listed === false ? null : `project-${PROJECTS[gHeld].id}` }
     : null;
 

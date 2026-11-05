@@ -1,4 +1,5 @@
-export type Rarity = 'COMMON' | 'RARE' | 'LEGENDARY' | 'SHINY';
+import type { Rarity } from './schema';
+export type { Rarity };
 
 export interface Project {
   id: string;
@@ -11,7 +12,8 @@ export interface Project {
   listed?: boolean;
 }
 
-// The gacha dispenses these (capsule index modulo the count); some are pranks.
+// The gacha dispenses these (capsule index modulo the count); some are pranks. The vending machine's
+// software cards are in software.ts.
 export const PROJECTS: Project[] = [
   { id: 'truly', title: 'Truly', blurb: 'AI-native, behaviour-focused talent assessment, built and launched in 4 weeks. Top 3 at Ship Season 2026 Demo Day.', rarity: 'LEGENDARY', tags: ['Next.js', 'Supabase', 'LangChain'], url: 'https://trulyta.com' },
   { id: 'afora', title: 'Afora', blurb: 'Team matching and task splitting for student projects. 100+ users, Babson Foundry funded.', rarity: 'LEGENDARY', tags: ['Next.js', 'Firebase', 'Vercel'], url: 'https://afora1.vercel.app' },

@@ -1,9 +1,9 @@
 // Printed artwork for the card vending machine, drawn on canvases (no image files except the
-// mascot): holographic project cards, card backs, grading labels, keypad keys, the LED
-// display and the lit header sign.
+// mascot and each project's cover): holographic project cards, their stat-sheet backs, grading
+// labels, keypad keys, the LED display and the lit header sign.
 import * as THREE from 'three';
 import { canvas, finish, fontsReady, loadImage } from '../gacha/textures';
-import type { Project, Rarity } from '../data/projects';
+import type { Rarity, Software } from '../data/schema';
 
 const TITLE = (px: number) => `${px}px "Lilita One", "Arial Black", sans-serif`;
 const BODY = (px: number, w = 800) => `${w} ${px}px Nunito, "Segoe UI", sans-serif`;
@@ -11,14 +11,27 @@ const BODY = (px: number, w = 800) => `${w} ${px}px Nunito, "Segoe UI", sans-ser
 let mascot: HTMLImageElement | undefined;
 const ready = Promise.all([fontsReady(TITLE(60)), fontsReady(BODY(26)), loadImage('/mascot.jpg').then((i) => { mascot = i; }).catch(() => undefined)]);
 
-/** Draw now with fallbacks, and again once fonts and the mascot have loaded. */
-function live(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void, res = 1): THREE.CanvasTexture {
+// A project's cover, once loaded: drawn in the card's art window in place of the mascot.
+const covers = new Map<string, Promise<HTMLImageElement | undefined>>();
+const loadedCovers = new Map<string, HTMLImageElement>();
+function coverOf(p: Software) {
+  if (!p.cover) return Promise.resolve(undefined);
+  let c = covers.get(p.id);
+  if (!c) {
+    c = loadImage(`/software/${p.id}/${p.cover}`).then((i) => { loadedCovers.set(p.id, i); return i; }).catch(() => undefined);
+    covers.set(p.id, c);
+  }
+  return c;
+}
+
+/** Draw now with fallbacks, and again once fonts and the mascot (and `also`, if given) have loaded. */
+function live(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void, res = 1, also?: Promise<unknown>): THREE.CanvasTexture {
   const [c, ctx] = canvas(w * res, h * res);
   const tex = finish(c);
   // save/restore: each redraw starts from default canvas state (no leaked textAlign etc.)
   const paint = () => { ctx.save(); ctx.scale(res, res); ctx.clearRect(0, 0, w, h); draw(ctx); ctx.restore(); tex.needsUpdate = true; };
   paint();
-  void ready.then(paint);
+  void Promise.all([ready, also]).then(paint);
   return tex;
 }
 
@@ -46,8 +59,8 @@ export const RARITY: Record<Rarity, { a: string; b: string; ink: string; stars: 
   SHINY: { a: '#FF9EE0', b: '#7AF5FF', ink: '#2A0B33', stars: 4 },
 };
 
-/** Card front: rarity foil frame, title, mascot art on a sunburst, blurb and tags. */
-export function cardFront(p: Project, index: number, total: number, res = 1): THREE.CanvasTexture {
+/** Card front: rarity foil frame, title, the project's cover (or the mascot on a sunburst), blurb and stack. */
+export function cardFront(p: Software, index: number, total: number, res = 1): THREE.CanvasTexture {
   const W = 512, H = 716, r = RARITY[p.rarity];
   return live(W, H, (ctx) => {
     const g = ctx.createLinearGradient(0, 0, W, H);
@@ -66,10 +79,14 @@ export function cardFront(p: Project, index: number, total: number, res = 1): TH
     ctx.font = TITLE(34); ctx.textAlign = 'right';
     ctx.fillText('★'.repeat(r.stars), W - 44, 80); ctx.textAlign = 'left';
 
-    // art window: sunburst + mascot
+    // art window: the cover, filling it, or the mascot on a sunburst
     const ax = 44, ay = 104, aw = W - 88, ah = 300;
     ctx.save(); rounded(ctx, ax, ay, aw, ah, 16); ctx.clip();
-    const cx = ax + aw / 2, cy = ay + ah / 2;
+    const cx = ax + aw / 2, cy = ay + ah / 2, cover = loadedCovers.get(p.id);
+    if (cover) {
+      const k = Math.max(aw / cover.naturalWidth, ah / cover.naturalHeight), dw = cover.naturalWidth * k, dh = cover.naturalHeight * k;
+      ctx.drawImage(cover, cx - dw / 2, cy - dh / 2, dw, dh);
+    } else {
     ctx.fillStyle = r.b; ctx.fillRect(ax, ay, aw, ah);
     for (let i = 0; i < 24; i++) {
       ctx.fillStyle = i % 2 ? r.a : 'rgba(255,255,255,0.35)';
@@ -82,6 +99,7 @@ export function cardFront(p: Project, index: number, total: number, res = 1): TH
     ctx.beginPath(); ctx.arc(cx, cy, 108, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
     ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI * 2); ctx.clip();
     if (mascot) ctx.drawImage(mascot, cx - 100, cy - 100, 200, 200); else { ctx.fillStyle = '#FFC800'; ctx.fillRect(cx - 100, cy - 100, 200, 200); }
+    }
     ctx.restore();
     ctx.strokeStyle = r.ink; ctx.lineWidth = 4; rounded(ctx, ax, ay, aw, ah, 16); ctx.stroke();
 
@@ -96,42 +114,103 @@ export function cardFront(p: Project, index: number, total: number, res = 1): TH
     // tags + footer
     ctx.font = BODY(19, 900);
     let tx = 44;
-    for (const t of p.tags.slice(0, 3)) {
+    for (const t of p.stack.slice(0, 3)) {
       const tw = ctx.measureText(t).width + 22;
       if (tx + tw > W - 44) break;
       ctx.fillStyle = r.b; rounded(ctx, tx, H - 112, tw, 32, 16); ctx.fill();
       ctx.fillStyle = r.ink; ctx.fillText(t, tx + 11, H - 89); tx += tw + 8;
     }
     ctx.fillStyle = r.ink; ctx.font = BODY(17, 900);
-    ctx.fillText(`JACK CARDS  •  #${String(index + 1).padStart(3, '0')}/${String(total).padStart(3, '0')}`, 44, H - 46);
-  }, res);
+    ctx.fillText(`JACK CARDS  •  ${serial(index, total)}`, 44, H - 46);
+  }, res, coverOf(p));
 }
 
-/** Shared card back: navy with the brand mark. */
-export function cardBack(res = 1): THREE.CanvasTexture {
-  const W = 512, H = 716;
+const serial = (index: number, total: number) => `#${String(index + 1).padStart(3, '0')}/${String(total).padStart(3, '0')}`;
+
+/** Card back: the project's stat sheet on navy, under the brand mark. Only the fields it has are printed. */
+export function cardBack(p: Software, index: number, total: number, res = 1): THREE.CanvasTexture {
+  const W = 512, H = 716, r = RARITY[p.rarity], X = 48, R = W - 48;
   return live(W, H, (ctx) => {
     ctx.fillStyle = '#14193A'; rounded(ctx, 0, 0, W, H, 34); ctx.fill();
     ctx.strokeStyle = '#FFC800'; ctx.lineWidth = 10; rounded(ctx, 26, 26, W - 52, H - 52, 22); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,200,0,0.12)';
+    ctx.fillStyle = 'rgba(255,200,0,0.07)';
     for (let y = 40; y < H; y += 26) for (let x = (y / 26) % 2 ? 53 : 40; x < W; x += 26) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
-    ctx.save(); ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, 120, 0, Math.PI * 2); ctx.fillStyle = '#FFC800'; ctx.fill(); ctx.clip();
-    if (mascot) ctx.drawImage(mascot, W / 2 - 112, H / 2 - 152, 224, 224);
+
+    // brand strip
+    ctx.save(); ctx.beginPath(); ctx.arc(X + 26, 84, 26, 0, Math.PI * 2); ctx.fillStyle = '#FFC800'; ctx.fill(); ctx.clip();
+    if (mascot) ctx.drawImage(mascot, X, 58, 52, 52);
     ctx.restore();
-    ctx.fillStyle = '#FFC800'; ctx.font = TITLE(66); ctx.textAlign = 'center';
-    ctx.fillText('JACK CARDS', W / 2, H / 2 + 160);
+    ctx.fillStyle = '#FFC800'; ctx.font = TITLE(30); ctx.textBaseline = 'middle';
+    ctx.fillText('JACK CARDS', X + 66, 86);
+    ctx.textAlign = 'right'; ctx.font = TITLE(28); ctx.fillStyle = r.a;
+    ctx.fillText('★'.repeat(r.stars), R, 84);
+    ctx.textAlign = 'left';
+
+    // title
+    ctx.fillStyle = '#fff';
+    let px = 46; ctx.font = TITLE(px);
+    while (ctx.measureText(p.title).width > R - X && px > 24) { px -= 2; ctx.font = TITLE(px); }
+    ctx.fillText(p.title, X, 158);
+    ctx.fillStyle = r.a; ctx.fillRect(X, 190, R - X, 4);
+
+    // the stats: a gold label over each value
+    let y = 226;
+    const label = (name: string) => { ctx.fillStyle = '#FFC800'; ctx.font = BODY(17, 900); ctx.fillText(name, X, y); y += 30; };
+    const value = (text: string, gap = 16) => {
+      ctx.fillStyle = '#fff'; ctx.font = BODY(23, 800);
+      const lines = lineCount(ctx, text, R - X, 2);
+      wrap(ctx, text, X, y, R - X, 30, 2); y += lines * 30 + gap;
+    };
+    if (p.proof) { label('PROOF'); value(p.proof); }
+    if (p.role) { label('ROLE'); value(p.role); }
+    if (p.year) { label('YEAR'); value(String(p.year)); }
+    label('STACK');
+    ctx.font = BODY(20, 900);
+    let tx = X;
+    for (const t of p.stack) {
+      const tw = ctx.measureText(t).width + 24;
+      if (tx + tw > R && tx > X) { tx = X; y += 44; }
+      ctx.fillStyle = r.b; rounded(ctx, tx, y - 18, tw, 36, 18); ctx.fill();
+      ctx.fillStyle = r.ink; ctx.fillText(t, tx + 12, y + 1); tx += tw + 8;
+    }
+    y += 52;
+    // as many of the links as there is room for, shortest form
+    const where = (p.links ?? []).map((l) => new URL(l.url).host.replace(/^www\./, '') + new URL(l.url).pathname.replace(/\/$/, ''));
+    if (where.length && y + 30 < H - 96) { label('FIND IT AT'); where.forEach((w) => { if (y < H - 92) value(w, 2); }); }
+
+    // a faint mascot in what room is left
+    const room = H - 90 - y;
+    if (room > 170 && mascot) {
+      const rad = Math.min(110, room / 2 - 10), my = y + room / 2;
+      ctx.save(); ctx.globalAlpha = 0.16; ctx.beginPath(); ctx.arc(W / 2, my, rad, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(mascot, W / 2 - rad, my - rad, rad * 2, rad * 2); ctx.restore();
+    }
+
+    // footer
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = BODY(17, 900);
+    ctx.fillText(`${p.rarity}  •  ${serial(index, total)}`, X, H - 58);
   }, res);
 }
 
+/** How many lines `wrap` takes for this text, at most `maxLines`. */
+function lineCount(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number) {
+  let line = '', n = 1;
+  for (const w of text.split(' ')) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > maxW && line) { line = w; n++; } else line = test;
+  }
+  return Math.min(n, maxLines);
+}
+
 /** A card's two faces as pictures for the page (HeldCard.tsx), twice the texture's resolution. */
-export async function cardPictures(p: Project, index: number, total: number) {
-  await ready;
+export async function cardPictures(p: Software, index: number, total: number) {
+  await Promise.all([ready, coverOf(p)]);
   const picture = (t: THREE.CanvasTexture) => { const url = (t.image as HTMLCanvasElement).toDataURL('image/png'); t.dispose(); return url; };
-  return { front: picture(cardFront(p, index, total, 2)), back: picture(cardBack(2)) };
+  return { front: picture(cardFront(p, index, total, 2)), back: picture(cardBack(p, index, total, 2)) };
 }
 
 /** Red grading label clipped into the top of each slab. */
-export function gradeLabel(p: Project, index: number): THREE.CanvasTexture {
+export function gradeLabel(p: Pick<Software, 'title' | 'rarity'>, index: number): THREE.CanvasTexture {
   const W = 512, H = 104;
   return live(W, H, (ctx) => {
     ctx.fillStyle = '#F3F1EA'; ctx.fillRect(0, 0, W, H);
