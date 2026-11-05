@@ -3,7 +3,7 @@
 // shake, the top unscrewing with a creak and a lift, then the pop. From then on both halves are
 // real bodies that drop to the floor and roll, and the token rises in hand on a halo in the
 // project's rarity colour, turning slowly. Put it back and the halves vanish; the capsule is whole again.
-import { forwardRef, useImperativeHandle, useMemo, useRef, type MutableRefObject } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
@@ -106,9 +106,13 @@ export const Held = forwardRef<HeldApi, Props>(function Held({ held, index, proj
         b.collider(0).setEnabled(false);
         b.setTranslation({ x: PARK[0], y: PARK[1] * S, z: PARK[2] }, true);
         b.setLinvel({ x: 0, y: 0, z: 0 }, true); b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        b.sleep();
       }
     },
   }), [twist, time]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Parked, they sleep: nothing is under them, and gravity alone never wakes a sleeping body, so they
+  // neither fall forever nor keep the physics awake.
+  useEffect(() => { for (const b of [topBody.current, bottomBody.current]) b?.sleep(); }, []);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 1 / 30), g = group.current, tw = twist.current, body = held(), now = time();

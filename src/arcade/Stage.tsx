@@ -10,17 +10,16 @@ import { ToneMappingMode } from 'postprocessing';
 import Machine from '../gacha/Machine';
 import Vending from '../vending/Vending';
 import Claw from '../claw/Claw';
-import CameraRig, { rig } from './CameraRig';
+import CameraRig from './CameraRig';
 import Drop from './Drop';
 import Dust from './Dust';
 import { HeroCamera, HeroFx } from './Hero';
-import Pacer, { pacer } from './Pacer';
+import Pacer, { moving, pacer, Stirring, usePace } from './Pacer';
 import Sparkles from './Sparkles';
 import Room, { RoomLight } from './Room';
 import Warmup from './Warmup';
 import { arcadeShot } from '../resume/store';
 import { intro, useIntro } from './intro';
-import { arcade } from './store';
 import { measure, stepTrack, track } from './track';
 import { SPOT, VIEW } from './layout';
 
@@ -72,7 +71,7 @@ function ShadowGate() {
   const until = useRef(0);
   useFrame(({ clock }) => {
     const now = clock.elapsedTime;
-    if (intro.get().phase !== 'done' || arcade.get().focus !== 'hero' || rig.gliding || Math.abs(track.y - scrollY) > 0.5) until.current = now + SHADOW_LINGER;
+    if (intro.get().phase !== 'done' || moving()) until.current = now + SHADOW_LINGER;
     gl.shadowMap.autoUpdate = now < until.current;
   });
   return null;
@@ -92,6 +91,7 @@ export default function Stage() {
   // The monitor only judges once everything has landed: the drop is the one heavy stretch, and a
   // verdict taken then would leave the machines soft for the rest of the visit.
   const landed = useIntro((s) => s.phase === 'done');
+  const full = usePace((s) => s.full);
   return (
     <Canvas
       shadows
@@ -105,7 +105,7 @@ export default function Stage() {
       <Pacer />
       <ScrollTrack />
       <ShadowGate />
-      {landed && <PerformanceMonitor onDecline={() => { ceiling.current = Math.max(0, level - 1); setLevel(ceiling.current); }} onIncline={() => setLevel(Math.min(ceiling.current, level + 1))} />}
+      {landed && full && <PerformanceMonitor onDecline={() => { ceiling.current = Math.max(0, level - 1); setLevel(ceiling.current); }} onIncline={() => setLevel(Math.min(ceiling.current, level + 1))} />}
 
       <Environment resolution={512} frames={1}>
         {/* Studio room: warm grey walls and floor, plus softboxes for highlights. */}
@@ -131,6 +131,7 @@ export default function Stage() {
           <Drop machine="gacha" x={SPOT.gacha.x}><group userData={{ machine: 'gacha' }}><Machine /></group></Drop>
           <Drop machine="vending" x={SPOT.vending.x}><group userData={{ machine: 'vending' }}><Vending /></group></Drop>
           <Warmup />
+          <Stirring />
         </Physics>
       </Suspense>
 
