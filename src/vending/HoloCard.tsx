@@ -589,7 +589,7 @@ export default function HoloCard({
     wakeRef.current = wake;
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);   // the foil, not the print: 2x on a Retina screen was a quarter more cost for a sheen the eye can't tell
       const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
       const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
       if (canvas.width !== w || canvas.height !== h) {
