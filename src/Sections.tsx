@@ -3,6 +3,7 @@
 // window. The sections marked data-stop are the journey's stops, in order; keep them matching SCENES.
 import { useRef } from 'react';
 import { LogoLink } from './arcade/logos';
+import Magnet from './arcade/Magnet';
 import SquishTitle from './arcade/SquishTitle';
 import { arcade, type MachineId } from './arcade/store';
 import { EXPERIENCE, SKILLS } from './data/experience';
@@ -97,7 +98,7 @@ export default function Sections() {
             <LogoLink name="github" className="pill logo" />
             <LogoLink name="linkedin" className="pill logo" />
             <LogoLink name="instagram" className="pill logo" />
-            <a className="pill" href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a>
+            <Magnet><a className="pill" href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a></Magnet>
           </div>
           <footer className="site-footer"><S>Built with React Three Fiber and Rapier. The machines are real physics; the jobs are real jobs.</S></footer>
         </div>

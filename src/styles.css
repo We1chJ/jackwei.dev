@@ -195,11 +195,14 @@ html[data-theme="dark"] .loader.open .outline path { stroke: rgba(255, 253, 246,
 .hero-name { position: absolute; pointer-events: none; }
 .hero-badge { position: absolute; inset: 0; pointer-events: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.hero-copy { position: absolute; left: 7vw; display: grid; justify-items: start; gap: 14px; opacity: 0; transform-origin: 0 50%; transform: perspective(800px) rotateY(22deg) translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
-.hero-copy.in { opacity: 1; transform: perspective(800px) rotateY(22deg); transition-delay: 2.9s; pointer-events: auto; }
+.hero-copy { position: absolute; left: 7vw; display: grid; justify-items: start; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity .7s, transform .7s cubic-bezier(.2, .7, .2, 1); pointer-events: none; }
+.hero-copy.in { opacity: 1; transform: none; transition-delay: 2.9s; pointer-events: auto; }
 .hero-line { margin: 0; display: flex; align-items: center; gap: .3em; white-space: nowrap; font: 800 clamp(18px, 2.1vw, 30px)/1.15 var(--font); letter-spacing: -.2px; }
 .hero-verb { box-sizing: content-box; padding: .1em .5em; border-radius: 999px; }
 .hero-links { display: flex; gap: 10px; flex-wrap: wrap; }
+/* The Résumé button leans toward the cursor (Magnet.tsx); the links beside it stay on top, so it slides behind them and never takes their clicks. */
+.hero-links > a, .contact-row > a { position: relative; z-index: 1; }
+.hero-links div > a, .contact-row div > a, .resume-btn { display: block; }
 .hero-links a {
   font: 800 14px/1 var(--font); color: var(--ink); text-decoration: none; padding: 10px 16px; border-radius: 999px;
   border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop); transition: transform .15s, box-shadow .15s;
@@ -285,14 +288,15 @@ html[data-theme="dark"] .theme-ring i { --glow: 255, 79, 139; }
 .card-info-links button { font: 900 15px/1.4 var(--font); color: var(--ink); text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
 
 /* ---------- Résumé reel (src/resume/) ---------- */
+/* The button leans toward the cursor (Magnet.tsx), so its place on the page belongs to the wrapper. */
+.resume-spot { top: calc(max(16px, env(safe-area-inset-top, 0px)) + 38px); left: 20px; }
 .resume-btn {
-  position: absolute; top: calc(max(16px, env(safe-area-inset-top, 0px)) + 38px); left: 20px;
   font: 800 14px/1 var(--font); color: var(--ink); padding: 10px 16px; border-radius: 999px; cursor: pointer;
   border: 2px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--drop); transition: transform .15s, box-shadow .15s;
 }
 .resume-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--drop); }
 .resume-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-@media (max-width: 640px) { .resume-btn { top: max(16px, env(safe-area-inset-top, 0px)); left: 14px; } }
+@media (max-width: 640px) { .resume-spot { top: max(16px, env(safe-area-inset-top, 0px)); left: 14px; } }
 
 .reel-layer { position: fixed; inset: 0; z-index: 30; touch-action: none; transition: opacity .35s; }
 .reel-layer.closing { opacity: 0; pointer-events: none; }

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import HeroBadge from './arcade/HeroBadge';
+import Magnet from './arcade/Magnet';
 import NameSign from './arcade/NameSign';
 import RotatingText from './arcade/RotatingText';
 import Stage from './arcade/Stage';
@@ -64,7 +65,7 @@ export default function App() {
             <LogoLink name="github" className="logo" />
             <LogoLink name="linkedin" className="logo" />
             <LogoLink name="instagram" className="logo" />
-            <a href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a>
+            <Magnet><a href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a></Magnet>
           </nav>
         </div>
         <p className={`hero-cta${landed ? ' in' : ''}`}>Scroll, or click a machine to play it</p>
@@ -78,7 +79,7 @@ export default function App() {
       {!hero && (
         <div className="play-ui">
           <header className="brand">jackwei.dev</header>
-          <button type="button" className="resume-btn" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={() => reel.set({ open: true })}>Résumé</button>
+          <Magnet wrapperClassName="resume-spot" style={{ position: 'absolute' }}><button type="button" className="resume-btn" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={() => reel.set({ open: true })}>Résumé</button></Magnet>
           <nav className="tabs" aria-label="Machines">
             <button type="button" onClick={() => arcade.set({ focus: 'hero', shot: 'main' })}>← Back</button>
             {ORDER.map((f) => (
