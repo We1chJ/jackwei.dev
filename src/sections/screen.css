@@ -1,0 +1,96 @@
+/* The sections as an arcade cabinet's screen (Screen.tsx). The bezel wears the machine's colours; the
+   glass is the same in both themes: a tube, lit from inside. */
+.ui-screen { --glass: #150F3D; --lit: #EFEAFF; --cyan: #6FF2FF; --gold: #FFD84A; --pink: #FF7DB0; --green: #7CFFB2; }
+.sc-cab { --livery: #141414; --sign: #FFFDF6; padding: 0 12px 14px; border: 3px solid #141414; border-radius: 20px; background: var(--livery); box-shadow: 7px 7px 0 var(--drop); }
+.sc-cab.of-vending { --livery: #2B3A8C; --sign: #FFD84A; }
+.sc-cab.of-gacha { --livery: #F2C744; --sign: #141414; }
+.sc-cab.of-claw { --livery: #FF4F8B; --sign: #FFFDF6; }
+/* the marquee: the cabinet's lit sign */
+.sc-marquee { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 12px 6px 11px; color: var(--sign); }
+.sc-marquee p { margin: 0; font: 400 19px/1.15 'Lilita One', 'Arial Black', sans-serif; letter-spacing: .3px; }
+/* a push button: the red cap, the collar round it */
+.sc-push { display: flex; align-items: center; gap: 9px; padding: 5px 14px 5px 6px; border: 2.5px solid #141414; border-radius: 999px; background: #FFFDF6; color: #141414; font: 900 13.5px/1 var(--font); cursor: pointer; }
+.sc-push::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FF9A9A 0 14%, #E8303D 34%); box-shadow: 0 0 0 2px #141414, 0 3px 0 2px #8E1B25; transition: transform .08s, box-shadow .08s; }
+.sc-push:active::before { transform: translateY(2px); box-shadow: 0 0 0 2px #141414, 0 1px 0 2px #8E1B25; }
+.sc-push:focus-visible { outline: 3px solid var(--sign); outline-offset: 3px; }
+
+.sc-screen {
+  position: relative; padding: 20px 22px 24px; border: 3px solid #141414; border-radius: 16px / 20px; background: var(--glass); color: var(--lit); overflow: hidden;
+  font: 400 20px/1.22 'VT323', ui-monospace, monospace; text-shadow: 0 0 7px rgba(190, 170, 255, .45); box-shadow: inset 0 0 46px rgba(0, 0, 0, .6);
+}
+/* scan lines, and the tube's glare */
+.sc-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .24) 0 1px, transparent 1px 3px), radial-gradient(120% 60% at 20% -10%, rgba(255, 255, 255, .09), transparent 60%); }
+.sc-screen p { margin: 0; }
+.sc-title { margin: 0 0 12px; font: 400 21px/1 'VT323', ui-monospace, monospace; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); }
+.sc-title:not(:first-child) { margin-top: 24px; }
+.sc-dim { color: #A99FE0; font-size: 18px; }
+.ui-screen .fig { color: var(--green); font-weight: 400; }
+
+/* A list with a cursor: the game select, and the continue screen's choices. */
+.sc-list { list-style: none; margin: 0; padding: 0; }
+.sc-list > li > button, .sc-list > li > a { position: relative; width: 100%; display: flex; align-items: baseline; gap: 12px; padding: 5px 4px 5px 26px; border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; text-shadow: inherit; cursor: pointer; }
+.sc-list b { flex: 1; font-size: 27px; font-weight: 400; letter-spacing: .5px; line-height: 1.05; }
+.sc-list > li > button::before, .sc-list > li > a::before { content: '▶'; position: absolute; left: 2px; top: 10px; font: 13px/1 var(--font); color: var(--gold); visibility: hidden; }
+.sc-list > li > button:hover::before, .sc-list > li > a:hover::before, .sc-list > li > button:focus-visible::before, .sc-list > li > a:focus-visible::before { visibility: visible; }
+.sc-list li.on > button::before { visibility: visible; animation: sc-blink 1s steps(2, jump-none) infinite; }
+.sc-list li.on > button b, .sc-list > li > a:hover b, .sc-list > li > a:focus-visible b { color: var(--cyan); }
+.sc-list > li > button:focus-visible, .sc-list > li > a:focus-visible, .sc-start:focus-visible { outline: 2px dashed var(--gold); outline-offset: 1px; }
+@keyframes sc-blink { to { opacity: 0; } }
+.sc-slot { width: 26px; color: #A99FE0; font-size: 20px; }
+.sc-stars { font: 13px/1 var(--font); letter-spacing: 2px; color: #A99FE0; }
+.sc-stars.r-rare { color: var(--cyan); }
+.sc-stars.r-legendary { color: var(--gold); }
+.sc-stars.r-shiny { color: var(--pink); }
+.sc-detail { display: grid; gap: 7px; justify-items: start; margin: 2px 0 12px 26px; padding: 2px 0 4px 38px; border-left: 2px dotted #6A5FC0; }
+.sc-hi span { margin-right: 4px; color: var(--pink); letter-spacing: 1.5px; text-transform: uppercase; }
+.sc-start { margin-top: 3px; padding: 3px 12px 3px; background: var(--gold); color: #150F3D; text-decoration: none; text-shadow: none; }
+.sc-start:hover { background: var(--lit); }
+.sc-links a > span { color: #A99FE0; font-size: 18px; }
+
+/* The high-score table: rank, name, when; what was done under each. */
+.sc-scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.sc-row { display: flex; align-items: baseline; gap: 14px; }
+.sc-row b { flex: 1; font-size: 30px; font-weight: 400; letter-spacing: .5px; line-height: 1; }
+.sc-rank { width: 42px; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
+.sc-scores > li:nth-child(4n + 1) :is(.sc-rank, .sc-row b) { color: var(--pink); }
+.sc-scores > li:nth-child(4n + 2) :is(.sc-rank, .sc-row b) { color: var(--gold); }
+.sc-scores > li:nth-child(4n + 3) :is(.sc-rank, .sc-row b) { color: var(--green); }
+.sc-scores > li:nth-child(4n + 4) :is(.sc-rank, .sc-row b) { color: var(--cyan); }
+.sc-when { font-size: 19px; white-space: nowrap; }
+.sc-role, .sc-scores ul, .sc-scores .sc-dim { margin-left: 56px !important; }
+.sc-role { color: #CFC8FF; }
+.sc-scores ul, .sc-lines { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 5px; }
+.sc-scores ul li, .sc-lines li { position: relative; padding-left: 16px; }
+.sc-scores ul li::before, .sc-lines li::before { content: ''; position: absolute; left: 0; top: .45em; width: 6px; height: 6px; background: #6A5FC0; }
+
+/* The player's sheet. */
+.sc-player { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+.sc-sprite { width: 78px; height: 78px; image-rendering: pixelated; border: 2px solid var(--lit); }
+.sc-player b { font-size: 34px; font-weight: 400; line-height: 1; color: var(--cyan); letter-spacing: .5px; }
+.sc-wins { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sc-wins li { display: flex; align-items: baseline; gap: 8px; }
+.sc-wins b { font-weight: 400; color: var(--gold); }
+/* dot leaders, as a score table has */
+.sc-wins i { flex: 1; min-width: 14px; height: 2px; align-self: center; background: radial-gradient(circle, #6A5FC0 1px, transparent 1.2px) 0 50% / 6px 2px; }
+.sc-wins span { text-align: right; }
+.sc-bag { margin: 0; display: grid; gap: 8px; }
+.sc-bag div { display: grid; grid-template-columns: 104px 1fr; gap: 10px; align-items: baseline; }
+.sc-bag dt { color: var(--pink); }
+.sc-bag dd { margin: 0; }
+
+.sc-continue { font-size: 40px; letter-spacing: 3px; color: var(--lit); }
+.sc-continue b { display: inline-block; min-width: 1ch; color: var(--pink); }
+.ui-screen #contact .sc-dim { margin-top: 16px; }
+
+@media (max-width: 620px) {
+  .sc-cab { padding: 0 8px 10px; border-radius: 16px; }
+  .sc-screen { padding: 16px 14px 18px; font-size: 19px; }
+  .sc-detail { margin-left: 8px; padding-left: 14px; }
+  .sc-row { flex-wrap: wrap; gap: 4px 10px; }
+  .sc-role, .sc-scores ul, .sc-scores .sc-dim { margin-left: 0 !important; }
+  .sc-wins li { display: grid; gap: 0; }
+  .sc-wins i { display: none; }
+  .sc-wins span { text-align: left; }
+  .sc-bag div { grid-template-columns: 1fr; gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .sc-list li.on > button::before { animation: none; } }

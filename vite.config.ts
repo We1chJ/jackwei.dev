@@ -12,8 +12,9 @@ function chunkList(base: string): Plugin {
       order: 'post',
       handler(html, ctx) {
         const chunks = Object.values(ctx.bundle ?? {})
-          // pdf.js is only needed once the résumé reel opens (src/resume/), so it stays out of the first load
-          .filter((c) => c.type === 'chunk' && !c.isEntry && !c.name.startsWith('pdf'))
+          // pdf.js is only needed once the résumé reel opens (src/resume/), so it stays out of the first load;
+          // so do the section designs under review (src/sections/), which load only when one is picked
+          .filter((c) => c.type === 'chunk' && !c.isEntry && !c.name.startsWith('pdf') && !c.facadeModuleId?.includes('/src/sections/'))
           .map((c) => [base + c.fileName, new TextEncoder().encode(c.type === 'chunk' ? c.code : '').length]);
         return { html, tags: [{ tag: 'script', children: `window.__CHUNKS=${JSON.stringify(chunks)}`, injectTo: 'head' }] };
       },

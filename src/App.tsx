@@ -16,7 +16,8 @@ import HeldCard from './vending/HeldCard';
 import { useVending, vendActions } from './vending/store';
 import Reel from './resume/Reel';
 import { loadReel, reel } from './resume/store';
-import Sections, { openReel } from './Sections';
+import { openReel } from './Sections';
+import SectionsSwitch from './sections/Switch';
 
 const VERBS = ['builds', 'trolls', 'creates content', 'ships', 'tinkers'];
 
@@ -69,7 +70,7 @@ export default function App() {
         <p className={`hero-cta${landed ? ' in' : ''}`}>Scroll, or click a machine to play it</p>
         </div>
       </section>
-      <Sections />
+      <SectionsSwitch />
       <div className={`corner${opened ? ' in' : ''}`}>
         <ThemeToggle />
         <SoundToggle />

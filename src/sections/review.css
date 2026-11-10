@@ -1,0 +1,15 @@
+/* The bar that flips between section designs while they are under review (Switch.tsx). */
+.review-bar {
+  position: fixed; z-index: 6; left: 50%; top: max(14px, env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 999px; max-width: calc(100vw - 20px);
+  background: #141414; color: #FFFDF6; font: 800 13px/1 var(--font); box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+}
+.review-bar span { padding: 0 8px 0 12px; opacity: .6; }
+.review-bar button { display: flex; align-items: center; gap: 7px; padding: 8px 12px 8px 8px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.review-bar button:hover { background: rgba(255, 253, 246, .14); }
+.review-bar button[aria-pressed="true"] { background: #FFC800; color: #141414; }
+.review-bar button:focus-visible { outline: 2px solid #FFFDF6; outline-offset: 2px; }
+.review-bar kbd { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(255, 253, 246, .16); font: 800 11px/1 var(--font); }
+.review-bar button[aria-pressed="true"] kbd { background: rgba(20, 20, 20, .16); }
+.app.playing ~ .review-bar, .app.playing .review-bar { display: none; }
+@media (max-width: 640px) { .review-bar span, .review-bar kbd { display: none; } .review-bar button { padding: 8px 10px; } }

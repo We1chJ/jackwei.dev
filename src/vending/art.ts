@@ -202,11 +202,11 @@ function lineCount(ctx: CanvasRenderingContext2D, text: string, maxW: number, ma
   return Math.min(n, maxLines);
 }
 
-/** A card's two faces as pictures for the page (HeldCard.tsx), twice the texture's resolution. */
-export async function cardPictures(p: Software, index: number, total: number) {
+/** A card's two faces as pictures for the page (HeldCard.tsx), twice the texture's resolution unless asked. */
+export async function cardPictures(p: Software, index: number, total: number, res = 2) {
   await Promise.all([ready, coverOf(p)]);
   const picture = (t: THREE.CanvasTexture) => { const url = (t.image as HTMLCanvasElement).toDataURL('image/png'); t.dispose(); return url; };
-  return { front: picture(cardFront(p, index, total, 2)), back: picture(cardBack(p, index, total, 2)) };
+  return { front: picture(cardFront(p, index, total, res)), back: picture(cardBack(p, index, total, res)) };
 }
 
 /** Red grading label clipped into the top of each slab. */

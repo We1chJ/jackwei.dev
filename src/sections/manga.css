@@ -1,0 +1,127 @@
+/* The sections as manga pages (Manga.tsx). A page is printed paper in both themes: black ink, white
+   stock, and one spot colour, the way a magazine's colour pages are. */
+.ui-manga { --page-ink: var(--ink); --tone: radial-gradient(circle, #141414 1.05px, transparent 1.4px); }
+.ui-manga .scene-col { position: relative; --ink: #141414; --paper: #FFFDF6; --spot: #FFC800; color: var(--ink); }
+html[data-theme="dark"] .ui-manga .scene-col { --spot: #FF6FA8; }
+.ui-manga h3 { margin: 0; font: 400 28px/1.02 'Lilita One', 'Arial Black', sans-serif; }
+.ui-manga .fig { font-weight: 900; font-style: italic; }
+
+/* The machine's sound, lettered beside the title, with how to say it underneath. */
+.mg-sfx { position: absolute; z-index: 1; right: 2px; top: calc(clamp(44px, 7vw, 84px) * .3); display: grid; justify-items: end; transform: rotate(7deg); pointer-events: none; user-select: none; }
+.mg-sfx b {
+  font: 400 clamp(34px, 4.4vw, 56px)/1 'Reggae One', 'Lilita One', sans-serif; color: #FFFDF6; letter-spacing: -.04em;
+  text-shadow: 2px 0 #141414, -2px 0 #141414, 0 2px #141414, 0 -2px #141414, 2px 2px #141414, -2px -2px #141414, 2px -2px #141414, -2px 2px #141414, 6px 6px 0 var(--drop);
+}
+.mg-sfx i { margin-top: 6px; font: 800 12px/1 var(--font); font-style: normal; color: var(--page-ink); }
+
+/* The sheet, with the edges of the pages under it. */
+.mg-page { position: relative; padding: 14px; background: var(--paper); box-shadow: 4px 4px 0 #E4DDC8, 5px 5px 0 #141414, 9px 9px 0 #E4DDC8, 10px 10px 0 #141414; }
+
+.mg-narrator { display: flex; gap: 22px; align-items: flex-start; margin-bottom: 12px; }
+.mg-face { flex: 0 0 92px; aspect-ratio: 1; border: 3px solid var(--ink); background: var(--spot); overflow: hidden; }
+.mg-face img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mg-says { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding-top: 4px; min-width: 0; }
+
+/* A speech bubble; the tail is a corner of a turned square. */
+.mg-bubble { position: relative; margin: 0; padding: 10px 17px 11px; background: var(--paper); border: 3px solid var(--ink); border-radius: 22px; font: 700 14.5px/1.42 var(--font); }
+.mg-bubble.tail-face::after, .mg-bubble.tail-machine::after { content: ''; position: absolute; top: 16px; width: 15px; height: 15px; background: var(--paper); }
+.mg-bubble.tail-face::after, .cards-right .mg-bubble.tail-machine::after { left: -11px; border-left: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg) skew(14deg, 14deg); }
+.cards-left .mg-bubble.tail-machine::after { right: -11px; border-right: 3px solid var(--ink); border-top: 3px solid var(--ink); transform: rotate(45deg) skew(14deg, 14deg); }
+
+/* A caption plate: buttons and links. */
+.mg-btn {
+  display: inline-block; padding: 8px 14px 7px; border: 0; background: var(--ink); color: var(--paper); font: 900 13.5px/1 var(--font); text-decoration: none;
+  cursor: pointer; transform: skewX(-8deg); transition: background .12s, color .12s, box-shadow .12s;
+}
+.mg-btn:hover { background: var(--spot); color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
+.mg-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.mg-btn.mg-mark { padding: 6px 10px; }
+.mg-btn.mg-mark svg { display: block; width: 19px; height: 19px; fill: currentColor; transform: skewX(8deg); }
+.mg-links { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Panels: ink under paper, so a slanted edge keeps its line. */
+.mg-panels { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; }
+.mg-cell { position: relative; grid-column: span 12; min-width: 0; }
+.mg-panel { height: 100%; padding: 3px; background: var(--ink); clip-path: var(--cut, none); }
+.mg-in { position: relative; height: 100%; background: var(--paper); clip-path: var(--cut, none); }
+.mg-credits { margin: 0; font: 800 12.5px/1.35 var(--font); opacity: .72; }
+
+/* Projects: a splash panel, then pairs across a slanted gutter, leaning one way then the other. */
+.mg-cell.cut-a.lean { grid-column: span 7; --cut: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%); }
+.mg-cell.cut-b.lean { grid-column: span 5; --cut: polygon(28px 0, 100% 0, 100% 100%, 0 100%); margin-left: -28px; }
+.mg-cell.cut-a.lean-back { grid-column: span 5; --cut: polygon(0 0, calc(100% - 28px) 0, 100% 100%, 0 100%); }
+.mg-cell.cut-b.lean-back { grid-column: span 7; --cut: polygon(0 0, 100% 0, 100% 100%, 28px 100%); margin-left: -28px; }
+.mg-art { position: relative; height: 92px; border-bottom: 3px solid var(--ink); background: var(--spot); overflow: hidden; }
+.mg-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; filter: grayscale(1) contrast(1.3); mix-blend-mode: multiply; }
+.mg-art::after { content: ''; position: absolute; inset: 0; background: var(--tone) 0 0 / 5px 5px; opacity: .22; }
+.mg-art[class*="tone-"] { height: 46px; background: linear-gradient(112deg, var(--spot) 0 30%, var(--paper) 30%); }
+.mg-art[class*="tone-"]::after { opacity: 1; }
+.mg-art.tone-1::after { background: repeating-conic-gradient(from 0deg at 96% 190%, #141414 0 .45deg, transparent .45deg 2.6deg); }
+.mg-art.tone-2::after { background: var(--tone) 0 0 / 6px 6px; mask-image: linear-gradient(100deg, transparent 20%, #000 95%); }
+.mg-art.tone-3::after { background: repeating-linear-gradient(0deg, #141414 0 1.5px, transparent 1.5px 6px); mask-image: linear-gradient(90deg, transparent 28%, #000); }
+.mg-body { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; padding: 12px 16px 16px; }
+.cut-a .mg-body { padding-right: 34px; }
+.cut-b .mg-body { padding-left: 34px; }
+.cut-b .mg-art[class*="tone-"] { background: linear-gradient(112deg, var(--paper) 0 70%, var(--spot) 70%); }
+.cut-b .mg-art.tone-2::after, .cut-b .mg-art.tone-3::after { transform: scaleX(-1); }
+.mg-stars { margin-left: 4px; font-size: .5em; letter-spacing: 1px; vertical-align: .35em; white-space: nowrap; }
+.mg-cell.splash .mg-in { display: grid; grid-template-columns: 44% 1fr; }
+.mg-cell.splash .mg-art { height: auto; min-height: 210px; border-bottom: 0; border-right: 3px solid var(--ink); }
+.mg-cell.splash h3 { font-size: 44px; }
+.mg-cell.splash .mg-body { padding: 16px 18px 18px; }
+.mg-cell.strip .mg-in { display: grid; grid-template-columns: 120px 1fr; }
+.mg-cell.strip .mg-art { height: auto; border-bottom: 0; border-right: 3px solid var(--ink); }
+
+/* A win, shouted: a spiky bubble over the corner of its panel. */
+.mg-shout { position: absolute; z-index: 2; top: -20px; right: -12px; width: 150px; height: 132px; margin: 0; display: grid; background: var(--ink); transform: rotate(8deg); pointer-events: none; }
+.mg-shout span { margin: 4px; display: grid; place-items: center; padding: 0 23%; background: var(--paper); text-align: center; }
+.mg-shout em { font: italic 900 12.5px/1.12 var(--font); }
+.mg-cell.splash .mg-shout { top: auto; right: auto; left: -20px; bottom: -22px; width: 176px; height: 150px; transform: rotate(-8deg); }
+.mg-cell.splash .mg-shout em { font-size: 14px; }
+
+/* Experience: a four-panel strip. The first bubble leans out of its panel toward the machine. */
+.mg-koma .mg-in { padding: 0 18px 15px; }
+.mg-koma .mg-in::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom left, var(--spot) 0 9%, transparent 9.2%), var(--tone) 0 0 / 6px 6px; mask-image: linear-gradient(to bottom left, #000 9%, rgba(0, 0, 0, .55) 9.2%, transparent 30%); }
+.mg-koma.flip .mg-in::before { transform: scaleX(-1); }
+.mg-caption { position: relative; display: block; width: fit-content; margin: 0 0 12px -18px; padding: 7px 11px 6px; background: var(--ink); color: var(--paper); font: 900 12px/1 var(--font); letter-spacing: .3px; }
+.mg-koma.flip .mg-caption { margin: 0 -18px 12px auto; }
+.mg-cell h3, .mg-role, .mg-talk, .mg-wins, .mg-skills { position: relative; }
+.mg-role { margin: 4px 0 0; font: 800 14.5px/1.3 var(--font); }
+.mg-talk { display: grid; gap: 8px; margin: 12px 0; }
+.mg-talk .mg-bubble { max-width: 90%; }
+.cards-left .mg-talk .mg-bubble:nth-child(odd), .cards-right .mg-talk .mg-bubble:nth-child(even) { justify-self: end; }
+.cards-left .mg-talk .mg-bubble:nth-child(even), .cards-right .mg-talk .mg-bubble:nth-child(odd) { justify-self: start; }
+.cards-left .mg-talk .tail-machine { margin-right: -46px; }
+.cards-right .mg-talk .tail-machine { margin-left: -46px; }
+
+/* About: the wins as a block of small panels, the skills as a labelled list. */
+.mg-cell:not(.mg-koma):not([class*="cut-"]):not(.splash):not(.strip) .mg-in { padding: 16px 18px; }
+.mg-wins { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mg-wins li { display: grid; align-content: start; gap: 5px; padding: 10px 12px 11px; border: 3px solid var(--ink); background: var(--paper); }
+.mg-wins li:nth-child(4n + 1), .mg-wins li:nth-child(4n) { background: var(--spot); }
+.mg-wins b { font: 400 18px/1.05 'Lilita One', 'Arial Black', sans-serif; }
+.mg-wins span { font: 700 14px/1.35 var(--font); }
+.mg-skills { margin: 12px 0 0; display: grid; gap: 9px; }
+.mg-skills div { display: grid; grid-template-columns: 98px 1fr; gap: 12px; align-items: baseline; }
+.mg-skills dt { justify-self: start; padding: 5px 8px 4px; background: var(--ink); color: var(--paper); font: 900 12px/1 var(--font); }
+.mg-skills dd { margin: 0; font: 700 14px/1.45 var(--font); }
+.mg-foot { margin-top: 4px; padding-top: 11px; border-top: 3px solid var(--ink); font: 700 12.5px/1.4 var(--font); }
+
+@media (max-aspect-ratio: 11/10) {
+  .cards-left .mg-talk .tail-machine, .cards-right .mg-talk .tail-machine { margin-left: 0; margin-right: 0; }
+  .mg-bubble.tail-machine::after { display: none; }
+}
+@media (max-width: 620px) {
+  .mg-page { padding: 10px; }
+  .ui-manga .mg-panels .mg-cell[class*="cut-"] { grid-column: span 12; margin-left: 0; --cut: none; }
+  .cut-a .mg-body, .cut-b .mg-body { padding: 12px 16px 16px; }
+  .mg-cell.splash .mg-in { grid-template-columns: 1fr; }
+  .mg-cell.splash .mg-art { min-height: 120px; border-right: 0; border-bottom: 3px solid var(--ink); }
+  .mg-cell.splash .mg-shout { left: auto; right: -6px; bottom: auto; top: -18px; width: 150px; height: 132px; }
+  .mg-cell.splash .mg-shout em { font-size: 12.5px; }
+  .mg-cell.splash h3 { font-size: 34px; }
+  .mg-face { flex-basis: 68px; }
+  .mg-narrator { gap: 18px; }
+  .mg-skills div { grid-template-columns: 1fr; gap: 4px; }
+  .mg-wins { grid-template-columns: 1fr; }
+}
