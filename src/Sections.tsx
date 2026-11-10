@@ -4,11 +4,13 @@
 import { useRef } from 'react';
 import { LogoLink } from './arcade/logos';
 import Magnet from './arcade/Magnet';
+import StarBorder from './arcade/StarBorder';
 import SquishTitle from './arcade/SquishTitle';
 import { arcade, type MachineId } from './arcade/store';
 import { EXPERIENCE, SKILLS } from './data/experience';
 import type { Link } from './data/schema';
 import { SOFTWARE } from './data/software';
+import { useStar } from './resume/star';
 import { loadReel, reel } from './resume/store';
 import { S, useSquish } from './Squish';
 
@@ -36,6 +38,7 @@ function EntryCard({ entry }: { entry: (typeof EXPERIENCE)[number] }) {
 }
 
 export default function Sections() {
+  const star = useStar();
   const root = useRef<HTMLDivElement>(null);
   useSquish(root);
   return (
@@ -98,7 +101,7 @@ export default function Sections() {
             <LogoLink name="github" className="pill logo" />
             <LogoLink name="linkedin" className="pill logo" />
             <LogoLink name="instagram" className="pill logo" />
-            <Magnet><a className="pill" href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a></Magnet>
+            <Magnet><StarBorder as="a" {...star} className="pill" href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</StarBorder></Magnet>
           </div>
           <footer className="site-footer"><S>Built with React Three Fiber and Rapier. The machines are real physics; the jobs are real jobs.</S></footer>
         </div>

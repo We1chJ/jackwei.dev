@@ -4,6 +4,7 @@ import Magnet from './arcade/Magnet';
 import NameSign from './arcade/NameSign';
 import RotatingText from './arcade/RotatingText';
 import Stage from './arcade/Stage';
+import StarBorder from './arcade/StarBorder';
 import { useIntro } from './arcade/intro';
 import { HERO_TEXT_BOTTOM, ORDER, SPOT } from './arcade/layout';
 import { arcade, useArcade } from './arcade/store';
@@ -16,6 +17,7 @@ import { gacha, useGacha } from './gacha/store';
 import HeldCard from './vending/HeldCard';
 import { useVending, vendActions } from './vending/store';
 import Reel from './resume/Reel';
+import { useStar } from './resume/star';
 import { loadReel, reel } from './resume/store';
 import { openReel } from './Sections';
 import SectionsSwitch from './sections/Switch';
@@ -28,6 +30,7 @@ export default function App() {
   const gOpened = useGacha((s) => s.opened);
   const vHeld = useVending((s) => s.held);
   const dark = useTheme((s) => s.mode === 'dark');
+  const star = useStar();
   const opened = useIntro((s) => s.phase === 'dropping' || s.phase === 'done');
   const landed = useIntro((s) => s.phase === 'done');
   const hero = focus === 'hero';
@@ -65,7 +68,7 @@ export default function App() {
             <LogoLink name="github" className="logo" />
             <LogoLink name="linkedin" className="logo" />
             <LogoLink name="instagram" className="logo" />
-            <Magnet><a href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</a></Magnet>
+            <Magnet><StarBorder as="a" {...star} href="/assets/ResumeOfficial.pdf" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={openReel}>Résumé</StarBorder></Magnet>
           </nav>
         </div>
         <p className={`hero-cta${landed ? ' in' : ''}`}>Scroll, or click a machine to play it</p>
@@ -79,7 +82,7 @@ export default function App() {
       {!hero && (
         <div className="play-ui">
           <header className="brand">jackwei.dev</header>
-          <Magnet wrapperClassName="resume-spot" style={{ position: 'absolute' }}><button type="button" className="resume-btn" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={() => reel.set({ open: true })}>Résumé</button></Magnet>
+          <Magnet wrapperClassName="resume-spot" style={{ position: 'absolute' }}><StarBorder {...star} className="resume-btn" onPointerEnter={() => loadReel()} onFocus={() => loadReel()} onClick={() => reel.set({ open: true })}>Résumé</StarBorder></Magnet>
           <nav className="tabs" aria-label="Machines">
             <button type="button" onClick={() => arcade.set({ focus: 'hero', shot: 'main' })}>← Back</button>
             {ORDER.map((f) => (
